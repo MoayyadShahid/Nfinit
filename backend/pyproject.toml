@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "nfinit-backend"
+version = "0.1.0"
+description = "Nfinit geometry engine - FastAPI + build123d"
+authors = []
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+fastapi = ">=0.109.0"
+uvicorn = ">=0.27.0"
+build123d = ">=0.10.0"
+python-multipart = ">=0.0.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

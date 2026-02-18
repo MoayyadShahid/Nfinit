@@ -1,0 +1,8 @@
+# Virtual env
+.venv/
+venv/
+env/
+
+# Env (keep .env.example)
+.env
+.env.local
