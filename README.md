@@ -2,6 +2,9 @@
 
 AI-native CAD IDE for comparing how different LLMs handle 3D geometry code.
 
+<img width="1470" height="761" alt="Screenshot 2026-02-17 at 6 27 44 PM" src="https://github.com/user-attachments/assets/88c0ec7a-4c47-4efb-925f-0d5ef71f04ea" />
+
+
 ## Setup
 
 ### Backend (FastAPI)
