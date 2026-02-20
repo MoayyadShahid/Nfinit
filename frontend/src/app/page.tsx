@@ -1,7 +1,7 @@
 "use client";
 
 import { ChatPane, type ChatMessage } from "@/components/ChatPane";
-import { CommandBar } from "@/components/CommandBar";
+import { CommandBar, type ExportFormat } from "@/components/CommandBar";
 import { EditorPane } from "@/components/EditorPane";
 import { ViewportPane } from "@/components/ViewportPane";
 import { DEFAULT_MODEL } from "@/lib/constants";
@@ -101,6 +101,36 @@ export default function Home() {
     await generateMesh(code);
   }, [code, generateMesh]);
 
+  const handleExport = useCallback(
+    async (format: ExportFormat) => {
+      setError(null);
+      try {
+        const res = await fetch(`${BACKEND_URL}/export-model`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, format }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || "Export failed");
+        }
+
+        const blob = await res.blob();
+        const ext = { step: ".step", brep: ".brep", stl: ".stl" }[format];
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `model${ext}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Export failed");
+      }
+    },
+    [code]
+  );
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.altKey && e.key === "Enter") {
@@ -125,6 +155,8 @@ export default function Home() {
         onModelChange={setModelId}
         layoutMode={layoutMode}
         onLayoutChange={setLayoutMode}
+        code={code}
+        onExport={handleExport}
       />
       <div
         className={cn(
