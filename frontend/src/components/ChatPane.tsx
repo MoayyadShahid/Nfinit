@@ -104,7 +104,7 @@ export function ChatPane({
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="shrink-0 border-[#1f1f1f] bg-[#0a0a0a] text-zinc-200 hover:bg-[#1a1a1a]"
+            className="shrink-0 border border-zinc-600 bg-zinc-800 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-700"
           >
             Send
           </Button>

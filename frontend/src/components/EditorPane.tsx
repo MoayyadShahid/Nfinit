@@ -45,9 +45,9 @@ export function EditorPane({
       <div className="flex justify-end border-t border-[#1f1f1f] p-3">
         <Button
           onClick={onGenerate}
-          className="border-[#1f1f1f] bg-[#0a0a0a] text-zinc-200 hover:bg-[#1a1a1a]"
+          className="border border-zinc-600 bg-zinc-800 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-700"
         >
-          <span className="mr-1.5 text-xs text-zinc-500">⌘↵</span>
+          <span className="mr-1.5 text-xs text-zinc-400">⌥↵</span>
           Generate
         </Button>
       </div>

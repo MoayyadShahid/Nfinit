@@ -1,0 +1,13 @@
+{
+  "name": "nfinit",
+  "private": true,
+  "workspaces": ["frontend"],
+  "devDependencies": {
+    "tailwindcss": "^4"
+  },
+  "scripts": {
+    "dev": "npm run dev -w frontend",
+    "build": "npm run build -w frontend",
+    "start": "npm run start -w frontend"
+  }
+}

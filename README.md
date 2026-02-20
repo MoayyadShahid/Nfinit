@@ -34,6 +34,11 @@ poetry run uvicorn main:app --reload --port 8000
 ### Frontend (Next.js)
 
 ```bash
+# From project root (uses npm workspaces)
+npm install
+npm run dev
+
+# Or from frontend directory:
 cd frontend
 cp .env.local.example .env.local  # or create .env.local
 # Add your OPENROUTER_API_KEY to .env.local

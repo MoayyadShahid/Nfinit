@@ -5,12 +5,16 @@ import { CommandBar } from "@/components/CommandBar";
 import { EditorPane } from "@/components/EditorPane";
 import { ViewportPane } from "@/components/ViewportPane";
 import { DEFAULT_MODEL } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useState } from "react";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
+export type LayoutMode = "default" | "code" | "mesh";
+
 export default function Home() {
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("default");
   const [code, setCode] = useState(
     '# Example: type a prompt in chat and press Send, or edit and press Generate\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(10, 10, 10)\n\nresult = part.part'
   );
@@ -99,7 +103,7 @@ export default function Home() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      if (e.altKey && e.key === "Enter") {
         e.preventDefault();
         handleGenerate();
       }
@@ -119,34 +123,45 @@ export default function Home() {
       <CommandBar
         modelId={modelId}
         onModelChange={setModelId}
-        onGenerate={handleGenerate}
-        isLoading={isLoading}
+        layoutMode={layoutMode}
+        onLayoutChange={setLayoutMode}
       />
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[1fr_1.2fr_1fr]">
-        <div className="flex min-h-[200px] flex-col overflow-hidden md:min-h-0">
-          <EditorPane
-            code={code}
-            onCodeChange={setCode}
-            onGenerate={handleGenerate}
-          />
-        </div>
-        <div className="relative min-h-[200px] overflow-hidden md:min-h-0">
-          {error && (
-            <div className="absolute left-4 right-4 top-4 z-20 flex items-start justify-between gap-3 rounded border border-red-500/50 bg-red-950/80 px-3 py-2 text-sm text-red-200">
-              <span className="flex-1">{error}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(error);
-                }}
-                className="shrink-0 rounded px-2 py-1 text-xs hover:bg-red-900/50"
-              >
-                Copy
-              </button>
-            </div>
-          )}
-          <ViewportPane glbUrl={glbUrl} isLoading={isLoading} />
-        </div>
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 overflow-hidden",
+          layoutMode === "default" && "grid-cols-1 md:grid-cols-[1fr_1.2fr_1fr]",
+          layoutMode === "code" && "grid-cols-1 md:grid-cols-[2fr_1fr]",
+          layoutMode === "mesh" && "grid-cols-1 md:grid-cols-[2fr_1fr]"
+        )}
+      >
+        {layoutMode !== "mesh" && (
+          <div className="flex min-h-[200px] flex-col overflow-hidden md:min-h-0">
+            <EditorPane
+              code={code}
+              onCodeChange={setCode}
+              onGenerate={handleGenerate}
+            />
+          </div>
+        )}
+        {layoutMode !== "code" && (
+          <div className="relative min-h-[200px] overflow-hidden md:min-h-0">
+            {error && (
+              <div className="absolute left-4 right-4 top-4 z-20 flex items-start justify-between gap-3 rounded border border-red-500/50 bg-red-950/80 px-3 py-2 text-sm text-red-200">
+                <span className="flex-1">{error}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(error);
+                  }}
+                  className="shrink-0 rounded px-2 py-1 text-xs hover:bg-red-900/50"
+                >
+                  Copy
+                </button>
+              </div>
+            )}
+            <ViewportPane glbUrl={glbUrl} isLoading={isLoading} />
+          </div>
+        )}
         <div className="flex min-h-[200px] flex-col overflow-hidden md:min-h-0">
           <ChatPane
             messages={messages}
