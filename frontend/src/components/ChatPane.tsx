@@ -66,7 +66,7 @@ export function ChatPane({
             <div key={i} className="flex justify-start">
               <div className="max-w-[85%] rounded-lg border border-[#1f1f1f] bg-[#141414] px-3 py-2">
                 <div className="mb-1 text-xs text-zinc-500">Generated code</div>
-                <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs text-zinc-300">
+                <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs text-zinc-300">
                   {msg.content.slice(0, 200)}
                   {msg.content.length > 200 ? "..." : ""}
                 </pre>

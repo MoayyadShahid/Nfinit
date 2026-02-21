@@ -1,6 +1,7 @@
 "use client";
 
 import { Center, GizmoHelper, GizmoViewcube, Grid, OrbitControls, useGLTF } from "@react-three/drei";
+import { LayoutGrid } from "lucide-react";
 import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
@@ -11,14 +12,6 @@ const NORMAL_TOLERANCE = 0.01;
 interface FaceSelection {
   point: THREE.Vector3;
   normal: THREE.Vector3;
-}
-
-function SceneBackground() {
-  const { scene } = useThree();
-  useEffect(() => {
-    scene.background = new THREE.Color(PHOTO_BOOTH_GRAY);
-  }, [scene]);
-  return null;
 }
 
 function FaceGrid({ selection }: { selection: FaceSelection }) {
@@ -180,8 +173,9 @@ interface ViewportPaneProps {
   isLoading: boolean;
 }
 
-export function ViewportPane({ glbUrl, isLoading }: ViewportPaneProps) {
+function ViewportContent({ glbUrl, isLoading }: ViewportPaneProps) {
   const [faceSelection, setFaceSelection] = useState<FaceSelection | null>(null);
+  const [showGrid, setShowGrid] = useState(true);
 
   const clearSelection = useCallback(() => setFaceSelection(null), []);
 
@@ -193,12 +187,23 @@ export function ViewportPane({ glbUrl, isLoading }: ViewportPaneProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [clearSelection]);
 
-  useEffect(() => {
-    setFaceSelection(null);
-  }, [glbUrl]);
-
   return (
     <div className="relative h-full w-full bg-[#d4d4d4]">
+      <div className="absolute right-3 top-3 z-20">
+        <button
+          type="button"
+          onClick={() => setShowGrid((v) => !v)}
+          title={showGrid ? "Hide face grid" : "Show face grid"}
+          className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors ${
+            showGrid
+              ? "border-zinc-600 bg-zinc-800 text-zinc-100"
+              : "border-zinc-600/50 bg-zinc-900/70 text-zinc-500"
+          }`}
+        >
+          <LayoutGrid className="size-3.5" />
+          Grid
+        </button>
+      </div>
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#d4d4d4]/90">
           <div className="flex flex-col items-center gap-3">
@@ -212,7 +217,7 @@ export function ViewportPane({ glbUrl, isLoading }: ViewportPaneProps) {
         gl={{ antialias: true }}
         className="h-full w-full"
       >
-        <SceneBackground />
+        <color attach="background" args={[PHOTO_BOOTH_GRAY]} />
         <ClearSelectionOnMiss onMiss={clearSelection} />
         <OrbitControls makeDefault />
         <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
@@ -227,11 +232,15 @@ export function ViewportPane({ glbUrl, isLoading }: ViewportPaneProps) {
         <directionalLight position={[5, 8, 5]} intensity={1.2} />
         <directionalLight position={[-5, 5, -5]} intensity={0.6} />
         <directionalLight position={[0, -5, 5]} intensity={0.4} />
-        {faceSelection && <FaceGrid selection={faceSelection} />}
+        {faceSelection && showGrid && <FaceGrid selection={faceSelection} />}
         <Suspense fallback={null}>
           <Scene glbUrl={glbUrl} onFaceClick={setFaceSelection} />
         </Suspense>
       </Canvas>
     </div>
   );
+}
+
+export function ViewportPane({ glbUrl, isLoading }: ViewportPaneProps) {
+  return <ViewportContent key={glbUrl ?? "empty"} glbUrl={glbUrl} isLoading={isLoading} />;
 }
