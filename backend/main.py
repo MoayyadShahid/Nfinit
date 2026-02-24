@@ -89,9 +89,11 @@ def _build_scope():
     scope["export_stl"] = export_stl
 
     ALIASES = {
-        "regular_polygon": scope.get("Polygon"),
+        "regular_polygon": scope.get("RegularPolygon"),
         "make_polygon": scope.get("Polygon"),
         "create_polygon": scope.get("Polygon"),
+        "make_regular_polygon": scope.get("RegularPolygon"),
+        "create_regular_polygon": scope.get("RegularPolygon"),
         "cube": scope.get("Box"),
         "make_box": scope.get("Box"),
         "create_box": scope.get("Box"),

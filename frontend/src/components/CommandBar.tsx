@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { MODELS } from "@/lib/constants";
+import { MODEL_CONFIGS } from "@/lib/constants";
 import { Box, ChevronDown, Code2, Download, LayoutGrid } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -75,9 +75,11 @@ export function CommandBar({
             <SelectValue placeholder="Select model" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={MODELS.DEEPSEEK_V3_2}>DeepSeek V3.2</SelectItem>
-            <SelectItem value={MODELS.CLAUDE_OPUS_4_6}>Claude Opus 4.6</SelectItem>
-            <SelectItem value={MODELS.MINIMAX_M2_5}>Minimax 2.5</SelectItem>
+            {MODEL_CONFIGS.map((cfg) => (
+              <SelectItem key={cfg.id} value={cfg.id}>
+                {cfg.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

@@ -1,28 +1,38 @@
 "use client";
 
-import { ChatPane, type ChatMessage } from "@/components/ChatPane";
+import { ChatPane } from "@/components/ChatPane";
 import { CommandBar, type ExportFormat } from "@/components/CommandBar";
 import { EditorPane } from "@/components/EditorPane";
 import { ViewportPane } from "@/components/ViewportPane";
-import { DEFAULT_MODEL } from "@/lib/constants";
+import { DEFAULT_MODEL, getModelConfig } from "@/lib/constants";
+import type { ChatMessage, ContentPart } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 export type LayoutMode = "default" | "code" | "mesh";
 
+const DEFAULT_CODE = [
+  "width, depth, height = 10.0, 10.0, 10.0",
+  "",
+  "with BuildPart() as part:",
+  "    Box(width, depth, height)",
+  "",
+  "result = part.part",
+].join("\n");
+
 export default function Home() {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("default");
-  const [code, setCode] = useState(
-    '# Example: type a prompt in chat and press Send, or edit and press Generate\nfrom build123d import *\n\nwith BuildPart() as part:\n    Box(10, 10, 10)\n\nresult = part.part'
-  );
+  const [code, setCode] = useState(DEFAULT_CODE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL);
   const [glbUrl, setGlbUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
 
   const generateMesh = useCallback(async (codeToExecute: string) => {
     setError(null);
@@ -52,15 +62,28 @@ export default function Home() {
   }, []);
 
   const handleChatSend = useCallback(
-    async (content: string) => {
-      if (!content.trim()) return;
+    async (text: string, imageUrls?: string[]) => {
+      if (!text.trim()) return;
 
       setIsLoading(true);
       setError(null);
 
+      let msgContent: string | ContentPart[];
+      if (imageUrls && imageUrls.length > 0) {
+        msgContent = [
+          { type: "text" as const, text: text.trim() },
+          ...imageUrls.map((url) => ({
+            type: "image_url" as const,
+            image_url: { url },
+          })),
+        ];
+      } else {
+        msgContent = text.trim();
+      }
+
       const newMessages: ChatMessage[] = [
         ...messages,
-        { role: "user", content: content.trim() },
+        { role: "user", content: msgContent },
       ];
       setMessages(newMessages);
 
@@ -72,6 +95,8 @@ export default function Home() {
             messages: newMessages,
             code,
             modelId,
+            supportsStructuredOutputs:
+              modelConfig?.supportsStructuredOutputs ?? false,
           }),
         });
 
@@ -92,7 +117,7 @@ export default function Home() {
         setIsLoading(false);
       }
     },
-    [messages, code, modelId, generateMesh]
+    [messages, code, modelId, modelConfig, generateMesh]
   );
 
   const handleGenerate = useCallback(async () => {
@@ -112,7 +137,9 @@ export default function Home() {
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          const err = await res
+            .json()
+            .catch(() => ({ detail: res.statusText }));
           throw new Error(err.detail || "Export failed");
         }
 
@@ -161,7 +188,8 @@ export default function Home() {
       <div
         className={cn(
           "grid min-h-0 flex-1 overflow-hidden",
-          layoutMode === "default" && "grid-cols-1 md:grid-cols-[1fr_1.2fr_1fr]",
+          layoutMode === "default" &&
+            "grid-cols-1 md:grid-cols-[1fr_1.2fr_1fr]",
           layoutMode === "code" && "grid-cols-1 md:grid-cols-[2fr_1fr]",
           layoutMode === "mesh" && "grid-cols-1 md:grid-cols-[2fr_1fr]"
         )}
@@ -200,6 +228,7 @@ export default function Home() {
             onSend={handleChatSend}
             isLoading={isLoading}
             lastError={error}
+            supportsVision={modelConfig?.supportsVision ?? false}
           />
         </div>
       </div>
