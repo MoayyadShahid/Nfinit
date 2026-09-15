@@ -9,6 +9,7 @@ export type AgentTraceStep = {
   node: "plan" | "generate" | "inspect" | "repair";
   status: "complete" | "passed" | "failed";
   detail: string;
+  duration_ms?: number;
 };
 
 export type ModelInspection = {
@@ -28,9 +29,15 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string | ContentPart[];
   agent?: {
+    runId?: string;
     plan: string;
     trace: AgentTraceStep[];
     inspection?: ModelInspection;
+    usage?: {
+      input_tokens: number;
+      output_tokens: number;
+      total_tokens: number;
+    };
   };
 };
 

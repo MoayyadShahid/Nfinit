@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +14,7 @@ from agent import (
     CadRunRequest,
     CadRunResponse,
     ModelInspection,
+    flush_tracing,
     run_cad_agent,
 )
 from execution import SandboxError, export_code, inspect_code as sandbox_inspect_code
@@ -23,6 +25,7 @@ logger = logging.getLogger(__name__)
 load_dotenv(Path(__file__).with_name(".env"))
 
 app = FastAPI(title="Nfinit Geometry Engine")
+app.add_event_handler("shutdown", flush_tracing)
 
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
@@ -70,15 +73,21 @@ async def cad_run(request: CadRunRequest):
             detail="OPENROUTER_API_KEY is not configured on the backend.",
         )
 
+    run_id = str(uuid4())
     try:
-        result = await run_cad_agent(request, api_key, _inspect_code)
+        result = await run_cad_agent(request, api_key, _inspect_code, run_id=run_id)
     except Exception as e:
-        logger.error("CAD agent failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=502, detail=f"CAD agent failed: {str(e)}") from e
+        logger.error("CAD agent run %s failed: %s", run_id, e, exc_info=True)
+        return JSONResponse(
+            status_code=502,
+            headers={"X-Run-ID": run_id},
+            content={"error": f"CAD agent failed: {str(e)}", "runId": run_id},
+        )
 
     if result["validation_error"]:
         return JSONResponse(
             status_code=422,
+            headers={"X-Run-ID": run_id},
             content={
                 "error": (
                     "The CAD agent could not produce valid geometry after "
@@ -86,14 +95,18 @@ async def cad_run(request: CadRunRequest):
                 ),
                 "plan": result["plan"],
                 "trace": result["trace"],
+                "runId": run_id,
+                "usage": result["usage"],
             },
         )
 
     return CadRunResponse(
+        run_id=run_id,
         code=result["code"],
         plan=result["plan"],
         inspection=ModelInspection.model_validate(result["inspection"]),
         trace=result["trace"],
+        usage=result["usage"],
     )
 
 

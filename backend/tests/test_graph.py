@@ -16,7 +16,15 @@ class FakeCompletions:
         self.requests.append(kwargs)
         content = self.responses.pop(0)
         message = SimpleNamespace(content=content)
-        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+        usage = SimpleNamespace(
+            prompt_tokens=100,
+            completion_tokens=25,
+            total_tokens=125,
+        )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=message)],
+            usage=usage,
+        )
 
 
 class FakeClient:
@@ -49,6 +57,7 @@ async def test_graph_repairs_failed_geometry_and_reinspects():
 
     result = await graph.ainvoke(
         {
+            "run_id": "test-run",
             "messages": [{"role": "user", "content": "Make a 10 mm cube"}],
             "current_code": "",
             "model_id": "anthropic/claude-opus-5",
@@ -60,6 +69,7 @@ async def test_graph_repairs_failed_geometry_and_reinspects():
             "validation_error": None,
             "repair_attempts": 0,
             "trace": [],
+            "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
         }
     )
 
@@ -74,3 +84,9 @@ async def test_graph_repairs_failed_geometry_and_reinspects():
         "inspect",
     ]
     assert len(client.chat.completions.requests) == 3
+    assert result["usage"] == {
+        "input_tokens": 300,
+        "output_tokens": 75,
+        "total_tokens": 375,
+    }
+    assert all(step["duration_ms"] >= 0 for step in result["trace"])
