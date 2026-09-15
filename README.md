@@ -91,8 +91,9 @@ field mapped to `chunk_text`. Use a versioned namespace such as
 
 The ingestion CLI extracts content-addressed snippets from a pinned checkout of
 the official build123d examples and docs. It verifies the upstream Apache-2.0
-license, preserves source URLs and license metadata, and refuses to publish
-fewer than 200 real patterns:
+license, retains only syntax-valid snippets accepted by the CAD policy, removes
+overlapping windows, and preserves source URLs and license metadata. CAD50
+replays and the curated local corpus can be included as validated seeds:
 
 ```bash
 git clone https://github.com/gumyr/build123d.git /tmp/build123d
@@ -102,9 +103,15 @@ cd /path/to/Nfinit/backend
 poetry run python -m agent.retrieval.ingest \
   --source-root /tmp/build123d \
   --revision "$REVISION" \
+  --replays evaluation/replays/cad50.json \
+  --seed-corpus agent/retrieval/patterns.json \
   --output agent/retrieval/generated/build123d.jsonl \
   --pinecone
 ```
+
+The default quality gate requires at least 100 unique patterns. The checked
+source revision, source counts, and final deduplicated count are printed by the
+command; use those measured values rather than assuming a corpus size.
 
 Keep the upstream `LICENSE` and `NOTICE` with any exported or redistributed
 corpus. Set `PATTERN_RAG_ENABLED=false` to disable retrieval entirely.

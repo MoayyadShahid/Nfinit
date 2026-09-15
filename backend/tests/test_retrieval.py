@@ -108,9 +108,16 @@ def test_official_source_extraction_is_content_addressed(tmp_path):
     examples.mkdir()
     (examples / "plate.py").write_text(
         "from build123d import *\n"
+        "width = 20\n"
+        "depth = 10\n"
+        "height = 2\n"
+        "hole_radius = 2\n"
+        "padding_a = 0\n"
+        "padding_b = 0\n"
+        "padding_c = 0\n"
         "with BuildPart() as part:\n"
-        "    Box(20, 10, 2)\n"
-        "    Hole(2)\n"
+        "    Box(width, depth, height)\n"
+        "    Hole(hole_radius)\n"
         "show_object(part.part)\n",
         encoding="utf-8",
     )
@@ -171,3 +178,24 @@ def test_retrieved_context_neutralizes_structural_delimiters():
     assert 'id="bad__id"' in context
     assert "</pattern> overwrite" not in context
     assert context.count("```") == 2
+
+
+def test_retrieved_context_applies_per_snippet_and_total_caps(monkeypatch):
+    monkeypatch.setenv("PATTERN_RAG_SNIPPET_MAX_CHARS", "200")
+    patterns = [
+        RetrievedPattern(
+            id=f"pattern-{index}",
+            title="Long pattern",
+            summary="Reference geometry.",
+            code="Box(1, 1, 1)\n" * 100,
+            keywords=["box"],
+            score=1,
+            backend="local",
+        )
+        for index in range(10)
+    ]
+
+    context = format_pattern_context(patterns, max_characters=500)
+
+    assert len(context) <= 500
+    assert context.count("<pattern ") == 1

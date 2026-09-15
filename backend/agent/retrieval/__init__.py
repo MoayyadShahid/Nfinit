@@ -7,6 +7,7 @@ from .service import (
     PineconePatternRetriever,
     format_pattern_context,
     get_pattern_retriever,
+    retrieval_limit,
 )
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "RetrievedPattern",
     "format_pattern_context",
     "get_pattern_retriever",
+    "retrieval_limit",
 ]

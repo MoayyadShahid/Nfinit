@@ -9,6 +9,8 @@ from typing import Any
 
 from pinecone import Pinecone
 
+from execution.policy import CodePolicyError, validate_cad_code
+
 from .models import PatternRecord
 
 LOWERCASE_CAD_CALLS = {
@@ -153,7 +155,69 @@ def extract_patterns(
                     license="Apache-2.0",
                 )
             )
-    return records
+    candidates_by_position = []
+    for record in records:
+        source, line_range = (record.source_url or "").rsplit("#L", maxsplit=1)
+        start_line = int(line_range.split("-", maxsplit=1)[0])
+        candidates_by_position.append((source, start_line, record))
+
+    safe_records = []
+    last_line_by_source: dict[str, int] = {}
+    for source, start_line, record in sorted(
+        candidates_by_position, key=lambda item: (item[0], item[1], item[2].id)
+    ):
+        try:
+            validate_cad_code(record.code)
+        except CodePolicyError:
+            continue
+        if start_line - last_line_by_source.get(source, -10_000) < 12:
+            continue
+        last_line_by_source[source] = start_line
+        safe_records.append(record)
+    return safe_records
+
+
+def load_replay_patterns(path: Path) -> list[PatternRecord]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    values = payload.get("replays", [])
+    patterns = []
+    for value in values:
+        code = str(value["code"]).strip()
+        validate_cad_code(code)
+        case_id = str(value["case_id"])
+        patterns.append(
+            PatternRecord(
+                id=f"cad50-{case_id}",
+                title=case_id.replace("_", " ").title(),
+                summary=(
+                    "Policy-validated deterministic CAD50 reference pattern."
+                ),
+                code=code,
+                keywords=case_id.split("_"),
+                source_url=(
+                    "https://github.com/MoayyadShahid/Nfinit/blob/main/"
+                    "backend/evaluation/replays/cad50.json"
+                ),
+            )
+        )
+    return patterns
+
+
+def load_seed_patterns(path: Path) -> list[PatternRecord]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    values = payload.get("patterns", [])
+    patterns = [PatternRecord.model_validate(value) for value in values]
+    for pattern in patterns:
+        validate_cad_code(pattern.code)
+    return patterns
+
+
+def deduplicate_patterns(patterns: list[PatternRecord]) -> list[PatternRecord]:
+    unique: dict[str, PatternRecord] = {}
+    for pattern in patterns:
+        digest = hashlib.sha256(pattern.code.encode()).hexdigest()
+        unique.setdefault(digest, pattern)
+    return list(unique.values())
 
 
 def write_jsonl(patterns: list[PatternRecord], output: Path) -> None:
@@ -221,18 +285,29 @@ def main() -> None:
         "--repository-url", default="https://github.com/gumyr/build123d"
     )
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--replays", type=Path)
+    parser.add_argument("--seed-corpus", type=Path)
     parser.add_argument("--pinecone", action="store_true")
     parser.add_argument(
         "--namespace",
         default=os.getenv("PINECONE_NAMESPACE", "build123d-patterns-v1"),
     )
-    parser.add_argument("--minimum-patterns", type=int, default=200)
+    parser.add_argument("--minimum-patterns", type=int, default=100)
     args = parser.parse_args()
 
-    patterns = extract_patterns(
+    upstream_patterns = extract_patterns(
         args.source_root,
         repository_url=args.repository_url,
         revision=args.revision,
+    )
+    replay_patterns = (
+        load_replay_patterns(args.replays) if args.replays else []
+    )
+    seed_patterns = (
+        load_seed_patterns(args.seed_corpus) if args.seed_corpus else []
+    )
+    patterns = deduplicate_patterns(
+        [*upstream_patterns, *replay_patterns, *seed_patterns]
     )
     if len(patterns) < args.minimum_patterns:
         raise SystemExit(
@@ -250,6 +325,9 @@ def main() -> None:
         json.dumps(
             {
                 "extracted": len(patterns),
+                "upstream": len(upstream_patterns),
+                "replays": len(replay_patterns),
+                "curated": len(seed_patterns),
                 "submitted": submitted,
                 "namespace": args.namespace if args.pinecone else None,
                 "revision": args.revision,

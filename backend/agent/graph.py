@@ -14,6 +14,7 @@ from .retrieval import (
     RetrievedPattern,
     format_pattern_context,
     get_pattern_retriever,
+    retrieval_limit,
 )
 from .tracing import RunTracer, summarize_messages, summarize_text
 from .validation import extract_code, validate_code
@@ -129,11 +130,13 @@ def _retrieval_query(state: AgentState) -> str:
     return content[:4_000]
 
 
-def _pattern_message(state: AgentState) -> dict[str, str] | None:
+def _pattern_message(
+    state: AgentState, *, include_code: bool = True
+) -> dict[str, str] | None:
     patterns = [
         RetrievedPattern.model_validate(pattern) for pattern in state["patterns"]
     ]
-    context = format_pattern_context(patterns)
+    context = format_pattern_context(patterns, include_code=include_code)
     return {"role": "user", "content": context} if context else None
 
 
@@ -217,13 +220,14 @@ def create_cad_graph(
     async def retrieve(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
         query = _retrieval_query(state)
+        limit = retrieval_limit()
         with tracer.observation(
             "node.retrieve",
             as_type="retriever",
-            input={"query": summarize_text(query), "limit": 4},
+            input={"query": summarize_text(query), "limit": limit},
         ) as span:
             patterns = await asyncio.to_thread(
-                pattern_retriever.retrieve, query, 4
+                pattern_retriever.retrieve, query, limit
             )
             span.update(
                 output={
@@ -253,7 +257,7 @@ def create_cad_graph(
 
     async def plan(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
-        pattern_message = _pattern_message(state)
+        pattern_message = _pattern_message(state, include_code=False)
         conversation = [
             {"role": "system", "content": PLANNER_PROMPT},
             *([pattern_message] if pattern_message else []),
