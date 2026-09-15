@@ -3,10 +3,11 @@
 import { Button } from "@/components/ui/button";
 import {
   type ChatMessage,
+  type FaceSelection,
   getTextContent,
   getImageUrls,
 } from "@/lib/types";
-import { ImagePlus, X } from "lucide-react";
+import { Check, ImagePlus, MapPin, RotateCcw, X } from "lucide-react";
 import { useRef, useEffect, useState, useCallback } from "react";
 
 export type { ChatMessage } from "@/lib/types";
@@ -35,6 +36,7 @@ interface ChatPaneProps {
   isLoading: boolean;
   lastError?: string | null;
   supportsVision?: boolean;
+  selection?: FaceSelection | null;
 }
 
 export function ChatPane({
@@ -43,6 +45,7 @@ export function ChatPane({
   isLoading,
   lastError,
   supportsVision = false,
+  selection,
 }: ChatPaneProps) {
   const [input, setInput] = useState("");
   const [images, setImages] = useState<string[]>([]);
@@ -149,12 +152,48 @@ export function ChatPane({
             </div>
           ) : (
             <div key={i} className="flex justify-start">
-              <div className="max-w-[85%] rounded-lg border border-[#1f1f1f] bg-[#141414] px-3 py-2">
-                <div className="mb-1 text-xs text-zinc-500">Generated code</div>
-                <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs text-zinc-300">
-                  {text.slice(0, 200)}
-                  {text.length > 200 ? "..." : ""}
-                </pre>
+              <div className="max-w-[92%] rounded-lg border border-[#1f1f1f] bg-[#141414] px-3 py-2">
+                <div className="mb-2 text-xs font-medium text-zinc-300">
+                  CAD agent
+                </div>
+                {msg.agent ? (
+                  <>
+                    <div className="space-y-1.5">
+                      {msg.agent.trace.map((step, traceIndex) => (
+                        <div
+                          key={`${step.node}-${traceIndex}`}
+                          className="flex items-start gap-2 text-[11px] text-zinc-400"
+                        >
+                          {step.node === "repair" ? (
+                            <RotateCcw className="mt-0.5 size-3 shrink-0 text-amber-400" />
+                          ) : (
+                            <Check className="mt-0.5 size-3 shrink-0 text-emerald-400" />
+                          )}
+                          <span>
+                            <span className="capitalize text-zinc-300">
+                              {step.node}
+                            </span>
+                            {" · "}
+                            {step.detail}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <details className="mt-2 border-t border-zinc-800 pt-2 text-[11px]">
+                      <summary className="cursor-pointer text-zinc-500 hover:text-zinc-300">
+                        View design plan
+                      </summary>
+                      <p className="mt-2 whitespace-pre-wrap text-zinc-400">
+                        {msg.agent.plan}
+                      </p>
+                    </details>
+                  </>
+                ) : (
+                  <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs text-zinc-300">
+                    {text.slice(0, 200)}
+                    {text.length > 200 ? "..." : ""}
+                  </pre>
+                )}
               </div>
             </div>
           );
@@ -162,6 +201,12 @@ export function ChatPane({
       </div>
 
       <div className="flex flex-col gap-2 border-t border-[#1f1f1f] p-3">
+        {selection && (
+          <div className="flex items-center gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-2.5 py-1.5 text-[11px] text-blue-200">
+            <MapPin className="size-3.5" />
+            Prompt will target the selected face at ({selection.point.join(", ")} mm)
+          </div>
+        )}
         {lastError && (
           <Button
             variant="outline"
