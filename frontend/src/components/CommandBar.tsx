@@ -27,6 +27,7 @@ const EXPORT_FORMATS = [
   { id: "brep", label: "BREP", ext: ".brep", desc: "OpenCASCADE tools" },
   { id: "stl", label: "STL", ext: ".stl", desc: "3D printing" },
 ] as const;
+const UNSAVED_PROJECT = "__unsaved__";
 
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]["id"];
 
@@ -98,13 +99,16 @@ export function CommandBar({
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="text-sm font-medium text-zinc-400">nfinit</span>
         <Select
-          value={projectId ?? undefined}
+          value={projectId ?? UNSAVED_PROJECT}
           onValueChange={onProjectChange}
         >
           <SelectTrigger className="h-8 min-w-0 max-w-[190px] flex-1 border-[#1f1f1f] bg-transparent text-xs text-zinc-200">
             <SelectValue placeholder="Unsaved part" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={UNSAVED_PROJECT} disabled>
+              Unsaved part
+            </SelectItem>
             {projects.map((project) => (
               <SelectItem key={project.id} value={project.id}>
                 {project.name}

@@ -394,8 +394,22 @@ export default function Home() {
   useEffect(() => {
     let active = true;
     listProjects(BACKEND_URL)
-      .then((items) => {
-        if (active) setProjects(items);
+      .then(async (items) => {
+        if (!active) return;
+        setProjects(items);
+        const latest = items[0];
+        if (!latest) return;
+        setIsProjectLoading(true);
+        const [project, history] = await Promise.all([
+          getProject(BACKEND_URL, latest.id),
+          listRevisions(BACKEND_URL, latest.id),
+        ]);
+        if (!active) return;
+        setProjectId(project.id);
+        setRevisions(history);
+        if (project.latestRevision) {
+          await applyRevision(project.latestRevision);
+        }
       })
       .catch((loadError) => {
         if (active) {
@@ -405,11 +419,14 @@ export default function Home() {
               : "Failed to list saved projects"
           );
         }
+      })
+      .finally(() => {
+        if (active) setIsProjectLoading(false);
       });
     return () => {
       active = false;
     };
-  }, []);
+  }, [applyRevision]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
