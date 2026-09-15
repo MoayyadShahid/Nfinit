@@ -129,6 +129,19 @@ python -m evaluation.cli \
 Reports compare pass rate, geometry accuracy, policy compliance, repair count,
 latency, and token usage by model. A nonzero exit code indicates a regression.
 
+The `cad50.json` benchmark contains 50 balanced cases across primitives,
+subtractive features, patterns, sketch profiles, edge finishing, mechanical
+parts, iterative edits, selected-face edits, failure recovery, and
+manufacturing-oriented products. Validate all canonical outputs locally with:
+
+```bash
+python -m evaluation.cli \
+  --cases evaluation/cases/cad50.json \
+  --mode replay \
+  --replays evaluation/replays/cad50.json \
+  --output evaluation/reports/cad50.json
+```
+
 ## Usage
 
 1. Start the backend on port 8000

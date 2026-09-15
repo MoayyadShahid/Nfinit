@@ -1,0 +1,63 @@
+{
+  "replays": [
+    {"case_id":"primitive_rectangular_block","model_id":"recorded/reference","code":"result = Box(10, 20, 30)"},
+    {"case_id":"primitive_cube","model_id":"recorded/reference","code":"side = 25.0\nresult = Box(side, side, side)"},
+    {"case_id":"primitive_cylinder","model_id":"recorded/reference","code":"result = Cylinder(10, 40)"},
+    {"case_id":"primitive_sphere","model_id":"recorded/reference","code":"result = Sphere(15)"},
+    {"case_id":"primitive_cone","model_id":"recorded/reference","code":"result = Cone(12, 5, 30)"},
+
+    {"case_id":"subtract_plate_center_hole","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 50, 6)\n    Cylinder(5, 6, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"subtract_block_bore","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(30, 30, 30)\n    Cylinder(4, 30, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"subtract_spacer_tube","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(20, 50)\n    Cylinder(15, 50, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"subtract_rectangular_slot","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(100, 60, 6)\n    Box(30, 10, 6, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"subtract_dual_mount_holes","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 30, 5)\n    with Locations((-20, 0), (20, 0)):\n        Cylinder(3, 5, mode=Mode.SUBTRACT)\nresult = part.part"},
+
+    {"case_id":"pattern_four_corner_holes","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(70, 50, 5)\n    with GridLocations(50, 30, 2, 2):\n        Cylinder(2.5, 5, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"pattern_six_bolt_circle","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(30, 4)\n    with PolarLocations(22.5, 6):\n        Cylinder(2, 4, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"pattern_three_linear_holes","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(90, 30, 6)\n    with Locations((-25, 0), (0, 0), (25, 0)):\n        Cylinder(2.5, 6, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"pattern_four_top_bosses","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(60, 40, 4)\n    with Locations((-20, -10, 5), (-20, 10, 5), (20, -10, 5), (20, 10, 5)):\n        Cylinder(4, 6)\nresult = part.part"},
+    {"case_id":"pattern_five_polar_bosses","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(25, 4)\n    with PolarLocations(15, 5):\n        with Locations((0, 0, 4.5)):\n            Cylinder(3, 5)\nresult = part.part"},
+
+    {"case_id":"sketch_rounded_rectangle","model_id":"recorded/reference","code":"with BuildPart() as part:\n    with BuildSketch():\n        RectangleRounded(50, 30, 5)\n    extrude(amount=6)\nresult = part.part"},
+    {"case_id":"sketch_hexagonal_prism","model_id":"recorded/reference","code":"with BuildPart() as part:\n    with BuildSketch():\n        RegularPolygon(20, 6)\n    extrude(amount=8)\nresult = part.part"},
+    {"case_id":"sketch_triangular_prism","model_id":"recorded/reference","code":"with BuildPart() as part:\n    with BuildSketch():\n        Polygon((0, 0), (30, 0), (15, 20))\n    extrude(amount=5)\nresult = part.part"},
+    {"case_id":"sketch_l_profile","model_id":"recorded/reference","code":"with BuildPart() as part:\n    with BuildSketch():\n        with Locations((0, -10)):\n            Rectangle(40, 10)\n        with Locations((-15, 0)):\n            Rectangle(10, 30)\n    extrude(amount=6)\nresult = part.part"},
+    {"case_id":"sketch_annular_ring","model_id":"recorded/reference","code":"with BuildPart() as part:\n    with BuildSketch():\n        Circle(25)\n        Circle(18, mode=Mode.SUBTRACT)\n    extrude(amount=7)\nresult = part.part"},
+
+    {"case_id":"finish_fillet_box","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(40, 30, 12)\n    fillet(part.edges(), radius=2)\nresult = part.part"},
+    {"case_id":"finish_chamfer_box","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(45, 25, 10)\n    chamfer(part.edges(), length=1)\nresult = part.part"},
+    {"case_id":"finish_fillet_cylinder","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(15, 20)\n    fillet(part.edges(), radius=2)\nresult = part.part"},
+    {"case_id":"finish_rounded_plate","model_id":"recorded/reference","code":"with BuildPart() as part:\n    with BuildSketch():\n        RectangleRounded(70, 40, 6)\n    extrude(amount=5)\nresult = part.part"},
+    {"case_id":"finish_chamfer_cylinder","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(12, 16)\n    chamfer(part.edges(), length=1)\nresult = part.part"},
+
+    {"case_id":"mechanical_angle_bracket","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(60, 40, 5)\n    with Locations((0, -17.5, 15)):\n        Box(60, 5, 25)\nresult = part.part"},
+    {"case_id":"mechanical_mounting_flange","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(35, 8)\n    Cylinder(10, 8, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"mechanical_spacer","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(8, 18)\n    Cylinder(3, 18, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"mechanical_two_stage_knob","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(15, 8)\n    with Locations((0, 0, 10)):\n        Cylinder(10, 12)\nresult = part.part"},
+    {"case_id":"mechanical_clevis_block","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(50, 30, 5)\n    with Locations((-21, 0, 15), (21, 0, 15)):\n        Box(8, 30, 25)\nresult = part.part"},
+
+    {"case_id":"edit_resize_cube","model_id":"recorded/reference","code":"side = 15.0\nresult = Box(side, side, side)"},
+    {"case_id":"edit_plate_thickness","model_id":"recorded/reference","code":"width, depth, thickness = 70.0, 40.0, 6.0\nresult = Box(width, depth, thickness)"},
+    {"case_id":"edit_hole_diameter","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(60, 40, 6)\n    Cylinder(6, 6, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"edit_add_second_hole","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(70, 30, 5)\n    with Locations((-10, 0), (10, 0)):\n        Cylinder(3, 5, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"edit_increase_tube_wall","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(20, 30)\n    Cylinder(15, 30, mode=Mode.SUBTRACT)\nresult = part.part"},
+
+    {"case_id":"select_top_add_boss","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(60, 40, 4)\n    with Locations((0, 0, 5)):\n        Cylinder(4, 6)\nresult = part.part"},
+    {"case_id":"select_top_add_hole","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(60, 40, 6)\n    Cylinder(3, 6, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"select_side_add_tab","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(50, 40, 6)\n    with Locations((30, 0, 0)):\n        Box(10, 20, 6)\nresult = part.part"},
+    {"case_id":"select_top_add_pad","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(60, 40, 6)\n    with Locations((0, 0, 5)):\n        Box(20, 20, 4)\nresult = part.part"},
+    {"case_id":"select_top_hole_pattern","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 60, 5)\n    with GridLocations(20, 20, 2, 2):\n        Cylinder(2, 5, mode=Mode.SUBTRACT)\nresult = part.part"},
+
+    {"case_id":"recover_missing_result","model_id":"recorded/reference","code":"result = Box(20, 20, 20)"},
+    {"case_id":"recover_bad_hole_context","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(50, 30, 5)\n    Cylinder(4, 5, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"recover_oversized_fillet","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(20, 20, 5)\n    fillet(part.edges(), radius=1)\nresult = part.part"},
+    {"case_id":"recover_forbidden_import","model_id":"recorded/reference","code":"result = Box(30, 20, 10)"},
+    {"case_id":"recover_zero_height","model_id":"recorded/reference","code":"thickness = 8.0\nresult = Box(40, 30, thickness)"},
+
+    {"case_id":"manufacturing_printable_bracket","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(60, 40, 5)\n    with Locations((0, -17.5, 17.5)):\n        Box(60, 5, 30)\nresult = part.part"},
+    {"case_id":"manufacturing_cnc_pocket","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 50, 8)\n    with Locations((0, 0, 5)):\n        Box(40, 25, 3, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"manufacturing_sheet_tray","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 50, 2)\n    with Locations((0, -22.5, 10), (0, 22.5, 10)):\n        Box(80, 5, 18)\n    with Locations((-37.5, 0, 10), (37.5, 0, 10)):\n        Box(5, 40, 18)\nresult = part.part"},
+    {"case_id":"manufacturing_lamp_base","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(50, 12)\n    Cylinder(6, 12, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"manufacturing_phone_cradle","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 70, 5)\n    with Locations((0, -32.5, 30)):\n        Box(80, 5, 55)\n    with Locations((0, 29, 8.5)):\n        Box(80, 12, 12)\nresult = part.part"}
+  ]
+}

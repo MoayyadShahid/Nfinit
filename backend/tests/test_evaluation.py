@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -204,3 +205,36 @@ def test_sample_case_and_replay_files_load():
 
     assert len(cases) == 3
     assert len(replays) == 3
+
+
+def test_cad50_benchmark_has_balanced_complete_coverage():
+    root = Path(__file__).parents[1] / "evaluation"
+    cases = load_cases(root / "cases" / "cad50.json")
+    replays = load_replays(root / "replays" / "cad50.json")
+
+    expected_categories = {
+        "primitive",
+        "subtractive",
+        "pattern",
+        "sketch_profile",
+        "edge_finish",
+        "mechanical_part",
+        "iterative_edit",
+        "selection_edit",
+        "failure_recovery",
+        "manufacturing",
+    }
+    category_counts = Counter(case.category for case in cases)
+    case_ids = {case.id for case in cases}
+    replay_ids = {replay.case_id for replay in replays}
+
+    assert len(cases) == 50
+    assert len(replays) == 50
+    assert set(category_counts) == expected_categories
+    assert set(category_counts.values()) == {5}
+    assert replay_ids == case_ids
+    assert len({case.messages[-1].content for case in cases}) == 50
+    assert all(case.expected.solid_count is not None for case in cases)
+    assert all(case.expected.bounding_box_mm for case in cases)
+    assert all(case.tags for case in cases)
+    assert all(replay.model_id == "recorded/reference" for replay in replays)
