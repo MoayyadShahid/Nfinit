@@ -168,7 +168,11 @@ class ProjectStore:
 
         summary = self._summary(project)
         return ProjectDetail(
-            **summary.model_dump(),
+            id=summary.id,
+            name=summary.name,
+            revision_count=summary.revision_count,
+            created_at=summary.created_at,
+            updated_at=summary.updated_at,
             latest_revision=self._revision(revision) if revision else None,
         )
 
