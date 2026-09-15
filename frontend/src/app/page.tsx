@@ -189,7 +189,21 @@ export default function Home() {
 
   const saveCurrentRevision = useCallback(async () => {
     setError(null);
+    setIsSaving(true);
     try {
+      const validationResponse = await fetch(`${BACKEND_URL}/inspect-model`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const validation = await validationResponse.json().catch(() => null);
+      if (!validationResponse.ok || !validation?.valid) {
+        throw new Error(
+          validation?.error ||
+            validation?.detail ||
+            "Fix the code error before saving this revision."
+        );
+      }
       await persistSnapshot({
         code,
         messages,
@@ -199,6 +213,8 @@ export default function Home() {
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save revision");
+    } finally {
+      setIsSaving(false);
     }
   }, [
     code,
