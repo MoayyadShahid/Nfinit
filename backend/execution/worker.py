@@ -40,6 +40,90 @@ SAFE_BUILTINS = {
     "zip": zip,
 }
 
+APPROVED_BUILD123D_NAMES = {
+    "Add",
+    "Align",
+    "Axis",
+    "Bezier",
+    "Box",
+    "BuildLine",
+    "BuildPart",
+    "BuildSketch",
+    "CenterArc",
+    "Circle",
+    "Compound",
+    "Cone",
+    "CounterBoreHole",
+    "CounterSinkHole",
+    "Cylinder",
+    "Edge",
+    "Ellipse",
+    "Face",
+    "FilletPolyline",
+    "GeomType",
+    "GridLocations",
+    "Helix",
+    "HexLocations",
+    "Hole",
+    "Keep",
+    "Kind",
+    "Line",
+    "Location",
+    "Locations",
+    "Mode",
+    "Part",
+    "Plane",
+    "PolarLine",
+    "PolarLocations",
+    "Polygon",
+    "Polyline",
+    "Pos",
+    "RadiusArc",
+    "Rectangle",
+    "RectangleRounded",
+    "RegularPolygon",
+    "Rot",
+    "Rotation",
+    "SagittaArc",
+    "Select",
+    "SlotArc",
+    "SlotCenterPoint",
+    "SlotCenterToCenter",
+    "SlotOverall",
+    "Solid",
+    "SortBy",
+    "Sphere",
+    "Spline",
+    "TangentArc",
+    "Text",
+    "ThreePointArc",
+    "Torus",
+    "Transition",
+    "Trapezoid",
+    "Triangle",
+    "Until",
+    "Vector",
+    "Wedge",
+    "Wire",
+    "add",
+    "chamfer",
+    "draft",
+    "extrude",
+    "fillet",
+    "full_round",
+    "loft",
+    "make_face",
+    "make_hull",
+    "mirror",
+    "offset",
+    "revolve",
+    "scale",
+    "section",
+    "split",
+    "sweep",
+    "trace",
+}
+
 
 def _apply_resource_limits():
     cpu_seconds = int(os.environ.get("CAD_SANDBOX_CPU_SECONDS", "10"))
@@ -70,11 +154,8 @@ def _build_scope():
     from build123d import Location
 
     scope = {"__builtins__": SAFE_BUILTINS}
-    names = getattr(build123d, "__all__", None) or [
-        name for name in dir(build123d) if not name.startswith("_")
-    ]
-    for name in names:
-        if not name.lower().startswith(("export", "import", "load", "save", "write")):
+    for name in APPROVED_BUILD123D_NAMES:
+        if hasattr(build123d, name):
             scope[name] = getattr(build123d, name)
 
     aliases = {
