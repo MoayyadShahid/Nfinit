@@ -1,6 +1,7 @@
 import json
 from collections.abc import Callable
 from pathlib import Path
+from uuid import uuid4
 
 from agent.graph import run_cad_agent
 from agent.models import (
@@ -107,19 +108,26 @@ async def evaluate_live(
     model_ids: list[str],
     api_key: str,
     inspector: InspectCode = inspect_code,
+    structured_output_support: dict[str, bool] | None = None,
 ) -> list[EvaluationResult]:
     results = []
+    structured_output_support = structured_output_support or {}
     for model_id in model_ids:
         for case in cases:
+            run_id = str(uuid4())
             request = CadRunRequest(
                 messages=case.messages,
                 code=case.current_code,
                 modelId=model_id,
-                supportsStructuredOutputs=True,
+                supportsStructuredOutputs=structured_output_support.get(
+                    model_id, True
+                ),
                 selection=case.selection,
             )
             try:
-                state = await run_cad_agent(request, api_key, inspector)
+                state = await run_cad_agent(
+                    request, api_key, inspector, run_id=run_id
+                )
                 inspection = ModelInspection.model_validate(
                     state["inspection"]
                     or {"valid": False, "error": "Inspection result is missing."}
@@ -137,6 +145,7 @@ async def evaluate_live(
                         trace,
                         usage,
                         error=state["validation_error"],
+                        run_id=run_id,
                     )
                 )
             except Exception as error:
@@ -149,6 +158,7 @@ async def evaluate_live(
                         [],
                         ModelUsage(),
                         error=f"{type(error).__name__}: {str(error)}",
+                        run_id=run_id,
                     )
                 )
     return results

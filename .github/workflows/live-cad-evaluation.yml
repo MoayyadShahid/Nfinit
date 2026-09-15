@@ -1,0 +1,115 @@
+name: Live CAD model evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Evaluation suite
+        required: true
+        type: choice
+        default: smoke
+        options:
+          - smoke
+          - cad50
+      publish_langfuse:
+        description: Publish redacted dataset metadata and trace scores
+        required: true
+        type: boolean
+        default: true
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-cad-evaluation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  POETRY_VERSION: "2.4.3"
+  POETRY_VIRTUALENVS_IN_PROJECT: "true"
+
+jobs:
+  evaluate:
+    name: ${{ matrix.label }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      vars.ENABLE_SCHEDULED_PAID_EVALS == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: claude-opus-5
+            label: Claude Opus 5
+            model: anthropic/claude-opus-5
+          - key: gpt-6-astra-pro
+            label: GPT-6 Astra Pro
+            model: openai/gpt-6-astra-pro
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install Poetry
+        run: python -m pip install "poetry==${POETRY_VERSION}"
+      - uses: actions/cache@v4
+        with:
+          path: backend/.venv
+          key: backend-venv-${{ runner.os }}-${{ env.PYTHON_VERSION }}-${{ hashFiles('backend/poetry.lock') }}
+      - name: Install backend dependencies
+        working-directory: backend
+        run: poetry install --with dev --no-root --no-interaction
+      - name: Validate paid-run credentials
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          PUBLISH_LANGFUSE: ${{ github.event_name == 'schedule' || inputs.publish_langfuse }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+        run: |
+          test -n "$OPENROUTER_API_KEY" || {
+            echo "::error::OPENROUTER_API_KEY is not configured"
+            exit 1
+          }
+          if [[ "$PUBLISH_LANGFUSE" == "true" ]]; then
+            test -n "$LANGFUSE_PUBLIC_KEY" && test -n "$LANGFUSE_SECRET_KEY" || {
+              echo "::error::LangFuse keys are required when publishing is enabled"
+              exit 1
+            }
+          fi
+      - name: Run live evaluation
+        working-directory: backend
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ vars.LANGFUSE_BASE_URL || 'https://cloud.langfuse.com' }}
+          LANGFUSE_ENVIRONMENT: evaluation
+          LANGFUSE_RELEASE: ${{ github.sha }}
+          SUITE: ${{ inputs.suite || 'smoke' }}
+          MODEL_ID: ${{ matrix.model }}
+          MODEL_KEY: ${{ matrix.key }}
+          PUBLISH_LANGFUSE: ${{ github.event_name == 'schedule' || inputs.publish_langfuse }}
+        run: |
+          args=(
+            --cases "evaluation/cases/${SUITE}.json"
+            --mode live
+            --config evaluation/config/live_quality.json
+            --model "$MODEL_ID"
+            --output "evaluation/reports/live-${SUITE}-${MODEL_KEY}.json"
+          )
+          if [[ "$PUBLISH_LANGFUSE" == "true" ]]; then
+            args+=(--publish-langfuse)
+          fi
+          poetry run python -m evaluation.cli "${args[@]}"
+      - name: Upload live evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-${{ inputs.suite || 'smoke' }}-${{ matrix.key }}-${{ github.run_id }}
+          path: backend/evaluation/reports/live-*.json
+          if-no-files-found: warn
+          retention-days: 90

@@ -121,10 +121,27 @@ Run selected live models:
 python -m evaluation.cli \
   --cases evaluation/cases/smoke.json \
   --mode live \
-  --model anthropic/claude-opus-5 \
-  --model openai/gpt-6-astra-pro \
+  --config evaluation/config/live_quality.json \
   --output evaluation/reports/live.json
 ```
+
+The quality-first matrix pins Claude Opus 5 and GPT-6 Astra Pro so comparisons
+remain reproducible even when OpenRouter's `*-latest` aliases change. Add
+`--publish-langfuse` to create privacy-safe dataset items and attach overall,
+per-metric, repair, latency, and token scores to each run trace. Prompt text,
+generated code, and images remain redacted.
+
+The **Live CAD model evaluation** GitHub workflow runs both models on demand.
+Choose `smoke` for six paid agent runs or `cad50` for the complete 100-run
+comparison. Configure these repository secrets before running it:
+
+- `OPENROUTER_API_KEY`
+- `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` when publishing is enabled
+
+The weekly smoke schedule is skipped unless the repository variable
+`ENABLE_SCHEDULED_PAID_EVALS` is exactly `true`. `LANGFUSE_BASE_URL` can
+optionally override the default LangFuse Cloud endpoint. Reports are retained as
+workflow artifacts for 90 days.
 
 Reports compare pass rate, geometry accuracy, policy compliance, repair count,
 latency, and token usage by model. A nonzero exit code indicates a regression.
