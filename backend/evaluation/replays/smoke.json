@@ -1,0 +1,97 @@
+{
+  "replays": [
+    {
+      "case_id": "box_10x20x30",
+      "model_id": "recorded/reference",
+      "code": "width, depth, height = 10.0, 20.0, 30.0\nwith BuildPart() as part:\n    Box(width, depth, height)\nresult = part.part",
+      "plan": "Create one parameterized rectangular solid.",
+      "trace": [
+        {
+          "node": "plan",
+          "status": "complete",
+          "detail": "Recorded fixture",
+          "duration_ms": 120
+        },
+        {
+          "node": "generate",
+          "status": "complete",
+          "detail": "Recorded fixture",
+          "duration_ms": 240
+        },
+        {
+          "node": "inspect",
+          "status": "passed",
+          "detail": "Recorded fixture",
+          "duration_ms": 80
+        }
+      ],
+      "usage": {
+        "input_tokens": 800,
+        "output_tokens": 120,
+        "total_tokens": 920
+      }
+    },
+    {
+      "case_id": "plate_center_hole",
+      "model_id": "recorded/reference",
+      "code": "width, depth, thickness = 80.0, 50.0, 6.0\nhole_radius = 5.0\nwith BuildPart() as part:\n    Box(width, depth, thickness)\n    Cylinder(hole_radius, thickness, mode=Mode.SUBTRACT)\nresult = part.part",
+      "plan": "Create a plate and subtract one centered cylinder.",
+      "trace": [
+        {
+          "node": "plan",
+          "status": "complete",
+          "detail": "Recorded fixture",
+          "duration_ms": 130
+        },
+        {
+          "node": "generate",
+          "status": "complete",
+          "detail": "Recorded fixture",
+          "duration_ms": 260
+        },
+        {
+          "node": "inspect",
+          "status": "passed",
+          "detail": "Recorded fixture",
+          "duration_ms": 90
+        }
+      ],
+      "usage": {
+        "input_tokens": 900,
+        "output_tokens": 160,
+        "total_tokens": 1060
+      }
+    },
+    {
+      "case_id": "edit_plate_thickness",
+      "model_id": "recorded/reference",
+      "code": "width, depth, thickness = 80.0, 50.0, 8.0\nwith BuildPart() as part:\n    Box(width, depth, thickness)\nresult = part.part",
+      "plan": "Change only the thickness parameter to 8 mm.",
+      "trace": [
+        {
+          "node": "plan",
+          "status": "complete",
+          "detail": "Recorded fixture",
+          "duration_ms": 110
+        },
+        {
+          "node": "generate",
+          "status": "complete",
+          "detail": "Recorded fixture",
+          "duration_ms": 220
+        },
+        {
+          "node": "inspect",
+          "status": "passed",
+          "detail": "Recorded fixture",
+          "duration_ms": 80
+        }
+      ],
+      "usage": {
+        "input_tokens": 1100,
+        "output_tokens": 130,
+        "total_tokens": 1230
+      }
+    }
+  ]
+}
