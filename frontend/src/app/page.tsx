@@ -54,7 +54,7 @@ export default function Home() {
   const [revisions, setRevisions] = useState<ProjectRevision[]>([]);
   const [currentRevision, setCurrentRevision] = useState<number | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
+  const [isDirty, setIsDirty] = useState(true);
 
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
 
@@ -225,7 +225,7 @@ export default function Home() {
     setModelId(DEFAULT_MODEL);
     setSelectedFace(null);
     setLastRunId(null);
-    setIsDirty(false);
+    setIsDirty(true);
     setError(null);
   }, [isDirty]);
 

@@ -124,8 +124,14 @@ export function CommandBar({
         <button
           type="button"
           onClick={onSave}
-          disabled={isSaving || !isDirty}
-          title={isDirty ? "Save revision" : "No unsaved changes"}
+          disabled={isSaving || (!isDirty && projectId !== null)}
+          title={
+            projectId === null
+              ? "Save part"
+              : isDirty
+                ? "Save revision"
+                : "No unsaved changes"
+          }
           className="relative flex h-8 items-center gap-1 rounded-md border border-zinc-700 px-2 text-xs text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Save className="size-3.5" />
