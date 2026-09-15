@@ -1,8 +1,5 @@
 import logging
 import os
-import re
-import tempfile
-import traceback
 from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
@@ -18,6 +15,7 @@ from agent import (
     ModelInspection,
     run_cad_agent,
 )
+from execution import SandboxError, export_code, inspect_code as sandbox_inspect_code
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -45,110 +43,9 @@ class ExportModelRequest(BaseModel):
     format: str  # "step" | "brep" | "stl"
 
 
-def _execute_code(code: str, scope: dict) -> object:
-    """Execute build123d code and return the result shape."""
-    if code.startswith("```"):
-        code = re.sub(r"^```(?:python|py)?\s*\n?", "", code)
-    if code.rstrip().endswith("```"):
-        code = re.sub(r"\n?```\s*$", "", code).rstrip()
-
-    exec(code, scope)
-
-    result = scope.get("result")
-    if result is None:
-        result = (
-            scope.get("part")
-            or scope.get("final_shape")
-            or scope.get("frame")
-            or scope.get("assembly")
-            or scope.get("body")
-            or scope.get("model")
-        )
-    if result is None:
-        values = [
-            v
-            for v in scope.values()
-            if hasattr(v, "wrapped") and hasattr(v, "location")
-        ]
-        if values:
-            result = values[-1]
-        else:
-            raise ValueError(
-                "No 'result' variable found. Assign the final 3D part to a variable named 'result'."
-            )
-
-    if result.location is None:
-        from build123d import Location
-        result.location = Location()
-
-    return result
-
-
-def _build_scope():
-    """Build the execution scope with build123d and aliases."""
-    import build123d
-    from build123d import Location
-    from build123d.exporters3d import export_gltf, export_step, export_brep, export_stl
-
-    scope = {"__builtins__": __builtins__}
-    exports = getattr(build123d, "__all__", None) or [
-        n for n in dir(build123d) if not n.startswith("_")
-    ]
-    for name in exports:
-        scope[name] = getattr(build123d, name)
-    scope["export_gltf"] = export_gltf
-    scope["export_step"] = export_step
-    scope["export_brep"] = export_brep
-    scope["export_stl"] = export_stl
-
-    ALIASES = {
-        "regular_polygon": scope.get("RegularPolygon"),
-        "make_polygon": scope.get("Polygon"),
-        "create_polygon": scope.get("Polygon"),
-        "make_regular_polygon": scope.get("RegularPolygon"),
-        "create_regular_polygon": scope.get("RegularPolygon"),
-        "cube": scope.get("Box"),
-        "make_box": scope.get("Box"),
-        "create_box": scope.get("Box"),
-        "make_cylinder": scope.get("Cylinder"),
-        "create_cylinder": scope.get("Cylinder"),
-        "make_sphere": scope.get("Sphere"),
-        "create_sphere": scope.get("Sphere"),
-        "make_circle": scope.get("Circle"),
-        "create_circle": scope.get("Circle"),
-        "make_rectangle": scope.get("Rectangle"),
-        "create_rectangle": scope.get("Rectangle"),
-    }
-    for alias, target in ALIASES.items():
-        if alias and target is not None:
-            scope[alias] = target
-
-    return scope
-
-
 def _inspect_code(code: str) -> ModelInspection:
-    """Execute CAD code and return geometry facts."""
-    try:
-        scope = _build_scope()
-        result = _execute_code(code.strip(), scope)
-        bounding_box = result.bounding_box()
-        size = bounding_box.size
-        solids = result.solids() if hasattr(result, "solids") else []
-
-        return ModelInspection(
-            valid=True,
-            shape_type=type(result).__name__,
-            solid_count=len(solids),
-            volume_mm3=round(float(result.volume), 3),
-            bounding_box_mm={
-                "x": round(float(size.X), 3),
-                "y": round(float(size.Y), 3),
-                "z": round(float(size.Z), 3),
-            },
-        )
-    except Exception as e:
-        logger.info("Model inspection failed: %s", e)
-        return ModelInspection(valid=False, error=f"{type(e).__name__}: {str(e)}")
+    """Execute CAD code in the sandbox and return geometry facts."""
+    return sandbox_inspect_code(code)
 
 
 @app.post("/inspect-model", response_model=ModelInspection)
@@ -202,7 +99,7 @@ async def cad_run(request: CadRunRequest):
 
 @app.post("/export-model")
 async def export_model(request: ExportModelRequest, background_tasks: BackgroundTasks):
-    """Execute build123d code and return the model in the requested format (STEP, BREP, 3MF, STL)."""
+    """Execute build123d code in the sandbox and export the requested format."""
     fmt = request.format.lower()
     if fmt not in ("step", "brep", "stl"):
         raise HTTPException(
@@ -210,50 +107,12 @@ async def export_model(request: ExportModelRequest, background_tasks: Background
             detail="Format must be one of: step, brep, stl",
         )
 
-    try:
-        from build123d.exporters3d import export_step, export_brep, export_stl
-    except ImportError as e:
-        logger.error("build123d import failed: %s", e, exc_info=True)
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "build123d is not installed. Install it with: "
-                "conda install -c conda-forge pythonocc-core && pip install build123d"
-            ),
-        ) from e
-
-    scope = _build_scope()
-
-    try:
-        result = _execute_code(request.code.strip(), scope)
-    except Exception as e:
-        logger.error(
-            "Code execution failed: %s\nTraceback:\n%s",
-            e,
-            traceback.format_exc(),
-        )
-        raise HTTPException(status_code=400, detail=f"Code execution failed: {str(e)}")
-
-    temp_dir = tempfile.mkdtemp()
     ext = {"step": ".step", "brep": ".brep", "stl": ".stl"}[fmt]
-    temp_path = Path(temp_dir) / f"model{ext}"
-
     try:
-        if fmt == "step":
-            success = export_step(result, str(temp_path))
-        elif fmt == "brep":
-            success = export_brep(result, str(temp_path))
-        else:  # stl
-            success = export_stl(result, str(temp_path))
-
-        if not success:
-            raise HTTPException(status_code=500, detail=f"Failed to export {fmt.upper()}")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Export failed: %s\n%s", e, traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+        artifact = export_code(request.code, fmt)
+    except SandboxError as error:
+        status = 408 if error.kind == "sandbox_timeout" else 400
+        raise HTTPException(status_code=status, detail=str(error)) from error
 
     media_types = {
         "step": "application/step",
@@ -261,18 +120,10 @@ async def export_model(request: ExportModelRequest, background_tasks: Background
         "stl": "model/stl",
     }
     filename = f"model{ext}"
-
-    def cleanup():
-        try:
-            temp_path.unlink(missing_ok=True)
-            Path(temp_dir).rmdir()
-        except OSError:
-            pass
-
-    background_tasks.add_task(cleanup)
+    background_tasks.add_task(artifact.cleanup)
     logger.info("Exported model as %s", filename)
     return FileResponse(
-        str(temp_path),
+        str(artifact.path),
         media_type=media_types[fmt],
         filename=filename,
     )
@@ -280,54 +131,17 @@ async def export_model(request: ExportModelRequest, background_tasks: Background
 
 @app.post("/generate-mesh")
 async def generate_mesh(request: GenerateMeshRequest, background_tasks: BackgroundTasks):
-    """Execute build123d code and return a GLB file."""
+    """Execute build123d code in the sandbox and return a GLB file."""
     try:
-        from build123d.exporters3d import export_gltf
-    except ImportError as e:
-        logger.error("build123d import failed: %s", e, exc_info=True)
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "build123d is not installed. Install it with: "
-                "conda install -c conda-forge pythonocc-core && pip install build123d"
-            ),
-        ) from e
+        artifact = export_code(request.code, "glb")
+    except SandboxError as error:
+        status = 408 if error.kind == "sandbox_timeout" else 400
+        raise HTTPException(status_code=status, detail=str(error)) from error
 
-    scope = _build_scope()
-    try:
-        result = _execute_code(request.code.strip(), scope)
-    except Exception as e:
-        logger.error(
-            "Code execution failed: %s\nCode:\n%s\nTraceback:\n%s",
-            e,
-            request.code[:500] + ("..." if len(request.code) > 500 else ""),
-            traceback.format_exc(),
-        )
-        raise HTTPException(status_code=400, detail=f"Code execution failed: {str(e)}")
-
-    temp_dir = tempfile.mkdtemp()
-    temp_path = Path(temp_dir) / "output.glb"
-
-    try:
-        success = export_gltf(result, str(temp_path), binary=True)
-        if not success:
-            logger.error("export_gltf returned False")
-            raise HTTPException(status_code=500, detail="Failed to export GLB")
-    except Exception as e:
-        logger.error("Export failed: %s\n%s", e, traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
-
-    def cleanup():
-        try:
-            temp_path.unlink(missing_ok=True)
-            Path(temp_dir).rmdir()
-        except OSError:
-            pass
-
-    background_tasks.add_task(cleanup)
-    logger.info("Successfully generated GLB (result type: %s)", type(result).__name__)
+    background_tasks.add_task(artifact.cleanup)
+    logger.info("Successfully generated GLB in sandbox")
     return FileResponse(
-        str(temp_path),
+        str(artifact.path),
         media_type="model/gltf-binary",
         filename="model.glb",
     )

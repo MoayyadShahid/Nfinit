@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 import main
+from execution import SandboxArtifact
 
 
 def test_cad_run_exposes_agent_response(monkeypatch):
@@ -58,3 +59,38 @@ def test_cad_run_requires_user_message(monkeypatch):
     )
 
     assert response.status_code == 400
+
+
+def test_inspection_rejects_code_that_accesses_files():
+    client = TestClient(main.app)
+
+    response = client.post(
+        "/inspect-model",
+        json={"code": "result = open('/etc/passwd').read()"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+    assert "sandbox_security_error" in response.json()["error"]
+
+
+def test_mesh_generation_uses_sandbox_artifact(monkeypatch, tmp_path):
+    artifact_dir = tmp_path / "artifact"
+    artifact_dir.mkdir()
+    artifact_path = artifact_dir / "model.glb"
+    artifact_path.write_bytes(b"glTF-test")
+
+    def fake_export(code, operation):
+        assert code == "result = Box(1, 1, 1)"
+        assert operation == "glb"
+        return SandboxArtifact(path=artifact_path, temp_dir=artifact_dir)
+
+    monkeypatch.setattr(main, "export_code", fake_export)
+    client = TestClient(main.app)
+    response = client.post(
+        "/generate-mesh",
+        json={"code": "result = Box(1, 1, 1)"},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"glTF-test"

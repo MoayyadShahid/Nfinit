@@ -1,30 +1,15 @@
 import json
 import re
 
-
-BLOCKED_PATTERNS = (
-    (re.compile(r"^\s*(import\s|from\s+\S+\s+import)", re.MULTILINE), "import statement"),
-    (re.compile(r"\bexec\s*\("), "exec()"),
-    (re.compile(r"\beval\s*\("), "eval()"),
-    (re.compile(r"\bopen\s*\("), "open()"),
-    (re.compile(r"__\w+__"), "dunder attribute"),
-)
+from execution.policy import CodePolicyError, validate_cad_code
 
 
 def validate_code(code: str) -> str | None:
-    if not code.strip():
-        return "Generated code is empty."
-
-    for pattern, label in BLOCKED_PATTERNS:
-        if pattern.search(code):
-            return f"Generated code contains forbidden pattern: {label}"
-
-    if not re.search(r"\bresult\s*=", code) and not re.search(
-        r"with\s+BuildPart\s*\(", code
-    ):
-        return "Generated code must contain 'result = ...' or 'with BuildPart() as part:'."
-
-    return None
+    try:
+        validate_cad_code(code)
+        return None
+    except CodePolicyError as error:
+        return str(error)
 
 
 def extract_code(raw: str, structured: bool) -> str:

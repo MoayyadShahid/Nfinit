@@ -7,9 +7,9 @@ from agent.validation import extract_code, validate_code
     ("code", "expected"),
     [
         ("", "empty"),
-        ("import os\nresult = Box(1, 1, 1)", "import statement"),
-        ("result = eval('1')", "eval()"),
-        ("Box(1, 1, 1)", "must contain"),
+        ("import os\nresult = Box(1, 1, 1)", "Import"),
+        ("result = eval('1')", "eval"),
+        ("Box(1, 1, 1)", "must assign"),
     ],
 )
 def test_validate_code_rejects_invalid_input(code: str, expected: str):
