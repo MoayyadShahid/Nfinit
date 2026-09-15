@@ -178,9 +178,9 @@ def _pinecone_index():
         )
     client = Pinecone(api_key=api_key)
     return (
-        client.Index(host=index_host)
+        client.index(host=index_host)
         if index_host
-        else client.Index(index_name)
+        else client.index(index_name)
     )
 
 
