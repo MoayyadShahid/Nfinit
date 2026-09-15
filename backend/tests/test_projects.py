@@ -1,5 +1,6 @@
 import pytest
 
+from projects import models as project_models
 from projects.models import ProjectCreate, ProjectState
 from projects.store import ProjectNotFoundError, ProjectStore
 
@@ -67,3 +68,12 @@ def test_project_store_renames_lists_and_cascades_delete(tmp_path):
     assert store.list_projects() == []
     with pytest.raises(ProjectNotFoundError):
         store.get_project(created.id)
+
+
+def test_project_state_rejects_oversized_snapshots(monkeypatch):
+    monkeypatch.setattr(project_models, "MAX_PROJECT_STATE_BYTES", 100)
+
+    with pytest.raises(ValueError, match="20 MB persisted snapshot limit"):
+        ProjectState(
+            messages=[{"role": "user", "content": "x" * 200}],
+        )

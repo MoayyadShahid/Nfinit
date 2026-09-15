@@ -1,9 +1,12 @@
+import json
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from agent.models import FaceSelection
+
+MAX_PROJECT_STATE_BYTES = 20_000_000
 
 
 class ProjectState(BaseModel):
@@ -14,6 +17,20 @@ class ProjectState(BaseModel):
     model_id: str = Field(default="", alias="modelId", max_length=200)
     selection: FaceSelection | None = None
     last_run_id: str | None = Field(default=None, alias="lastRunId", max_length=100)
+
+    @model_validator(mode="after")
+    def validate_serialized_size(self):
+        size = len(
+            json.dumps(
+                self.model_dump(mode="json", by_alias=True),
+                separators=(",", ":"),
+            ).encode("utf-8")
+        )
+        if size > MAX_PROJECT_STATE_BYTES:
+            raise ValueError(
+                "Project state exceeds the 20 MB persisted snapshot limit."
+            )
+        return self
 
 
 class ProjectCreate(BaseModel):
