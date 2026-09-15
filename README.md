@@ -167,8 +167,10 @@ register_constraint(
 Constraints support dimensional kinds (`distance`, `angle`, `radius`,
 `diameter`, `thickness`, and `count`) and relational kinds such as
 `concentric`, `parallel`, and `symmetry`. They are validated, stored in topology
-analysis, and preserved by the editing prompt. They record authored intent; they
-do not claim to be a general geometric constraint solver.
+analysis, and preserved by the editing prompt. Numeric declarations that name an
+authored feature parameter are reported as `satisfied` or `violated`.
+Relationships requiring geometric reasoning are explicitly `unevaluated`.
+These records do not claim to be a general geometric constraint solver.
 
 `POST /compare-models` analyzes `previousCode` and `currentCode`, then reports:
 
@@ -178,6 +180,11 @@ do not claim to be a general geometric constraint solver.
 - conservative geometric face matches within the same authored feature, or
   among unassigned legacy faces
 - unmatched faces when repeated or symmetric geometry is ambiguous
+
+Pass an optional `previousFaceId` to receive `selectionRemap`. Persisted project
+comparison automatically uses the previous revision's selected face. A remap is
+reported as `matched`, `ambiguous`, `unmatched`, or `stale`; ambiguous matches
+are never silently resolved.
 
 Feature-ID matches have confidence 1 because identity is explicit. Geometric
 face confidence is descriptor-based and never used to silently rename authored

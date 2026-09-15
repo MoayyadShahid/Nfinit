@@ -123,6 +123,16 @@ class ConstraintRevisionMatch(BaseModel):
     changes: list[str] = Field(default_factory=list)
 
 
+class ConstraintEvaluation(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    constraint_id: str = Field(alias="constraintId")
+    status: Literal["satisfied", "violated", "unevaluated"]
+    expected: Any = None
+    actual: Any = None
+    message: str
+
+
 class FaceRevisionMatch(BaseModel):
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
@@ -137,6 +147,15 @@ class FaceRevisionMatch(BaseModel):
     status: Literal["unchanged", "modified"]
     confidence: float
     reason: Literal["exact_geometry", "same_feature_geometry", "legacy_geometry"]
+
+
+class SelectionRemap(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    previous_face_id: str = Field(alias="previousFaceId")
+    current_face_id: str | None = Field(default=None, alias="currentFaceId")
+    status: Literal["matched", "ambiguous", "unmatched", "stale"]
+    confidence: float
 
 
 class RevisionComparison(BaseModel):
@@ -167,6 +186,9 @@ class RevisionComparison(BaseModel):
     removed_constraint_ids: list[str] = Field(
         default_factory=list, alias="removedConstraintIds"
     )
+    constraint_evaluations: list[ConstraintEvaluation] = Field(
+        default_factory=list, alias="constraintEvaluations"
+    )
     face_matches: list[FaceRevisionMatch] = Field(
         default_factory=list, alias="faceMatches"
     )
@@ -175,5 +197,14 @@ class RevisionComparison(BaseModel):
     )
     unmatched_current_face_ids: list[str] = Field(
         default_factory=list, alias="unmatchedCurrentFaceIds"
+    )
+    ambiguous_previous_face_ids: list[str] = Field(
+        default_factory=list, alias="ambiguousPreviousFaceIds"
+    )
+    ambiguous_current_face_ids: list[str] = Field(
+        default_factory=list, alias="ambiguousCurrentFaceIds"
+    )
+    selection_remap: SelectionRemap | None = Field(
+        default=None, alias="selectionRemap"
     )
     error: str | None = None

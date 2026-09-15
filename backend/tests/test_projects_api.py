@@ -24,6 +24,12 @@ def test_project_api_manages_snapshots_and_history(client):
                 "messages": [{"role": "user", "content": "Make a mount"}],
                 "modelId": "anthropic/claude-opus-5",
                 "lastRunId": "run-one",
+                "selection": {
+                    "point": [5, 0, 0],
+                    "normal": [1, 0, 0],
+                    "entityId": "face-stale",
+                    "topologyVersion": "old-topology",
+                },
             },
         },
     )
@@ -67,6 +73,7 @@ def test_project_api_manages_snapshots_and_history(client):
         comparison.json()["currentTopologyVersion"]
     )
     assert comparison.json()["faceMatches"]
+    assert comparison.json()["selectionRemap"]["status"] == "stale"
 
     renamed = client.patch(
         f"/projects/{project_id}", json={"name": "Wide phone mount"}

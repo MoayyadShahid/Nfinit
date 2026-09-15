@@ -3,10 +3,12 @@ from collections.abc import Iterable
 
 from .runner import analyze_code
 from .topology import (
+    ConstraintEvaluation,
     ConstraintRevisionMatch,
     FaceRevisionMatch,
     FeatureRevisionMatch,
     RevisionComparison,
+    SelectionRemap,
     SemanticFeature,
     TopologyAnalysis,
     TopologyBounds,
@@ -98,7 +100,7 @@ def _face_distance(
 def _face_matches(
     previous: TopologyAnalysis,
     current: TopologyAnalysis,
-) -> tuple[list[FaceRevisionMatch], list[str], list[str]]:
+) -> tuple[list[FaceRevisionMatch], list[str], list[str], list[str], list[str]]:
     previous_faces = {face.id: face for face in previous.faces}
     current_faces = {face.id: face for face in current.faces}
     previous_owners = _feature_owner_map(previous.features)
@@ -210,12 +212,192 @@ def _face_matches(
         sorted(matches, key=lambda match: match.previous_face_id),
         sorted(set(previous_faces) - matched_previous),
         sorted(set(current_faces) - matched_current),
+        sorted(ambiguous_previous),
+        sorted(ambiguous_current),
+    )
+
+
+def _constraint_evaluations(
+    current: TopologyAnalysis,
+) -> list[ConstraintEvaluation]:
+    features = {feature.id: feature for feature in current.features}
+    evaluations = []
+    for constraint in current.constraints:
+        parameter = constraint.parameters.get("parameter")
+        tolerance = constraint.parameters.get(
+            "tolerance", constraint.parameters.get("tolerance_mm", 1e-6)
+        )
+        actual_values = [
+            features[feature_id].parameters.get(parameter)
+            for feature_id in constraint.feature_ids
+            if feature_id in features
+        ]
+        if (
+            not isinstance(parameter, str)
+            or not parameter
+            or len(actual_values) != len(constraint.feature_ids)
+            or any(value is None for value in actual_values)
+        ):
+            evaluations.append(
+                ConstraintEvaluation(
+                    constraint_id=constraint.id,
+                    status="unevaluated",
+                    message=(
+                        "No observable feature parameter mapping was declared."
+                    ),
+                )
+            )
+            continue
+        if (
+            isinstance(tolerance, bool)
+            or not isinstance(tolerance, (int, float))
+            or tolerance < 0
+        ):
+            evaluations.append(
+                ConstraintEvaluation(
+                    constraint_id=constraint.id,
+                    status="unevaluated",
+                    actual=actual_values,
+                    message="Constraint tolerance is not a non-negative number.",
+                )
+            )
+            continue
+
+        if constraint.kind == "equal":
+            numeric = all(
+                not isinstance(value, bool) and isinstance(value, (int, float))
+                for value in actual_values
+            )
+            satisfied = numeric and all(
+                math.isclose(
+                    float(actual_values[0]),
+                    float(value),
+                    abs_tol=float(tolerance),
+                    rel_tol=0,
+                )
+                for value in actual_values[1:]
+            )
+            evaluations.append(
+                ConstraintEvaluation(
+                    constraint_id=constraint.id,
+                    status="satisfied" if satisfied else "violated",
+                    expected="equal",
+                    actual=actual_values,
+                    message=(
+                        "Referenced feature parameters are equal."
+                        if satisfied
+                        else "Referenced feature parameters are not equal."
+                    ),
+                )
+            )
+            continue
+
+        evaluable_kinds = {
+            "distance",
+            "angle",
+            "radius",
+            "diameter",
+            "thickness",
+            "count",
+            "fixed",
+        }
+        expected = constraint.parameters.get("value")
+        numeric = (
+            constraint.kind in evaluable_kinds
+            and not isinstance(expected, bool)
+            and isinstance(expected, (int, float))
+            and all(
+                not isinstance(value, bool) and isinstance(value, (int, float))
+                for value in actual_values
+            )
+        )
+        if not numeric:
+            evaluations.append(
+                ConstraintEvaluation(
+                    constraint_id=constraint.id,
+                    status="unevaluated",
+                    expected=expected,
+                    actual=actual_values,
+                    message=(
+                        "This constraint cannot be verified from authored "
+                        "numeric feature parameters."
+                    ),
+                )
+            )
+            continue
+        satisfied = all(
+            math.isclose(
+                float(expected),
+                float(value),
+                abs_tol=float(tolerance),
+                rel_tol=0,
+            )
+            for value in actual_values
+        )
+        evaluations.append(
+            ConstraintEvaluation(
+                constraint_id=constraint.id,
+                status="satisfied" if satisfied else "violated",
+                expected=expected,
+                actual=(
+                    actual_values[0]
+                    if len(actual_values) == 1
+                    else actual_values
+                ),
+                message=(
+                    "Authored feature parameters satisfy the declaration."
+                    if satisfied
+                    else "Authored feature parameters differ from the declaration."
+                ),
+            )
+        )
+    return evaluations
+
+
+def _selection_remap(
+    previous_face_id: str | None,
+    previous: TopologyAnalysis,
+    matches: list[FaceRevisionMatch],
+    ambiguous_previous: list[str],
+) -> SelectionRemap | None:
+    if previous_face_id is None:
+        return None
+    if previous_face_id not in {face.id for face in previous.faces}:
+        return SelectionRemap(
+            previous_face_id=previous_face_id,
+            status="stale",
+            confidence=0,
+        )
+    match = next(
+        (
+            value
+            for value in matches
+            if value.previous_face_id == previous_face_id
+        ),
+        None,
+    )
+    if match is not None:
+        return SelectionRemap(
+            previous_face_id=previous_face_id,
+            current_face_id=match.current_face_id,
+            status="matched",
+            confidence=match.confidence,
+        )
+    return SelectionRemap(
+        previous_face_id=previous_face_id,
+        status=(
+            "ambiguous"
+            if previous_face_id in ambiguous_previous
+            else "unmatched"
+        ),
+        confidence=0,
     )
 
 
 def compare_analyses(
     previous: TopologyAnalysis,
     current: TopologyAnalysis,
+    previous_face_id: str | None = None,
 ) -> RevisionComparison:
     if not previous.valid or not current.valid:
         errors = []
@@ -273,9 +455,13 @@ def compare_analyses(
             )
         )
 
-    face_matches, unmatched_previous, unmatched_current = _face_matches(
-        previous, current
-    )
+    (
+        face_matches,
+        unmatched_previous,
+        unmatched_current,
+        ambiguous_previous,
+        ambiguous_current,
+    ) = _face_matches(previous, current)
     return RevisionComparison(
         valid=True,
         previous_topology_version=previous.topology_version,
@@ -292,14 +478,28 @@ def compare_analyses(
         removed_constraint_ids=sorted(
             set(previous_constraints) - set(current_constraints)
         ),
+        constraint_evaluations=_constraint_evaluations(current),
         face_matches=face_matches,
         unmatched_previous_face_ids=unmatched_previous,
         unmatched_current_face_ids=unmatched_current,
+        ambiguous_previous_face_ids=ambiguous_previous,
+        ambiguous_current_face_ids=ambiguous_current,
+        selection_remap=_selection_remap(
+            previous_face_id,
+            previous,
+            face_matches,
+            ambiguous_previous,
+        ),
     )
 
 
-def compare_code(previous_code: str, current_code: str) -> RevisionComparison:
+def compare_code(
+    previous_code: str,
+    current_code: str,
+    previous_face_id: str | None = None,
+) -> RevisionComparison:
     return compare_analyses(
         analyze_code(previous_code),
         analyze_code(current_code),
+        previous_face_id=previous_face_id,
     )

@@ -121,9 +121,10 @@ def test_analyze_model_exposes_resolved_brep_face(monkeypatch):
 
 
 def test_compare_models_exposes_revision_matches(monkeypatch):
-    def fake_compare(previous_code, current_code):
+    def fake_compare(previous_code, current_code, previous_face_id=None):
         assert previous_code == "result = Box(10, 10, 10)"
         assert current_code == "result = Box(20, 10, 10)"
+        assert previous_face_id == "face-before"
         return RevisionComparison(
             valid=True,
             previous_topology_version="before",
@@ -138,6 +139,7 @@ def test_compare_models_exposes_revision_matches(monkeypatch):
         json={
             "previousCode": "result = Box(10, 10, 10)",
             "currentCode": "result = Box(20, 10, 10)",
+            "previousFaceId": "face-before",
         },
     )
 

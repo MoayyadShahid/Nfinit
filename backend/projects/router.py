@@ -106,7 +106,16 @@ def compare_revisions(
         current = store.get_revision(project_id, current_revision)
     except (ProjectNotFoundError, RevisionNotFoundError) as error:
         raise _not_found(error) from error
-    return compare_code(previous.state.code, current.state.code)
+    previous_face_id = (
+        previous.state.selection.entity_id
+        if previous.state.selection is not None
+        else None
+    )
+    return compare_code(
+        previous.state.code,
+        current.state.code,
+        previous_face_id=previous_face_id,
+    )
 
 
 @router.get(

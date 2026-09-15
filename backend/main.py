@@ -74,6 +74,7 @@ class CompareModelsRequest(BaseModel):
 
     previous_code: str = Field(alias="previousCode")
     current_code: str = Field(alias="currentCode")
+    previous_face_id: str | None = Field(default=None, alias="previousFaceId")
 
 
 def _inspect_code(code: str) -> ModelInspection:
@@ -96,7 +97,11 @@ async def analyze_model(request: AnalyzeModelRequest):
 @app.post("/compare-models", response_model=RevisionComparison)
 def compare_models(request: CompareModelsRequest):
     """Match semantic features, constraints, and faces across two revisions."""
-    return compare_code(request.previous_code, request.current_code)
+    return compare_code(
+        request.previous_code,
+        request.current_code,
+        previous_face_id=request.previous_face_id,
+    )
 
 
 @app.post("/cad/run", response_model=CadRunResponse)

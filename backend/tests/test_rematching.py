@@ -50,6 +50,7 @@ def test_authored_features_and_constraints_match_across_parameter_edit():
     assert constraint.previous_id == constraint.current_id == "plate_width"
     assert constraint.status == "modified"
     assert constraint.changes == ["parameters"]
+    assert comparison.constraint_evaluations[0].status == "satisfied"
     assert comparison.face_matches
     assert all(
         match.previous_feature_id == match.current_feature_id == "base_plate"
@@ -130,11 +131,66 @@ def test_ambiguous_geometry_is_left_unmatched_instead_of_guessed():
         faces=[_ambiguous_face("after-a"), _ambiguous_face("after-b")],
     )
 
-    comparison = compare_analyses(previous, current)
+    comparison = compare_analyses(
+        previous, current, previous_face_id="before-a"
+    )
 
     assert comparison.face_matches == []
+    assert comparison.ambiguous_previous_face_ids == ["before-a", "before-b"]
+    assert comparison.ambiguous_current_face_ids == ["after-a", "after-b"]
     assert comparison.unmatched_previous_face_ids == ["before-a", "before-b"]
     assert comparison.unmatched_current_face_ids == ["after-a", "after-b"]
+    assert comparison.selection_remap.status == "ambiguous"
+
+
+def test_selected_face_is_remapped_to_current_revision():
+    code = REVISION_TEMPLATE.format(width=30)
+    first = compare_code(code, code)
+    previous_face_id = first.face_matches[0].previous_face_id
+
+    comparison = compare_code(
+        code,
+        REVISION_TEMPLATE.format(width=32),
+        previous_face_id=previous_face_id,
+    )
+
+    assert comparison.selection_remap is not None
+    assert comparison.selection_remap.status == "matched"
+    assert comparison.selection_remap.current_face_id
+    assert comparison.selection_remap.confidence > 0
+
+
+def test_constraint_evaluation_detects_parameter_drift():
+    previous = REVISION_TEMPLATE.format(width=30)
+    current = REVISION_TEMPLATE.format(width=45).replace(
+        '"value": width', '"value": 30'
+    )
+
+    comparison = compare_code(previous, current)
+
+    evaluation = comparison.constraint_evaluations[0]
+    assert evaluation.constraint_id == "plate_width"
+    assert evaluation.status == "violated"
+    assert evaluation.expected == 30
+    assert evaluation.actual == 45
+
+
+def test_geometric_relation_is_explicitly_unevaluated():
+    code = """
+with BuildPart() as part:
+    Box(20, 20, 5)
+    register_feature("plate", "Plate", "additive", part.part)
+    Hole(3, depth=5)
+    register_feature("hole", "Hole", "subtractive", part.part)
+register_constraint("alignment", "concentric", ["plate", "hole"])
+result = part.part
+"""
+
+    comparison = compare_code(code, code)
+
+    evaluation = comparison.constraint_evaluations[0]
+    assert evaluation.constraint_id == "alignment"
+    assert evaluation.status == "unevaluated"
 
 
 def test_invalid_revision_returns_comparison_error():
