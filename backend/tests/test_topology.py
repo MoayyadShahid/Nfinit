@@ -164,3 +164,89 @@ def test_semantic_feature_count_is_bounded():
 
     assert not analysis.valid
     assert "at most 64 features" in analysis.error
+
+
+def test_semantic_constraints_capture_authored_design_intent():
+    analysis = analyze_code(
+        """
+width, depth, thickness = 30.0, 20.0, 4.0
+with BuildPart() as part:
+    Box(width, depth, thickness)
+    register_feature(
+        "base_plate",
+        "Base plate",
+        "additive",
+        part.part,
+        parameters={"width": width, "depth": depth, "thickness": thickness},
+    )
+register_constraint(
+    "plate_thickness",
+    "thickness",
+    ["base_plate"],
+    parameters={"parameter": "thickness", "value": thickness, "unit": "mm"},
+)
+result = part.part
+"""
+    )
+
+    assert analysis.valid
+    assert len(analysis.constraints) == 1
+    constraint = analysis.constraints[0]
+    assert constraint.id == "plate_thickness"
+    assert constraint.kind == "thickness"
+    assert constraint.feature_ids == ["base_plate"]
+    assert constraint.parameters["value"] == 4
+    assert constraint.sequence == 0
+
+
+def test_semantic_constraint_rejects_unknown_feature_reference():
+    analysis = analyze_code(
+        """
+result = Box(10, 10, 10)
+register_constraint("width", "distance", ["missing"], {"value": 10})
+"""
+    )
+
+    assert not analysis.valid
+    assert "unknown IDs: missing" in analysis.error
+
+
+def test_dimensional_constraint_requires_finite_numeric_value():
+    analysis = analyze_code(
+        """
+result = Box(10, 10, 10)
+register_feature("body", "Body", "additive", result)
+register_constraint("width", "distance", ["body"], {"value": "ten"})
+"""
+    )
+
+    assert not analysis.valid
+    assert "requires a finite numeric value" in analysis.error
+
+
+def test_relational_constraint_requires_distinct_feature_references():
+    analysis = analyze_code(
+        """
+result = Box(10, 10, 10)
+register_feature("body", "Body", "additive", result)
+register_constraint("self_equal", "equal", ["body", "body"])
+"""
+    )
+
+    assert not analysis.valid
+    assert "must not contain duplicates" in analysis.error
+
+
+def test_semantic_constraint_count_is_bounded():
+    registrations = "\n".join(
+        f'register_constraint("constraint_{index}", "fixed", ["body"])'
+        for index in range(129)
+    )
+    analysis = analyze_code(
+        "result = Box(10, 10, 10)\n"
+        'register_feature("body", "Body", "additive", result)\n'
+        f"{registrations}"
+    )
+
+    assert not analysis.valid
+    assert "at most 128 constraints" in analysis.error

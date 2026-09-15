@@ -152,6 +152,44 @@ instead of receiving guessed history. Scripts may declare up to 64 features.
 `ownedFaceIds` are recomputed for each B-rep version; the authored feature ID,
 not a face ID, is the cross-edit semantic handle.
 
+Generated scripts can also declare stable, revision-aware design intent after
+the referenced features exist:
+
+```python
+register_constraint(
+    "plate_thickness",
+    "thickness",
+    ["base_plate"],
+    parameters={"parameter": "thickness", "value": thickness, "unit": "mm"},
+)
+```
+
+Constraints support dimensional kinds (`distance`, `angle`, `radius`,
+`diameter`, `thickness`, and `count`) and relational kinds such as
+`concentric`, `parallel`, and `symmetry`. They are validated, stored in topology
+analysis, and preserved by the editing prompt. Numeric declarations that name an
+authored feature parameter are reported as `satisfied` or `violated`.
+Relationships requiring geometric reasoning are explicitly `unevaluated`.
+These records do not claim to be a general geometric constraint solver.
+
+`POST /compare-models` analyzes `previousCode` and `currentCode`, then reports:
+
+- exact feature and constraint matches by stable authored ID, including changed
+  fields and added or removed IDs
+- exact face matches when content-addressed B-rep IDs survive
+- conservative geometric face matches within the same authored feature, or
+  among unassigned legacy faces
+- unmatched faces when repeated or symmetric geometry is ambiguous
+
+Pass an optional `previousFaceId` to receive `selectionRemap`. Persisted project
+comparison automatically uses the previous revision's selected face. A remap is
+reported as `matched`, `ambiguous`, `unmatched`, or `stale`; ambiguous matches
+are never silently resolved.
+
+Feature-ID matches have confidence 1 because identity is explicit. Geometric
+face confidence is descriptor-based and never used to silently rename authored
+features.
+
 ## Execution sandbox
 
 Generated code never runs inside the FastAPI process. Before execution, an AST
@@ -192,6 +230,7 @@ Project APIs:
 - `GET`, `PATCH`, and `DELETE /projects/{project_id}`
 - `POST` and `GET /projects/{project_id}/revisions`
 - `GET /projects/{project_id}/revisions/{revision_number}`
+- `GET /projects/{project_id}/compare?previousRevision=1&currentRevision=2`
 
 SQLite WAL mode and transactional revision numbering keep concurrent saves
 consistent. Database files are excluded from Git.
