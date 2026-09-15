@@ -234,7 +234,7 @@ def compare_analyses(
         changes = _changed_fields(
             before,
             after,
-            ("name", "operation", "parent_id", "parameters"),
+            ("name", "operation", "parent_id", "parameters", "sequence"),
         )
         if set(before.owned_face_ids) != set(after.owned_face_ids):
             changes.append("geometry")
@@ -262,7 +262,7 @@ def compare_analyses(
         before = previous_constraints[constraint_id]
         after = current_constraints[constraint_id]
         changes = _changed_fields(
-            before, after, ("kind", "feature_ids", "parameters")
+            before, after, ("kind", "feature_ids", "parameters", "sequence")
         )
         constraint_matches.append(
             ConstraintRevisionMatch(
