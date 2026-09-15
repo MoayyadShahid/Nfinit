@@ -56,7 +56,7 @@ class ProjectRevision(BaseModel):
 
 
 class ProjectSummary(BaseModel):
-    model_config = ConfigDict(serialize_by_alias=True)
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
     id: str
     name: str
