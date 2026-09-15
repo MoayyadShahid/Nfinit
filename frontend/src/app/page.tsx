@@ -2,9 +2,17 @@
 
 import { ChatPane } from "@/components/ChatPane";
 import { CommandBar, type ExportFormat } from "@/components/CommandBar";
+import { DesignInspector } from "@/components/DesignInspector";
 import { EditorPane } from "@/components/EditorPane";
 import { ViewportPane } from "@/components/ViewportPane";
-import { DEFAULT_MODEL, getModelConfig } from "@/lib/constants";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DEFAULT_MODEL, getModelConfig, MODEL_CONFIGS } from "@/lib/constants";
 import {
   addRevision,
   createProject,
@@ -20,15 +28,14 @@ import {
   type ChatMessage,
   type ContentPart,
   type FaceSelection,
+  type ModelInspection,
 } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { Code2, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const LAST_PROJECT_KEY = "nfinit:last-project-id";
-
-export type LayoutMode = "default" | "code" | "mesh";
 
 const DEFAULT_CODE = [
   "width, depth, height = 10.0, 10.0, 10.0",
@@ -40,7 +47,6 @@ const DEFAULT_CODE = [
 ].join("\n");
 
 export default function Home() {
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>("default");
   const [code, setCode] = useState(DEFAULT_CODE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL);
@@ -56,8 +62,17 @@ export default function Home() {
   const [currentRevision, setCurrentRevision] = useState<number | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(true);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
+  const inspection = useMemo<ModelInspection | null>(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const value = messages[index].agent?.inspection;
+      if (value) return value;
+    }
+    return null;
+  }, [messages]);
 
   const generateMesh = useCallback(async (
     codeToExecute: string,
@@ -445,7 +460,10 @@ export default function Home() {
         }
       })
       .finally(() => {
-        if (active) setIsProjectLoading(false);
+        if (active) {
+          setIsProjectLoading(false);
+          setHasInitialized(true);
+        }
       });
     return () => {
       active = false;
@@ -478,65 +496,74 @@ export default function Home() {
     };
   }, [glbUrl]);
 
+  const showWelcome =
+    hasInitialized && !projectId && messages.length === 0 && glbUrl === null;
+
   return (
-    <div className="flex h-screen flex-col bg-[#000000] text-zinc-200">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#090a0d] text-zinc-200">
       <CommandBar
-        modelId={modelId}
-        onModelChange={(value) => {
-          setModelId(value);
-          setIsDirty(true);
-        }}
-        layoutMode={layoutMode}
-        onLayoutChange={setLayoutMode}
         onExport={handleExport}
         projects={projects}
         projectId={projectId}
-        revisions={revisions}
-        currentRevision={currentRevision}
         isDirty={isDirty}
         isSaving={isSaving}
+        advancedOpen={advancedOpen}
+        onAdvancedChange={setAdvancedOpen}
         onProjectChange={loadProject}
-        onRevisionChange={loadRevision}
         onNewProject={startNewProject}
         onSave={saveCurrentRevision}
       />
-      <div
-        className={cn(
-          "grid min-h-0 flex-1 overflow-hidden",
-          layoutMode === "default" &&
-            "grid-cols-1 md:grid-cols-[1fr_1.2fr_1fr]",
-          layoutMode === "code" && "grid-cols-1 md:grid-cols-[2fr_1fr]",
-          layoutMode === "mesh" && "grid-cols-1 md:grid-cols-[2fr_1fr]"
-        )}
-      >
-        {layoutMode !== "mesh" && (
-          <div className="flex min-h-[200px] flex-col overflow-hidden md:min-h-0">
-            <EditorPane
-              code={code}
-              onCodeChange={(value) => {
-                setCode(value);
-                setIsDirty(true);
-              }}
-              onGenerate={handleGenerate}
+
+      {!hasInitialized ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <div className="size-8 animate-spin rounded-full border-2 border-zinc-800 border-t-violet-400" />
+        </div>
+      ) : showWelcome ? (
+        <main className="relative min-h-0 flex-1 overflow-y-auto">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(124,58,237,0.16),transparent_36%),radial-gradient(circle_at_80%_80%,rgba(37,99,235,0.09),transparent_30%)]" />
+          <div className="relative mx-auto flex min-h-full max-w-5xl flex-col items-center justify-center px-4 py-10 sm:px-8">
+            <div className="mb-8 max-w-2xl text-center">
+              <div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-300 shadow-xl shadow-violet-500/10">
+                <Sparkles className="size-5" />
+              </div>
+              <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] text-white sm:text-5xl">
+                What do you want to make?
+              </h1>
+              <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-500 sm:text-base">
+                Describe a single part in plain language. Add dimensions if you have
+                them—we’ll turn it into editable, export-ready CAD.
+              </p>
+            </div>
+            <div className="h-[340px] w-full max-w-3xl">
+              <ChatPane
+                messages={messages}
+                onSend={handleChatSend}
+                isLoading={isLoading || isProjectLoading}
+                lastError={error}
+                supportsVision={modelConfig?.supportsVision ?? false}
+                selection={selectedFace}
+                variant="welcome"
+              />
+            </div>
+            <p className="mt-5 text-center text-[11px] text-zinc-600">
+              Valid geometry is saved automatically as an immutable revision.
+            </p>
+          </div>
+        </main>
+      ) : (
+        <main className="grid min-h-0 flex-1 grid-rows-[minmax(280px,1fr)_minmax(300px,44vh)] overflow-hidden lg:grid-cols-[360px_minmax(0,1fr)] lg:grid-rows-1 xl:grid-cols-[360px_minmax(0,1fr)_290px]">
+          <div className="order-2 flex min-h-0 flex-col overflow-hidden lg:order-1">
+            <ChatPane
+              messages={messages}
+              onSend={handleChatSend}
+              isLoading={isLoading || isProjectLoading}
+              lastError={error}
+              supportsVision={modelConfig?.supportsVision ?? false}
+              selection={selectedFace}
             />
           </div>
-        )}
-        {layoutMode !== "code" && (
-          <div className="relative min-h-[200px] overflow-hidden md:min-h-0">
-            {error && (
-              <div className="absolute left-4 right-4 top-4 z-20 flex items-start justify-between gap-3 rounded border border-red-500/50 bg-red-950/80 px-3 py-2 text-sm text-red-200">
-                <span className="flex-1">{error}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(error);
-                  }}
-                  className="shrink-0 rounded px-2 py-1 text-xs hover:bg-red-900/50"
-                >
-                  Copy
-                </button>
-              </div>
-            )}
+          <div className="relative order-1 min-h-0 overflow-hidden bg-[#17181d] p-2 lg:order-2 lg:p-3">
+            <div className="h-full overflow-hidden rounded-xl border border-black/10 bg-[#e7e8eb] shadow-2xl shadow-black/20">
             <ViewportPane
               glbUrl={glbUrl}
               code={code}
@@ -547,18 +574,92 @@ export default function Home() {
               }}
             />
           </div>
-        )}
-        <div className="flex min-h-[200px] flex-col overflow-hidden md:min-h-0">
-          <ChatPane
-            messages={messages}
-            onSend={handleChatSend}
-            isLoading={isLoading || isProjectLoading}
-            lastError={error}
-            supportsVision={modelConfig?.supportsVision ?? false}
-            selection={selectedFace}
-          />
+          </div>
+          <div className="order-3 hidden min-h-0 xl:flex xl:flex-col">
+            <DesignInspector
+              inspection={inspection}
+              selection={selectedFace}
+              revisions={revisions}
+              currentRevision={currentRevision}
+              isDirty={isDirty}
+              onRevisionChange={loadRevision}
+            />
+          </div>
+        </main>
+      )}
+
+      {error && (
+        <div className="fixed bottom-5 left-1/2 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 rounded-xl border border-red-400/20 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur">
+          <span className="min-w-0 flex-1">{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+            className="rounded-md p-1 text-red-300 hover:bg-white/10"
+          >
+            <X className="size-4" />
+          </button>
         </div>
-      </div>
+      )}
+
+      {advancedOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close advanced tools"
+            className="fixed inset-0 top-16 z-40 bg-black/55 backdrop-blur-[2px]"
+            onClick={() => setAdvancedOpen(false)}
+          />
+          <aside className="fixed inset-y-0 right-0 z-50 mt-16 flex w-full max-w-3xl flex-col border-l border-white/10 bg-[#0d0e12] shadow-2xl shadow-black/60">
+            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/8 px-4">
+              <Code2 className="size-4 text-violet-400" />
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold text-white">Advanced editor</h2>
+                <p className="text-[10px] text-zinc-600">Edit build123d source directly</p>
+              </div>
+              <Select
+                value={modelId}
+                onValueChange={(value) => {
+                  setModelId(value);
+                  setIsDirty(true);
+                }}
+              >
+                <SelectTrigger
+                  aria-label="Generation model"
+                  className="h-8 w-[180px] border-white/10 bg-white/5 text-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MODEL_CONFIGS.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen(false)}
+                aria-label="Close advanced editor"
+                className="rounded-lg p-2 text-zinc-500 hover:bg-white/8 hover:text-white"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <EditorPane
+                code={code}
+                onCodeChange={(value) => {
+                  setCode(value);
+                  setIsDirty(true);
+                }}
+                onGenerate={handleGenerate}
+              />
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }
