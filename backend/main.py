@@ -94,7 +94,7 @@ async def analyze_model(request: AnalyzeModelRequest):
 
 
 @app.post("/compare-models", response_model=RevisionComparison)
-async def compare_models(request: CompareModelsRequest):
+def compare_models(request: CompareModelsRequest):
     """Match semantic features, constraints, and faces across two revisions."""
     return compare_code(request.previous_code, request.current_code)
 

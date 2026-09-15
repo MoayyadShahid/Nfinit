@@ -224,6 +224,19 @@ register_constraint("width", "distance", ["body"], {"value": "ten"})
     assert "requires a finite numeric value" in analysis.error
 
 
+def test_relational_constraint_requires_distinct_feature_references():
+    analysis = analyze_code(
+        """
+result = Box(10, 10, 10)
+register_feature("body", "Body", "additive", result)
+register_constraint("self_equal", "equal", ["body", "body"])
+"""
+    )
+
+    assert not analysis.valid
+    assert "must not contain duplicates" in analysis.error
+
+
 def test_semantic_constraint_count_is_bounded():
     registrations = "\n".join(
         f'register_constraint("constraint_{index}", "fixed", ["body"])'

@@ -308,13 +308,28 @@ def _build_scope():
             raise ValueError(
                 "Constraint feature IDs must be a list of 1 to 8 feature IDs."
             )
-        feature_ids = list(dict.fromkeys(feature_ids))
+        if len(set(feature_ids)) != len(feature_ids):
+            raise ValueError(
+                "Constraint feature IDs must not contain duplicates."
+            )
+        feature_ids = list(feature_ids)
         known_ids = {record["id"] for record in feature_records}
         unknown_ids = sorted(set(feature_ids) - known_ids)
         if unknown_ids:
             raise ValueError(
                 "Constraint features must be registered first; unknown IDs: "
                 + ", ".join(unknown_ids)
+            )
+        pair_kinds = {
+            "equal",
+            "concentric",
+            "coincident",
+            "parallel",
+            "perpendicular",
+        }
+        if kind in pair_kinds and len(feature_ids) < 2:
+            raise ValueError(
+                f"Constraint kind '{kind}' requires at least two features."
             )
         encoded_parameters = _json_parameters(parameters, "Constraint")
         dimensional_kinds = {
