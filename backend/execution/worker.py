@@ -9,9 +9,11 @@ import hashlib
 import json
 import math
 import os
+import re
 import resource
 import socket
 import sys
+from collections import Counter
 from pathlib import Path
 
 
@@ -125,6 +127,7 @@ APPROVED_BUILD123D_NAMES = {
     "sweep",
     "trace",
 }
+MAX_SEMANTIC_FEATURES = 64
 
 
 def _apply_resource_limits():
@@ -156,6 +159,7 @@ def _build_scope():
     from build123d import Location
 
     scope = {"__builtins__": SAFE_BUILTINS}
+    feature_records = []
     for name in APPROVED_BUILD123D_NAMES:
         if hasattr(build123d, name):
             scope[name] = getattr(build123d, name)
@@ -180,11 +184,76 @@ def _build_scope():
     }
     scope.update({name: value for name, value in aliases.items() if value is not None})
     scope["Location"] = Location
-    return scope
+
+    def register_feature(
+        feature_id,
+        name,
+        operation,
+        shape,
+        parent_id=None,
+        parameters=None,
+    ):
+        if len(feature_records) >= MAX_SEMANTIC_FEATURES:
+            raise ValueError(
+                f"CAD scripts may register at most {MAX_SEMANTIC_FEATURES} features."
+            )
+        if not isinstance(feature_id, str) or not re.fullmatch(
+            r"[a-z][a-z0-9_]{0,63}", feature_id
+        ):
+            raise ValueError(
+                "Feature IDs must use lowercase letters, numbers, and underscores."
+            )
+        if any(record["id"] == feature_id for record in feature_records):
+            raise ValueError(f"Feature ID '{feature_id}' is duplicated.")
+        if not isinstance(name, str) or not name.strip() or len(name) > 120:
+            raise ValueError("Feature names must contain 1 to 120 characters.")
+        allowed_operations = {
+            "additive",
+            "subtractive",
+            "pattern",
+            "fillet",
+            "chamfer",
+            "transform",
+            "reference",
+            "other",
+        }
+        if operation not in allowed_operations:
+            raise ValueError(f"Unsupported feature operation '{operation}'.")
+        known_ids = {record["id"] for record in feature_records}
+        if parent_id is not None and parent_id not in known_ids:
+            raise ValueError(
+                f"Feature parent '{parent_id}' must be registered first."
+            )
+        if hasattr(shape, "part"):
+            shape = shape.part
+        if not hasattr(shape, "faces"):
+            raise ValueError("Feature snapshots require a build123d shape.")
+        parameters = parameters or {}
+        try:
+            encoded_parameters = json.dumps(
+                parameters, sort_keys=True, separators=(",", ":")
+            )
+        except (TypeError, ValueError) as error:
+            raise ValueError("Feature parameters must be JSON serializable.") from error
+        if len(encoded_parameters.encode("utf-8")) > 4096:
+            raise ValueError("Feature parameters may not exceed 4096 bytes.")
+        feature_records.append(
+            {
+                "id": feature_id,
+                "name": name.strip(),
+                "operation": operation,
+                "parentId": parent_id,
+                "parameters": json.loads(encoded_parameters),
+                "face_signatures": _snapshot_face_signatures(shape),
+            }
+        )
+
+    scope["register_feature"] = register_feature
+    return scope, feature_records
 
 
 def _execute(code: str):
-    scope = _build_scope()
+    scope, feature_records = _build_scope()
     with contextlib.redirect_stdout(sys.stderr):
         exec(compile(code, "<generated-cad>", "exec"), scope)
 
@@ -212,7 +281,7 @@ def _execute(code: str):
         from build123d import Location
 
         result.location = Location()
-    return result
+    return result, feature_records
 
 
 def _inspect(result):
@@ -244,6 +313,39 @@ def _bounds(shape):
     }
 
 
+def _edge_geometry(edge):
+    return {
+        "curve_type": edge.geom_type.name.lower(),
+        "length_mm": round(float(edge.length), 6),
+        "center_mm": _vector(edge.center()),
+        "bounds_mm": _bounds(edge),
+    }
+
+
+def _face_snapshot_signature(face):
+    edge_signatures = sorted(
+        json.dumps(
+            _edge_geometry(edge),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        for edge in face.edges()
+    )
+    payload = {
+        "surface_type": face.geom_type.name.lower(),
+        "area_mm2": round(float(face.area), 6),
+        "center_mm": _vector(face.center()),
+        "normal": _vector(face.normal_at()),
+        "bounds_mm": _bounds(face),
+        "edges": edge_signatures,
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _snapshot_face_signatures(shape):
+    return sorted(_face_snapshot_signature(face) for face in shape.faces())
+
+
 def _entity_id(prefix: str, payload: dict, occurrence: int = 0):
     canonical = json.dumps(
         {"geometry": payload, "occurrence": occurrence},
@@ -254,15 +356,51 @@ def _entity_id(prefix: str, payload: dict, occurrence: int = 0):
     return f"{prefix}_{digest}"
 
 
-def _topology(result, selection=None):
+def _feature_tree(feature_records, face_records):
+    final_faces = {}
+    for record in face_records:
+        final_faces.setdefault(record["ownership_signature"], []).append(
+            record["payload"]["id"]
+        )
+    for face_ids in final_faces.values():
+        face_ids.sort()
+
+    assigned = set()
+    previous = Counter()
+    features = []
+    for index, record in enumerate(feature_records):
+        current = Counter(record["face_signatures"])
+        introduced = current - previous
+        owned_face_ids = []
+        for signature, count in sorted(introduced.items()):
+            candidates = [
+                face_id
+                for face_id in final_faces.get(signature, [])
+                if face_id not in assigned
+            ]
+            owned_face_ids.extend(candidates[:count])
+        assigned.update(owned_face_ids)
+        features.append(
+            {
+                "id": record["id"],
+                "name": record["name"],
+                "operation": record["operation"],
+                "parentId": record["parentId"],
+                "parameters": record["parameters"],
+                "sequence": index,
+                "ownedFaceIds": sorted(owned_face_ids),
+            }
+        )
+        previous = current
+
+    all_face_ids = {record["payload"]["id"] for record in face_records}
+    return features, sorted(all_face_ids - assigned)
+
+
+def _topology(result, selection=None, feature_records=None):
     edge_records = []
     for edge in result.edges():
-        payload = {
-            "curve_type": edge.geom_type.name.lower(),
-            "length_mm": round(float(edge.length), 6),
-            "center_mm": _vector(edge.center()),
-            "bounds_mm": _bounds(edge),
-        }
+        payload = _edge_geometry(edge)
         signature = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         edge_records.append({"shape": edge, "payload": payload, "signature": signature})
 
@@ -291,7 +429,15 @@ def _topology(result, selection=None):
             "edge_ids": edge_ids,
         }
         signature = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        face_records.append({"shape": face, "payload": payload, "signature": signature})
+        ownership_signature = _face_snapshot_signature(face)
+        face_records.append(
+            {
+                "shape": face,
+                "payload": payload,
+                "signature": signature,
+                "ownership_signature": ownership_signature,
+            }
+        )
 
     occurrences = {}
     for record in sorted(face_records, key=lambda item: item["signature"]):
@@ -319,6 +465,9 @@ def _topology(result, selection=None):
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()[:20]
+    features, unassigned_face_ids = _feature_tree(
+        feature_records or [], face_records
+    )
 
     selected_face = None
     if selection and face_records:
@@ -368,6 +517,8 @@ def _topology(result, selection=None):
         "topologyVersion": topology_version,
         "faces": faces,
         "edges": edges,
+        "features": features,
+        "unassignedFaceIds": unassigned_face_ids,
         "selectedFace": selected_face,
         "error": None,
     }
@@ -401,12 +552,16 @@ def main():
     _apply_resource_limits()
     request = json.loads(sys.stdin.read())
     _disable_network()
-    result = _execute(request["code"])
+    result, feature_records = _execute(request["code"])
     operation = request["operation"]
     if operation == "inspect":
         data = _inspect(result)
     elif operation == "topology":
-        data = _topology(result, request.get("selection"))
+        data = _topology(
+            result,
+            request.get("selection"),
+            feature_records=feature_records,
+        )
     else:
         data = _export(result, operation, request["output_name"])
     print(json.dumps({"ok": True, "data": data}), flush=True)

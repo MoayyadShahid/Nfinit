@@ -1,3 +1,5 @@
+from typing import Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -34,6 +36,27 @@ class ResolvedFaceSelection(BaseModel):
     confidence: float
 
 
+class SemanticFeature(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    id: str
+    name: str
+    operation: Literal[
+        "additive",
+        "subtractive",
+        "pattern",
+        "fillet",
+        "chamfer",
+        "transform",
+        "reference",
+        "other",
+    ]
+    parent_id: str | None = Field(default=None, alias="parentId")
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    sequence: int
+    owned_face_ids: list[str] = Field(default_factory=list, alias="ownedFaceIds")
+
+
 class TopologyAnalysis(BaseModel):
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
@@ -41,6 +64,10 @@ class TopologyAnalysis(BaseModel):
     topology_version: str | None = Field(default=None, alias="topologyVersion")
     faces: list[TopologyFace] = Field(default_factory=list)
     edges: list[TopologyEdge] = Field(default_factory=list)
+    features: list[SemanticFeature] = Field(default_factory=list)
+    unassigned_face_ids: list[str] = Field(
+        default_factory=list, alias="unassignedFaceIds"
+    )
     selected_face: ResolvedFaceSelection | None = Field(
         default=None, alias="selectedFace"
     )
