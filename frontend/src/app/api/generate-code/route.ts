@@ -1,3 +1,4 @@
+import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
@@ -320,15 +321,19 @@ function textOf(content: string | ContentPart[]): string {
 
 function buildLastUserContent(
   lastMsg: ChatMessage,
-  currentCode: string | undefined
+  currentCode: string | undefined,
+  selection?: SelectionContext | null
 ): string | ContentPart[] {
   const codeSnippet =
     currentCode && String(currentCode).trim()
       ? `\n\nCurrent code:\n${currentCode}`
       : "";
+  const selectionSnippet = selection
+    ? `\n\nSelected face in the current model:\n- point (mm): ${selection.point.join(", ")}\n- outward normal: ${selection.normal.join(", ")}\nApply spatial references such as "this face", "here", or "selected area" to this face.`
+    : "";
 
   if (typeof lastMsg.content === "string") {
-    return lastMsg.content + codeSnippet;
+    return lastMsg.content + selectionSnippet + codeSnippet;
   }
 
   const textParts = lastMsg.content.filter(
@@ -339,7 +344,7 @@ function buildLastUserContent(
   );
 
   const combinedText =
-    textParts.map((p) => p.text).join("\n") + codeSnippet;
+    textParts.map((p) => p.text).join("\n") + selectionSnippet + codeSnippet;
 
   return [
     { type: "text", text: combinedText } as TextPart,
@@ -368,6 +373,246 @@ const CAD_CODE_SCHEMA = {
 };
 
 /* ------------------------------------------------------------------ */
+/*  LangGraph CAD agent                                                */
+/* ------------------------------------------------------------------ */
+
+type SelectionContext = {
+  point: [number, number, number];
+  normal: [number, number, number];
+};
+
+type ModelInspection = {
+  valid: boolean;
+  shape_type?: string;
+  solid_count?: number;
+  volume_mm3?: number;
+  bounding_box_mm?: { x: number; y: number; z: number };
+  error?: string;
+};
+
+type TraceStep = {
+  node: "plan" | "generate" | "inspect" | "repair";
+  status: "complete" | "passed" | "failed";
+  detail: string;
+};
+
+const MAX_REPAIR_ATTEMPTS = 3;
+
+const AgentState = Annotation.Root({
+  messages: Annotation<ChatMessage[]>(),
+  currentCode: Annotation<string>(),
+  modelId: Annotation<string>(),
+  supportsStructuredOutputs: Annotation<boolean>(),
+  selection: Annotation<SelectionContext | null>(),
+  plan: Annotation<string>(),
+  code: Annotation<string>(),
+  inspection: Annotation<ModelInspection | null>(),
+  validationError: Annotation<string | null>(),
+  repairAttempts: Annotation<number>(),
+  trace: Annotation<TraceStep[]>(),
+});
+
+type AgentStateType = typeof AgentState.State;
+
+function conversationMessages(state: AgentStateType) {
+  const lastMsg = state.messages[state.messages.length - 1];
+  return [
+    ...state.messages.slice(0, -1).map((message) => ({
+      role: message.role,
+      content: textOf(message.content),
+    })),
+    {
+      role: "user" as const,
+      content: buildLastUserContent(
+        lastMsg,
+        state.currentCode,
+        state.selection
+      ),
+    },
+  ];
+}
+
+async function complete(
+  openai: OpenAI,
+  state: AgentStateType,
+  messages: unknown[],
+  structured = false
+) {
+  // OpenRouter accepts OpenAI-compatible payloads, including its reasoning extension.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const params: any = {
+    model: state.modelId,
+    messages,
+    max_tokens: 8192,
+    reasoning: { effort: "high" },
+  };
+  if (structured && state.supportsStructuredOutputs) {
+    params.response_format = CAD_CODE_SCHEMA;
+  }
+
+  const completion = await openai.chat.completions.create(params);
+  return completion.choices[0]?.message?.content?.trim() ?? "";
+}
+
+function appendTrace(state: AgentStateType, step: TraceStep): TraceStep[] {
+  return [...state.trace, step];
+}
+
+function createCadGraph(openai: OpenAI) {
+  const plan = async (state: AgentStateType) => {
+    const raw = await complete(openai, state, [
+      {
+        role: "system",
+        content: `You are the lead mechanical product designer in an AI CAD IDE.
+Turn the request into a concise implementation plan for a build123d coding agent.
+Specify intent, parameterized dimensions, feature order, symmetry/constraints, and likely manufacturing process.
+When current code exists, identify the smallest robust edit. Respect the selected-face coordinates.
+Do not produce Python code.`,
+      },
+      ...conversationMessages(state),
+    ]);
+    if (!raw) throw new Error("The planning model returned an empty response.");
+
+    return {
+      plan: raw,
+      trace: appendTrace(state, {
+        node: "plan",
+        status: "complete",
+        detail: "Translated the request into geometry and manufacturing constraints.",
+      }),
+    };
+  };
+
+  const generate = async (state: AgentStateType) => {
+    const raw = await complete(
+      openai,
+      state,
+      [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...conversationMessages(state),
+        {
+          role: "user",
+          content: `Implement this approved design plan:\n\n${state.plan}`,
+        },
+      ],
+      true
+    );
+    if (!raw) throw new Error("The CAD model returned an empty response.");
+
+    const code = extractCode(raw, state.supportsStructuredOutputs);
+    return {
+      code,
+      trace: appendTrace(state, {
+        node: "generate",
+        status: "complete",
+        detail: "Generated parameterized build123d geometry.",
+      }),
+    };
+  };
+
+  const inspect = async (state: AgentStateType) => {
+    const staticError = validateCode(state.code);
+    if (staticError) {
+      return {
+        validationError: staticError,
+        inspection: { valid: false, error: staticError },
+        trace: appendTrace(state, {
+          node: "inspect",
+          status: "failed",
+          detail: staticError,
+        }),
+      };
+    }
+
+    const backendUrl =
+      process.env.BACKEND_URL ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      "http://localhost:8000";
+    try {
+      const response = await fetch(`${backendUrl}/inspect-model`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: state.code }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!response.ok) {
+        throw new Error(`Geometry engine returned HTTP ${response.status}`);
+      }
+
+      const inspection = (await response.json()) as ModelInspection;
+      const validationError = inspection.valid
+        ? null
+        : inspection.error || "Geometry execution failed.";
+      const dimensions = inspection.bounding_box_mm;
+      return {
+        inspection,
+        validationError,
+        trace: appendTrace(state, {
+          node: "inspect",
+          status: inspection.valid ? "passed" : "failed",
+          detail: inspection.valid
+            ? `Built ${inspection.solid_count ?? 0} solid(s); bounds ${dimensions?.x ?? "?"} × ${dimensions?.y ?? "?"} × ${dimensions?.z ?? "?"} mm.`
+            : validationError!,
+        }),
+      };
+    } catch (error) {
+      const validationError =
+        error instanceof Error ? error.message : "Geometry inspection failed.";
+      return {
+        inspection: { valid: false, error: validationError },
+        validationError,
+        trace: appendTrace(state, {
+          node: "inspect",
+          status: "failed",
+          detail: validationError,
+        }),
+      };
+    }
+  };
+
+  const repair = async (state: AgentStateType) => {
+    const raw = await complete(
+      openai,
+      state,
+      [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `Design plan:\n${state.plan}\n\nThe following build123d code failed execution or validation:\n\n${state.code}\n\nFailure:\n${state.validationError}\n\nRepair the code while preserving the design intent. Return only the complete corrected code.`,
+        },
+      ],
+      true
+    );
+    if (!raw) throw new Error("The repair model returned an empty response.");
+
+    return {
+      code: extractCode(raw, state.supportsStructuredOutputs),
+      repairAttempts: state.repairAttempts + 1,
+      trace: appendTrace(state, {
+        node: "repair",
+        status: "complete",
+        detail: `Repaired geometry after validation failure (attempt ${state.repairAttempts + 1}/${MAX_REPAIR_ATTEMPTS}).`,
+      }),
+    };
+  };
+
+  return new StateGraph(AgentState)
+    .addNode("plan", plan)
+    .addNode("generate", generate)
+    .addNode("inspect", inspect)
+    .addNode("repair", repair)
+    .addEdge(START, "plan")
+    .addEdge("plan", "generate")
+    .addEdge("generate", "inspect")
+    .addConditionalEdges("inspect", (state) => {
+      if (!state.validationError) return END;
+      return state.repairAttempts < MAX_REPAIR_ATTEMPTS ? "repair" : END;
+    })
+    .addEdge("repair", "inspect")
+    .compile();
+}
+
+/* ------------------------------------------------------------------ */
 /*  Route handler                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -378,6 +623,7 @@ export async function POST(request: Request) {
       code: currentCode,
       modelId,
       supportsStructuredOutputs = false,
+      selection = null,
     } = await request.json();
 
     if (
@@ -414,86 +660,38 @@ export async function POST(request: Request) {
       );
     }
 
-    const lastUserContent = buildLastUserContent(lastMsg, currentCode);
+    const graph = createCadGraph(openai);
+    const result = await graph.invoke({
+      messages: chatMessages,
+      currentCode: typeof currentCode === "string" ? currentCode : "",
+      modelId,
+      supportsStructuredOutputs: Boolean(supportsStructuredOutputs),
+      selection: selection as SelectionContext | null,
+      plan: "",
+      code: "",
+      inspection: null,
+      validationError: null,
+      repairAttempts: 0,
+      trace: [],
+    });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const apiMessages: any[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...chatMessages.slice(0, -1).map((m: ChatMessage) => ({
-        role: m.role,
-        content: textOf(m.content),
-      })),
-      { role: "user", content: lastUserContent },
-    ];
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const completionParams: any = {
-      model: modelId,
-      messages: apiMessages,
-      temperature: 0,
-      top_p: 0.95,
-      max_tokens: 4096,
-      seed: 42,
-    };
-
-    if (supportsStructuredOutputs) {
-      completionParams.response_format = CAD_CODE_SCHEMA;
-    }
-
-    const completion = await openai.chat.completions.create(completionParams);
-
-    const raw =
-      completion.choices[0]?.message?.content?.trim() ?? "";
-
-    if (!raw) {
+    if (result.validationError) {
       return NextResponse.json(
-        { error: "Model returned empty content. Try rephrasing your request." },
-        { status: 502 }
-      );
-    }
-
-    let code = extractCode(raw, supportsStructuredOutputs);
-    let validationError = validateCode(code);
-
-    /* ---------- one auto-repair retry if validation failed ---------- */
-    if (validationError) {
-      try {
-        const repairMessages = [
-          ...apiMessages,
-          { role: "assistant", content: code },
-          {
-            role: "user",
-            content: `The previous code had a validation error: ${validationError}\n\nFix the code. Remember: no imports, no markdown fences. Assign the final part to result.`,
-          },
-        ];
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const retryParams: any = { ...completionParams, messages: repairMessages };
-        const retry = await openai.chat.completions.create(retryParams);
-        const retryRaw =
-          retry.choices[0]?.message?.content?.trim() ?? "";
-
-        if (retryRaw) {
-          const retryCode = extractCode(retryRaw, supportsStructuredOutputs);
-          const retryValidation = validateCode(retryCode);
-          if (!retryValidation) {
-            code = retryCode;
-            validationError = null;
-          }
-        }
-      } catch {
-        /* retry failed — fall through with original error */
-      }
-    }
-
-    if (validationError) {
-      return NextResponse.json(
-        { error: `Code validation failed: ${validationError}` },
+        {
+          error: `The CAD agent could not produce valid geometry after ${MAX_REPAIR_ATTEMPTS} repairs: ${result.validationError}`,
+          plan: result.plan,
+          trace: result.trace,
+        },
         { status: 422 }
       );
     }
 
-    return NextResponse.json({ code });
+    return NextResponse.json({
+      code: result.code,
+      plan: result.plan,
+      inspection: result.inspection,
+      trace: result.trace,
+    });
   } catch (error) {
     console.error("Generate code error:", error);
     return NextResponse.json(

@@ -32,6 +32,15 @@ class ExportModelRequest(BaseModel):
     format: str  # "step" | "brep" | "stl"
 
 
+class ModelInspection(BaseModel):
+    valid: bool
+    shape_type: str | None = None
+    solid_count: int | None = None
+    volume_mm3: float | None = None
+    bounding_box_mm: dict[str, float] | None = None
+    error: str | None = None
+
+
 def _execute_code(code: str, scope: dict) -> object:
     """Execute build123d code and return the result shape."""
     if code.startswith("```"):
@@ -111,6 +120,32 @@ def _build_scope():
             scope[alias] = target
 
     return scope
+
+
+@app.post("/inspect-model", response_model=ModelInspection)
+async def inspect_model(request: GenerateMeshRequest):
+    """Execute CAD code and return geometry facts for the agent's verification loop."""
+    try:
+        scope = _build_scope()
+        result = _execute_code(request.code.strip(), scope)
+        bounding_box = result.bounding_box()
+        size = bounding_box.size
+        solids = result.solids() if hasattr(result, "solids") else []
+
+        return ModelInspection(
+            valid=True,
+            shape_type=type(result).__name__,
+            solid_count=len(solids),
+            volume_mm3=round(float(result.volume), 3),
+            bounding_box_mm={
+                "x": round(float(size.X), 3),
+                "y": round(float(size.Y), 3),
+                "z": round(float(size.Z), 3),
+            },
+        )
+    except Exception as e:
+        logger.info("Model inspection failed: %s", e)
+        return ModelInspection(valid=False, error=f"{type(e).__name__}: {str(e)}")
 
 
 @app.post("/export-model")

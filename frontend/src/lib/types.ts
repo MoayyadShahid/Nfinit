@@ -5,9 +5,33 @@ export type ImagePart = {
 };
 export type ContentPart = TextPart | ImagePart;
 
+export type AgentTraceStep = {
+  node: "plan" | "generate" | "inspect" | "repair";
+  status: "complete" | "passed" | "failed";
+  detail: string;
+};
+
+export type ModelInspection = {
+  valid: boolean;
+  shape_type?: string;
+  solid_count?: number;
+  volume_mm3?: number;
+  bounding_box_mm?: { x: number; y: number; z: number };
+};
+
+export type FaceSelection = {
+  point: [number, number, number];
+  normal: [number, number, number];
+};
+
 export type ChatMessage = {
   role: "user" | "assistant";
   content: string | ContentPart[];
+  agent?: {
+    plan: string;
+    trace: AgentTraceStep[];
+    inspection?: ModelInspection;
+  };
 };
 
 export function getTextContent(content: string | ContentPart[]): string {

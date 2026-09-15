@@ -2,6 +2,7 @@
 
 import { Center, GizmoHelper, GizmoViewcube, Grid, OrbitControls, useGLTF } from "@react-three/drei";
 import { LayoutGrid } from "lucide-react";
+import type { FaceSelection } from "@/lib/types";
 import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
@@ -9,12 +10,14 @@ import * as THREE from "three";
 const PHOTO_BOOTH_GRAY = "#d4d4d4";
 const NORMAL_TOLERANCE = 0.01;
 
-interface FaceSelection {
+interface ThreeFaceSelection {
   point: THREE.Vector3;
   normal: THREE.Vector3;
+  cadPoint?: THREE.Vector3;
+  cadNormal?: THREE.Vector3;
 }
 
-function FaceGrid({ selection }: { selection: FaceSelection }) {
+function FaceGrid({ selection }: { selection: ThreeFaceSelection }) {
   const quaternion = useMemo(() => {
     const up = new THREE.Vector3(0, 1, 0);
     return new THREE.Quaternion().setFromUnitVectors(up, selection.normal);
@@ -48,7 +51,7 @@ function ClickableModel({
   onFaceClick,
 }: {
   url: string;
-  onFaceClick: (sel: FaceSelection) => void;
+  onFaceClick: (sel: ThreeFaceSelection) => void;
 }) {
   const { scene } = useGLTF(url);
 
@@ -81,7 +84,19 @@ function ClickableModel({
         Math.abs(worldNormal.z) < NORMAL_TOLERANCE ? 0 : worldNormal.z
       ).normalize();
 
-      onFaceClick({ point: e.point.clone(), normal: snapped });
+      // build123d's GLTF export uses meters; convert mesh-local coordinates
+      // back to the millimeters used by generated CAD code.
+      const cadPoint = e.object
+        .worldToLocal(e.point.clone())
+        .multiplyScalar(1000);
+      const cadNormal = e.face.normal.clone().normalize();
+
+      onFaceClick({
+        point: e.point.clone(),
+        normal: snapped,
+        cadPoint,
+        cadNormal,
+      });
     },
     [onFaceClick]
   );
@@ -96,7 +111,7 @@ function ClickableModel({
 function ClickablePlaceholder({
   onFaceClick,
 }: {
-  onFaceClick: (sel: FaceSelection) => void;
+  onFaceClick: (sel: ThreeFaceSelection) => void;
 }) {
   const handleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
@@ -126,7 +141,7 @@ function Scene({
   onFaceClick,
 }: {
   glbUrl: string | null;
-  onFaceClick: (sel: FaceSelection) => void;
+  onFaceClick: (sel: ThreeFaceSelection) => void;
 }) {
   if (!glbUrl) {
     return <ClickablePlaceholder onFaceClick={onFaceClick} />;
@@ -171,13 +186,44 @@ function ClearSelectionOnMiss({ onMiss }: { onMiss: () => void }) {
 interface ViewportPaneProps {
   glbUrl: string | null;
   isLoading: boolean;
+  onSelectionChange?: (selection: FaceSelection | null) => void;
 }
 
-function ViewportContent({ glbUrl, isLoading }: ViewportPaneProps) {
-  const [faceSelection, setFaceSelection] = useState<FaceSelection | null>(null);
+function ViewportContent({
+  glbUrl,
+  isLoading,
+  onSelectionChange,
+}: ViewportPaneProps) {
+  const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
   const [showGrid, setShowGrid] = useState(true);
 
-  const clearSelection = useCallback(() => setFaceSelection(null), []);
+  const clearSelection = useCallback(() => {
+    setFaceSelection(null);
+    onSelectionChange?.(null);
+  }, [onSelectionChange]);
+
+  const selectFace = useCallback(
+    (selection: ThreeFaceSelection) => {
+      setFaceSelection(selection);
+      onSelectionChange?.({
+        point: (selection.cadPoint ?? selection.point)
+          .toArray()
+          .map((value) => Number(value.toFixed(3))) as [
+          number,
+          number,
+          number,
+        ],
+        normal: (selection.cadNormal ?? selection.normal)
+          .toArray()
+          .map((value) => Number(value.toFixed(4))) as [
+          number,
+          number,
+          number,
+        ],
+      });
+    },
+    [onSelectionChange]
+  );
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -204,6 +250,14 @@ function ViewportContent({ glbUrl, isLoading }: ViewportPaneProps) {
           Grid
         </button>
       </div>
+      {faceSelection && (
+        <div className="absolute bottom-3 left-3 z-20 rounded-md border border-blue-400/60 bg-zinc-950/85 px-3 py-2 text-xs text-zinc-200 shadow-lg">
+          <div className="font-medium text-blue-300">Face selected</div>
+          <div className="mt-0.5 text-[10px] text-zinc-400">
+            Your next prompt will edit this location
+          </div>
+        </div>
+      )}
       {isLoading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#d4d4d4]/90">
           <div className="flex flex-col items-center gap-3">
@@ -234,13 +288,13 @@ function ViewportContent({ glbUrl, isLoading }: ViewportPaneProps) {
         <directionalLight position={[0, -5, 5]} intensity={0.4} />
         {faceSelection && showGrid && <FaceGrid selection={faceSelection} />}
         <Suspense fallback={null}>
-          <Scene glbUrl={glbUrl} onFaceClick={setFaceSelection} />
+          <Scene glbUrl={glbUrl} onFaceClick={selectFace} />
         </Suspense>
       </Canvas>
     </div>
   );
 }
 
-export function ViewportPane({ glbUrl, isLoading }: ViewportPaneProps) {
-  return <ViewportContent key={glbUrl ?? "empty"} glbUrl={glbUrl} isLoading={isLoading} />;
+export function ViewportPane(props: ViewportPaneProps) {
+  return <ViewportContent key={props.glbUrl ?? "empty"} {...props} />;
 }

@@ -5,7 +5,7 @@ import { CommandBar, type ExportFormat } from "@/components/CommandBar";
 import { EditorPane } from "@/components/EditorPane";
 import { ViewportPane } from "@/components/ViewportPane";
 import { DEFAULT_MODEL, getModelConfig } from "@/lib/constants";
-import type { ChatMessage, ContentPart } from "@/lib/types";
+import type { ChatMessage, ContentPart, FaceSelection } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -29,6 +29,7 @@ export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL);
   const [glbUrl, setGlbUrl] = useState<string | null>(null);
+  const [selectedFace, setSelectedFace] = useState<FaceSelection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,6 +51,7 @@ export default function Home() {
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
+      setSelectedFace(null);
       setGlbUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return url;
@@ -95,6 +97,7 @@ export default function Home() {
             messages: newMessages,
             code,
             modelId,
+            selection: selectedFace,
             supportsStructuredOutputs:
               modelConfig?.supportsStructuredOutputs ?? false,
           }),
@@ -107,7 +110,15 @@ export default function Home() {
         setCode(generatedCode);
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: generatedCode },
+          {
+            role: "assistant",
+            content: generatedCode,
+            agent: {
+              plan: data.plan,
+              trace: data.trace,
+              inspection: data.inspection,
+            },
+          },
         ]);
         await generateMesh(generatedCode);
       } catch (e) {
@@ -117,7 +128,7 @@ export default function Home() {
         setIsLoading(false);
       }
     },
-    [messages, code, modelId, modelConfig, generateMesh]
+    [messages, code, modelId, modelConfig, selectedFace, generateMesh]
   );
 
   const handleGenerate = useCallback(async () => {
@@ -182,7 +193,6 @@ export default function Home() {
         onModelChange={setModelId}
         layoutMode={layoutMode}
         onLayoutChange={setLayoutMode}
-        code={code}
         onExport={handleExport}
       />
       <div
@@ -219,7 +229,11 @@ export default function Home() {
                 </button>
               </div>
             )}
-            <ViewportPane glbUrl={glbUrl} isLoading={isLoading} />
+            <ViewportPane
+              glbUrl={glbUrl}
+              isLoading={isLoading}
+              onSelectionChange={setSelectedFace}
+            />
           </div>
         )}
         <div className="flex min-h-[200px] flex-col overflow-hidden md:min-h-0">
@@ -229,6 +243,7 @@ export default function Home() {
             isLoading={isLoading}
             lastError={error}
             supportsVision={modelConfig?.supportsVision ?? false}
+            selection={selectedFace}
           />
         </div>
       </div>
