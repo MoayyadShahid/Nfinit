@@ -41,7 +41,7 @@ class ModelInspection(BaseModel):
 
 
 class TraceStep(BaseModel):
-    node: Literal["plan", "generate", "inspect", "repair"]
+    node: Literal["retrieve", "plan", "generate", "inspect", "repair"]
     status: Literal["complete", "passed", "failed"]
     detail: str
     duration_ms: int = 0

@@ -9,6 +9,13 @@ from openai import AsyncOpenAI
 
 from .models import CadRunRequest, ModelInspection
 from .prompts import CAD_SYSTEM_PROMPT, PLANNER_PROMPT
+from .retrieval import (
+    PatternRetriever,
+    RetrievedPattern,
+    format_pattern_context,
+    get_pattern_retriever,
+    retrieval_limit,
+)
 from .tracing import RunTracer, summarize_messages, summarize_text
 from .validation import extract_code, validate_code
 
@@ -36,6 +43,7 @@ class AgentState(TypedDict):
     model_id: str
     supports_structured_outputs: bool
     selection: dict[str, Any] | None
+    patterns: list[dict[str, Any]]
     plan: str
     code: str
     inspection: dict[str, Any] | None
@@ -111,9 +119,30 @@ def _conversation_messages(state: AgentState) -> list[dict[str, Any]]:
     ]
 
 
+def _retrieval_query(state: AgentState) -> str:
+    content = _text_of(state["messages"][-1]["content"])
+    selection = state["selection"]
+    if selection:
+        content += (
+            "\nSelected face editing"
+            f"\nSurface type: {selection.get('surface_type') or 'unknown'}"
+        )
+    return content[:4_000]
+
+
+def _pattern_message(
+    state: AgentState, *, include_code: bool = True
+) -> dict[str, str] | None:
+    patterns = [
+        RetrievedPattern.model_validate(pattern) for pattern in state["patterns"]
+    ]
+    context = format_pattern_context(patterns, include_code=include_code)
+    return {"role": "user", "content": context} if context else None
+
+
 def _append_trace(
     state: AgentState,
-    node: Literal["plan", "generate", "inspect", "repair"],
+    node: Literal["retrieve", "plan", "generate", "inspect", "repair"],
     status: Literal["complete", "passed", "failed"],
     detail: str,
     duration_ms: int,
@@ -183,13 +212,55 @@ def create_cad_graph(
     client: AsyncOpenAI,
     inspect_code: InspectCode,
     tracer: RunTracer | None = None,
+    pattern_retriever: PatternRetriever | None = None,
 ):
     tracer = tracer or RunTracer(str(uuid4()))
+    pattern_retriever = pattern_retriever or get_pattern_retriever()
+
+    async def retrieve(state: AgentState) -> dict[str, Any]:
+        started = perf_counter()
+        query = _retrieval_query(state)
+        limit = retrieval_limit()
+        with tracer.observation(
+            "node.retrieve",
+            as_type="retriever",
+            input={"query": summarize_text(query), "limit": limit},
+        ) as span:
+            patterns = await asyncio.to_thread(
+                pattern_retriever.retrieve, query, limit
+            )
+            span.update(
+                output={
+                    "count": len(patterns),
+                    "pattern_ids": [pattern.id for pattern in patterns],
+                    "backend": (
+                        patterns[0].backend
+                        if patterns
+                        else pattern_retriever.backend
+                    ),
+                }
+            )
+        backend = (
+            patterns[0].backend if patterns else pattern_retriever.backend
+        )
+        duration_ms = round((perf_counter() - started) * 1000)
+        return {
+            "patterns": [pattern.model_dump() for pattern in patterns],
+            "trace": _append_trace(
+                state,
+                "retrieve",
+                "complete",
+                f"Retrieved {len(patterns)} build123d pattern(s) via {backend}.",
+                duration_ms,
+            ),
+        }
 
     async def plan(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
+        pattern_message = _pattern_message(state, include_code=False)
         conversation = [
             {"role": "system", "content": PLANNER_PROMPT},
+            *([pattern_message] if pattern_message else []),
             *_conversation_messages(state),
         ]
         with tracer.observation(
@@ -219,8 +290,10 @@ def create_cad_graph(
 
     async def generate(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
+        pattern_message = _pattern_message(state)
         conversation = [
             {"role": "system", "content": CAD_SYSTEM_PROMPT},
+            *([pattern_message] if pattern_message else []),
             *_conversation_messages(state),
             {
                 "role": "user",
@@ -317,8 +390,10 @@ def create_cad_graph(
 
     async def repair(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
+        pattern_message = _pattern_message(state)
         conversation = [
             {"role": "system", "content": CAD_SYSTEM_PROMPT},
+            *([pattern_message] if pattern_message else []),
             {
                 "role": "user",
                 "content": (
@@ -373,11 +448,13 @@ def create_cad_graph(
 
     return (
         StateGraph(AgentState)
+        .add_node("retrieve", retrieve)
         .add_node("plan", plan)
         .add_node("generate", generate)
         .add_node("inspect", inspect)
         .add_node("repair", repair)
-        .add_edge(START, "plan")
+        .add_edge(START, "retrieve")
+        .add_edge("retrieve", "plan")
         .add_edge("plan", "generate")
         .add_edge("generate", "inspect")
         .add_conditional_edges("inspect", after_inspection)
@@ -406,6 +483,7 @@ async def run_cad_agent(
         "model_id": request.model_id,
         "supports_structured_outputs": request.supports_structured_outputs,
         "selection": request.selection.model_dump() if request.selection else None,
+        "patterns": [],
         "plan": "",
         "code": "",
         "inspection": None,

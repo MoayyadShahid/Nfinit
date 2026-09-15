@@ -5,6 +5,7 @@ import pytest
 
 from agent.graph import create_cad_graph
 from agent.models import ModelInspection
+from agent.retrieval import RetrievedPattern
 
 
 class FakeCompletions:
@@ -32,6 +33,25 @@ class FakeClient:
         self.chat = SimpleNamespace(completions=FakeCompletions(responses))
 
 
+class FakeRetriever:
+    backend = "fake"
+
+    def retrieve(self, query: str, limit: int = 4):
+        assert query == "Make a 10 mm cube"
+        assert limit == 4
+        return [
+            RetrievedPattern(
+                id="cube",
+                title="Parameterized cube",
+                summary="Create a centered box.",
+                code="result = Box(size, size, size)",
+                keywords=["box", "cube"],
+                score=1,
+                backend=self.backend,
+            )
+        ]
+
+
 @pytest.mark.asyncio
 async def test_graph_repairs_failed_geometry_and_reinspects():
     client = FakeClient(
@@ -53,7 +73,11 @@ async def test_graph_repairs_failed_geometry_and_reinspects():
             ),
         ]
     )
-    graph = create_cad_graph(client, lambda _code: next(inspections))
+    graph = create_cad_graph(
+        client,
+        lambda _code: next(inspections),
+        pattern_retriever=FakeRetriever(),
+    )
 
     result = await graph.ainvoke(
         {
@@ -63,6 +87,7 @@ async def test_graph_repairs_failed_geometry_and_reinspects():
             "model_id": "anthropic/claude-opus-5",
             "supports_structured_outputs": True,
             "selection": None,
+            "patterns": [],
             "plan": "",
             "code": "",
             "inspection": None,
@@ -77,6 +102,7 @@ async def test_graph_repairs_failed_geometry_and_reinspects():
     assert result["repair_attempts"] == 1
     assert result["code"] == "result = Box(10, 10, 10)"
     assert [step["node"] for step in result["trace"]] == [
+        "retrieve",
         "plan",
         "generate",
         "inspect",
@@ -90,3 +116,10 @@ async def test_graph_repairs_failed_geometry_and_reinspects():
         "total_tokens": 375,
     }
     assert all(step["duration_ms"] >= 0 for step in result["trace"])
+    assert all(
+        "Parameterized cube"
+        in "\n".join(
+            str(message["content"]) for message in request["messages"]
+        )
+        for request in client.chat.completions.requests
+    )
