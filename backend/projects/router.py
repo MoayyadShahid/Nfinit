@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
+from execution import RevisionComparison, compare_code
 
 from .models import (
     ProjectCreate,
@@ -88,6 +89,24 @@ def list_revisions(
         return store.list_revisions(project_id, limit=limit, offset=offset)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
+
+
+@router.get(
+    "/{project_id}/compare",
+    response_model=RevisionComparison,
+)
+def compare_revisions(
+    project_id: str,
+    previous_revision: Annotated[int, Query(alias="previousRevision", ge=1)],
+    current_revision: Annotated[int, Query(alias="currentRevision", ge=1)],
+    store: Store,
+):
+    try:
+        previous = store.get_revision(project_id, previous_revision)
+        current = store.get_revision(project_id, current_revision)
+    except (ProjectNotFoundError, RevisionNotFoundError) as error:
+        raise _not_found(error) from error
+    return compare_code(previous.state.code, current.state.code)
 
 
 @router.get(

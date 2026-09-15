@@ -128,6 +128,7 @@ APPROVED_BUILD123D_NAMES = {
     "trace",
 }
 MAX_SEMANTIC_FEATURES = 64
+MAX_SEMANTIC_CONSTRAINTS = 128
 
 
 def _apply_resource_limits():
@@ -154,12 +155,33 @@ def _disable_network():
     socket.create_connection = denied
 
 
+def _json_parameters(parameters, label):
+    parameters = parameters or {}
+    if not isinstance(parameters, dict):
+        raise ValueError(f"{label} parameters must be a dictionary.")
+    try:
+        encoded = json.dumps(
+            parameters,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        )
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            f"{label} parameters must be finite JSON values."
+        ) from error
+    if len(encoded.encode("utf-8")) > 4096:
+        raise ValueError(f"{label} parameters may not exceed 4096 bytes.")
+    return json.loads(encoded)
+
+
 def _build_scope():
     import build123d
     from build123d import Location
 
     scope = {"__builtins__": SAFE_BUILTINS}
     feature_records = []
+    constraint_records = []
     for name in APPROVED_BUILD123D_NAMES:
         if hasattr(build123d, name):
             scope[name] = getattr(build123d, name)
@@ -228,32 +250,116 @@ def _build_scope():
             shape = shape.part
         if not hasattr(shape, "faces"):
             raise ValueError("Feature snapshots require a build123d shape.")
-        parameters = parameters or {}
-        try:
-            encoded_parameters = json.dumps(
-                parameters, sort_keys=True, separators=(",", ":")
-            )
-        except (TypeError, ValueError) as error:
-            raise ValueError("Feature parameters must be JSON serializable.") from error
-        if len(encoded_parameters.encode("utf-8")) > 4096:
-            raise ValueError("Feature parameters may not exceed 4096 bytes.")
+        encoded_parameters = _json_parameters(parameters, "Feature")
         feature_records.append(
             {
                 "id": feature_id,
                 "name": name.strip(),
                 "operation": operation,
                 "parentId": parent_id,
-                "parameters": json.loads(encoded_parameters),
+                "parameters": encoded_parameters,
                 "face_signatures": _snapshot_face_signatures(shape),
             }
         )
 
+    def register_constraint(
+        constraint_id,
+        kind,
+        feature_ids,
+        parameters=None,
+    ):
+        if len(constraint_records) >= MAX_SEMANTIC_CONSTRAINTS:
+            raise ValueError(
+                "CAD scripts may register at most "
+                f"{MAX_SEMANTIC_CONSTRAINTS} constraints."
+            )
+        if not isinstance(constraint_id, str) or not re.fullmatch(
+            r"[a-z][a-z0-9_]{0,63}", constraint_id
+        ):
+            raise ValueError(
+                "Constraint IDs must use lowercase letters, numbers, and underscores."
+            )
+        if any(record["id"] == constraint_id for record in constraint_records):
+            raise ValueError(f"Constraint ID '{constraint_id}' is duplicated.")
+        allowed_kinds = {
+            "distance",
+            "angle",
+            "radius",
+            "diameter",
+            "thickness",
+            "count",
+            "equal",
+            "symmetry",
+            "concentric",
+            "coincident",
+            "parallel",
+            "perpendicular",
+            "fixed",
+            "other",
+        }
+        if kind not in allowed_kinds:
+            raise ValueError(f"Unsupported constraint kind '{kind}'.")
+        if (
+            not isinstance(feature_ids, (list, tuple))
+            or not feature_ids
+            or len(feature_ids) > 8
+            or any(not isinstance(value, str) for value in feature_ids)
+        ):
+            raise ValueError(
+                "Constraint feature IDs must be a list of 1 to 8 feature IDs."
+            )
+        feature_ids = list(dict.fromkeys(feature_ids))
+        known_ids = {record["id"] for record in feature_records}
+        unknown_ids = sorted(set(feature_ids) - known_ids)
+        if unknown_ids:
+            raise ValueError(
+                "Constraint features must be registered first; unknown IDs: "
+                + ", ".join(unknown_ids)
+            )
+        encoded_parameters = _json_parameters(parameters, "Constraint")
+        dimensional_kinds = {
+            "distance",
+            "angle",
+            "radius",
+            "diameter",
+            "thickness",
+            "count",
+        }
+        if kind in dimensional_kinds:
+            value = encoded_parameters.get("value")
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+            ):
+                raise ValueError(
+                    f"Constraint kind '{kind}' requires a finite numeric value."
+                )
+            if kind == "count":
+                if not isinstance(value, int) or value < 1:
+                    raise ValueError(
+                        "Count constraints require a positive integer value."
+                    )
+            elif kind in {"radius", "diameter", "thickness"} and value <= 0:
+                raise ValueError(
+                    f"Constraint kind '{kind}' requires a positive value."
+                )
+        constraint_records.append(
+            {
+                "id": constraint_id,
+                "kind": kind,
+                "featureIds": feature_ids,
+                "parameters": encoded_parameters,
+            }
+        )
+
     scope["register_feature"] = register_feature
-    return scope, feature_records
+    scope["register_constraint"] = register_constraint
+    return scope, feature_records, constraint_records
 
 
 def _execute(code: str):
-    scope, feature_records = _build_scope()
+    scope, feature_records, constraint_records = _build_scope()
     with contextlib.redirect_stdout(sys.stderr):
         exec(compile(code, "<generated-cad>", "exec"), scope)
 
@@ -281,7 +387,7 @@ def _execute(code: str):
         from build123d import Location
 
         result.location = Location()
-    return result, feature_records
+    return result, feature_records, constraint_records
 
 
 def _inspect(result):
@@ -397,7 +503,12 @@ def _feature_tree(feature_records, face_records):
     return features, sorted(all_face_ids - assigned)
 
 
-def _topology(result, selection=None, feature_records=None):
+def _topology(
+    result,
+    selection=None,
+    feature_records=None,
+    constraint_records=None,
+):
     edge_records = []
     for edge in result.edges():
         payload = _edge_geometry(edge)
@@ -468,6 +579,10 @@ def _topology(result, selection=None, feature_records=None):
     features, unassigned_face_ids = _feature_tree(
         feature_records or [], face_records
     )
+    constraints = [
+        {**record, "sequence": index}
+        for index, record in enumerate(constraint_records or [])
+    ]
 
     selected_face = None
     if selection and face_records:
@@ -518,6 +633,7 @@ def _topology(result, selection=None, feature_records=None):
         "faces": faces,
         "edges": edges,
         "features": features,
+        "constraints": constraints,
         "unassignedFaceIds": unassigned_face_ids,
         "selectedFace": selected_face,
         "error": None,
@@ -552,7 +668,7 @@ def main():
     _apply_resource_limits()
     request = json.loads(sys.stdin.read())
     _disable_network()
-    result, feature_records = _execute(request["code"])
+    result, feature_records, constraint_records = _execute(request["code"])
     operation = request["operation"]
     if operation == "inspect":
         data = _inspect(result)
@@ -561,6 +677,7 @@ def main():
             result,
             request.get("selection"),
             feature_records=feature_records,
+            constraint_records=constraint_records,
         )
     else:
         data = _export(result, operation, request["output_name"])

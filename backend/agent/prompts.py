@@ -4,6 +4,8 @@ Specify intent, parameterized dimensions, feature order, symmetry and constraint
 and the likely manufacturing process. When current code exists, identify the
 smallest robust edit. Give every planned feature a stable lowercase ID and parent,
 preserving IDs already present in current code. Respect selected-face coordinates.
+List important dimensional and relational constraints with stable lowercase IDs,
+preserving constraint IDs and parameter names already present in current code.
 Do not produce Python."""
 
 
@@ -20,7 +22,9 @@ Return only executable Python code that runs in a restricted backend scope.
 - Keep important dimensions in readable variables
 - Prefer a single `with BuildPart() as part:` context
 - After each major modeling operation, call `register_feature(...)`
+- Declare design constraints with `register_constraint(...)` after their features
 - Use stable lowercase feature IDs and preserve them when editing existing code
+- Preserve existing constraint IDs unless the user explicitly removes the intent
 - End with `result = part.part`
 - Add only short comments for major construction steps
 </output_rules>
@@ -95,6 +99,20 @@ Semantic features:
   `operation` is additive, subtractive, pattern, fillet, chamfer, transform,
   reference, or other. Parameters must be a small JSON-compatible dictionary.
 
+Semantic constraints:
+  register_constraint(
+      constraint_id,
+      kind,
+      feature_ids,
+      parameters=None,
+  )
+  Register constraints only after every referenced feature. Supported kinds are
+  distance, angle, radius, diameter, thickness, count, equal, symmetry,
+  concentric, coincident, parallel, perpendicular, fixed, and other.
+  Dimensional kinds require `parameters={"value": number}`; also preserve a
+  stable `parameter` name and `unit` when applicable. Constraints record design
+  intent for revision-aware editing; they are not a geometric solver.
+
 Enums:
   Mode.ADD  Mode.SUBTRACT  Mode.INTERSECT  Mode.REPLACE
   Align.MIN  Align.CENTER  Align.MAX
@@ -131,6 +149,27 @@ with BuildPart() as part:
         part.part,
         parent_id="base_plate",
         parameters={"diameter": hole_diameter},
+    )
+    register_constraint(
+        "plate_thickness",
+        "thickness",
+        ["base_plate"],
+        parameters={"parameter": "height", "value": height, "unit": "mm"},
+    )
+    register_constraint(
+        "hole_diameter",
+        "diameter",
+        ["center_hole"],
+        parameters={
+            "parameter": "hole_diameter",
+            "value": hole_diameter,
+            "unit": "mm",
+        },
+    )
+    register_constraint(
+        "hole_concentric",
+        "concentric",
+        ["base_plate", "center_hole"],
     )
 result = part.part
 

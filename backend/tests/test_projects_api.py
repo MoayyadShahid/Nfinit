@@ -57,6 +57,16 @@ def test_project_api_manages_snapshots_and_history(client):
     assert client.get(
         f"/projects/{project_id}/revisions/1"
     ).json()["state"]["lastRunId"] == "run-one"
+    comparison = client.get(
+        f"/projects/{project_id}/compare",
+        params={"previousRevision": 1, "currentRevision": 2},
+    )
+    assert comparison.status_code == 200
+    assert comparison.json()["valid"] is True
+    assert comparison.json()["previousTopologyVersion"] != (
+        comparison.json()["currentTopologyVersion"]
+    )
+    assert comparison.json()["faceMatches"]
 
     renamed = client.patch(
         f"/projects/{project_id}", json={"name": "Wide phone mount"}

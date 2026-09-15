@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from agent import (
     MAX_REPAIR_ATTEMPTS,
@@ -21,8 +21,10 @@ from agent import (
 )
 from execution import (
     SandboxError,
+    RevisionComparison,
     TopologyAnalysis,
     analyze_code,
+    compare_code,
     export_code,
     inspect_code as sandbox_inspect_code,
 )
@@ -67,6 +69,13 @@ class AnalyzeModelRequest(BaseModel):
     selection: FaceSelection | None = None
 
 
+class CompareModelsRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    previous_code: str = Field(alias="previousCode")
+    current_code: str = Field(alias="currentCode")
+
+
 def _inspect_code(code: str) -> ModelInspection:
     """Execute CAD code in the sandbox and return geometry facts."""
     return sandbox_inspect_code(code)
@@ -82,6 +91,12 @@ async def inspect_model(request: GenerateMeshRequest):
 async def analyze_model(request: AnalyzeModelRequest):
     """Index B-rep entities and optionally resolve a geometric face selection."""
     return analyze_code(request.code, request.selection)
+
+
+@app.post("/compare-models", response_model=RevisionComparison)
+async def compare_models(request: CompareModelsRequest):
+    """Match semantic features, constraints, and faces across two revisions."""
+    return compare_code(request.previous_code, request.current_code)
 
 
 @app.post("/cad/run", response_model=CadRunResponse)

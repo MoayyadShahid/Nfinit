@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 import main
-from execution import SandboxArtifact, TopologyAnalysis
+from execution import RevisionComparison, SandboxArtifact, TopologyAnalysis
 from execution.topology import ResolvedFaceSelection
 
 
@@ -118,6 +118,33 @@ def test_analyze_model_exposes_resolved_brep_face(monkeypatch):
         "normalAlignment": 1.0,
         "confidence": 1.0,
     }
+
+
+def test_compare_models_exposes_revision_matches(monkeypatch):
+    def fake_compare(previous_code, current_code):
+        assert previous_code == "result = Box(10, 10, 10)"
+        assert current_code == "result = Box(20, 10, 10)"
+        return RevisionComparison(
+            valid=True,
+            previous_topology_version="before",
+            current_topology_version="after",
+            added_feature_ids=["new_feature"],
+        )
+
+    monkeypatch.setattr(main, "compare_code", fake_compare)
+    client = TestClient(main.app)
+    response = client.post(
+        "/compare-models",
+        json={
+            "previousCode": "result = Box(10, 10, 10)",
+            "currentCode": "result = Box(20, 10, 10)",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["previousTopologyVersion"] == "before"
+    assert response.json()["currentTopologyVersion"] == "after"
+    assert response.json()["addedFeatureIds"] == ["new_feature"]
 
 
 def test_mesh_generation_uses_sandbox_artifact(monkeypatch, tmp_path):

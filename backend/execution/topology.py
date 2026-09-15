@@ -57,6 +57,34 @@ class SemanticFeature(BaseModel):
     owned_face_ids: list[str] = Field(default_factory=list, alias="ownedFaceIds")
 
 
+ConstraintKind = Literal[
+    "distance",
+    "angle",
+    "radius",
+    "diameter",
+    "thickness",
+    "count",
+    "equal",
+    "symmetry",
+    "concentric",
+    "coincident",
+    "parallel",
+    "perpendicular",
+    "fixed",
+    "other",
+]
+
+
+class SemanticConstraint(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    id: str
+    kind: ConstraintKind
+    feature_ids: list[str] = Field(alias="featureIds")
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    sequence: int
+
+
 class TopologyAnalysis(BaseModel):
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
@@ -65,10 +93,87 @@ class TopologyAnalysis(BaseModel):
     faces: list[TopologyFace] = Field(default_factory=list)
     edges: list[TopologyEdge] = Field(default_factory=list)
     features: list[SemanticFeature] = Field(default_factory=list)
+    constraints: list[SemanticConstraint] = Field(default_factory=list)
     unassigned_face_ids: list[str] = Field(
         default_factory=list, alias="unassignedFaceIds"
     )
     selected_face: ResolvedFaceSelection | None = Field(
         default=None, alias="selectedFace"
+    )
+    error: str | None = None
+
+
+class FeatureRevisionMatch(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    previous_id: str = Field(alias="previousId")
+    current_id: str = Field(alias="currentId")
+    status: Literal["unchanged", "modified"]
+    confidence: float
+    reason: Literal["authored_id"]
+    changes: list[str] = Field(default_factory=list)
+
+
+class ConstraintRevisionMatch(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    previous_id: str = Field(alias="previousId")
+    current_id: str = Field(alias="currentId")
+    status: Literal["unchanged", "modified"]
+    changes: list[str] = Field(default_factory=list)
+
+
+class FaceRevisionMatch(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    previous_face_id: str = Field(alias="previousFaceId")
+    current_face_id: str = Field(alias="currentFaceId")
+    previous_feature_id: str | None = Field(
+        default=None, alias="previousFeatureId"
+    )
+    current_feature_id: str | None = Field(
+        default=None, alias="currentFeatureId"
+    )
+    status: Literal["unchanged", "modified"]
+    confidence: float
+    reason: Literal["exact_geometry", "same_feature_geometry", "legacy_geometry"]
+
+
+class RevisionComparison(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    valid: bool
+    previous_topology_version: str | None = Field(
+        default=None, alias="previousTopologyVersion"
+    )
+    current_topology_version: str | None = Field(
+        default=None, alias="currentTopologyVersion"
+    )
+    feature_matches: list[FeatureRevisionMatch] = Field(
+        default_factory=list, alias="featureMatches"
+    )
+    added_feature_ids: list[str] = Field(
+        default_factory=list, alias="addedFeatureIds"
+    )
+    removed_feature_ids: list[str] = Field(
+        default_factory=list, alias="removedFeatureIds"
+    )
+    constraint_matches: list[ConstraintRevisionMatch] = Field(
+        default_factory=list, alias="constraintMatches"
+    )
+    added_constraint_ids: list[str] = Field(
+        default_factory=list, alias="addedConstraintIds"
+    )
+    removed_constraint_ids: list[str] = Field(
+        default_factory=list, alias="removedConstraintIds"
+    )
+    face_matches: list[FaceRevisionMatch] = Field(
+        default_factory=list, alias="faceMatches"
+    )
+    unmatched_previous_face_ids: list[str] = Field(
+        default_factory=list, alias="unmatchedPreviousFaceIds"
+    )
+    unmatched_current_face_ids: list[str] = Field(
+        default_factory=list, alias="unmatchedCurrentFaceIds"
     )
     error: str | None = None
