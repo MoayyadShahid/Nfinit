@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from agent.models import ModelInspection, ModelUsage, TraceStep
+from evaluation.config import load_live_config
 from evaluation.models import EvaluationCase, ReplayRecord
 from evaluation.reporting import build_report, write_report
 from evaluation.runner import (
@@ -145,7 +146,10 @@ def test_replay_runner_reexecutes_code_and_marks_missing_records():
 
 @pytest.mark.asyncio
 async def test_live_runner_uses_agent_state(monkeypatch):
-    async def fake_agent(_request, _api_key, _inspector):
+    requests = []
+
+    async def fake_agent(request, _api_key, _inspector, run_id=None):
+        requests.append((request, run_id))
         return {
             "code": "result = Box(10, 20, 30)",
             "inspection": valid_inspection().model_dump(),
@@ -160,11 +164,14 @@ async def test_live_runner_uses_agent_state(monkeypatch):
         ["model/a"],
         "test-key",
         inspector=lambda _code: valid_inspection(),
+        structured_output_support={"model/a": False},
     )
 
     assert len(results) == 1
     assert results[0].passed
     assert results[0].usage.total_tokens == 15
+    assert results[0].run_id == requests[0][1]
+    assert not requests[0][0].supports_structured_outputs
 
 
 def test_report_compares_models_and_writes_json(tmp_path: Path):
@@ -205,6 +212,18 @@ def test_sample_case_and_replay_files_load():
 
     assert len(cases) == 3
     assert len(replays) == 3
+
+
+def test_quality_first_live_config_uses_pinned_flagship_models():
+    root = Path(__file__).parents[1] / "evaluation"
+    config = load_live_config(root / "config" / "live_quality.json")
+
+    assert [model.id for model in config.models] == [
+        "anthropic/claude-opus-5",
+        "openai/gpt-6-astra-pro",
+    ]
+    assert all(model.supports_structured_outputs for model in config.models)
+    assert config.langfuse_dataset == "nfinit-cad50-v1"
 
 
 def test_cad50_benchmark_has_balanced_complete_coverage():

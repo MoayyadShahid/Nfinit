@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "name": "quality-first",
+  "description": "Pinned flagship OpenRouter models for comparable paid CAD evaluations.",
+  "models": [
+    {
+      "id": "anthropic/claude-opus-5",
+      "label": "Claude Opus 5",
+      "supports_structured_outputs": true
+    },
+    {
+      "id": "openai/gpt-6-astra-pro",
+      "label": "GPT-6 Astra Pro",
+      "supports_structured_outputs": true
+    }
+  ],
+  "langfuse_dataset": "nfinit-cad50-v1"
+}

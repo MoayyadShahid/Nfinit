@@ -27,6 +27,7 @@ def score_evaluation(
     trace: list[TraceStep],
     usage: ModelUsage,
     error: str | None = None,
+    run_id: str | None = None,
 ) -> EvaluationResult:
     expected = case.expected
     scores: dict[str, MetricScore] = {}
@@ -137,6 +138,7 @@ def score_evaluation(
         case_id=case.id,
         category=case.category,
         model_id=model_id,
+        run_id=run_id,
         passed=all(score.passed for score in scores.values()),
         scores=scores,
         inspection=inspection,

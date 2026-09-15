@@ -61,6 +61,7 @@ class EvaluationResult(BaseModel):
     case_id: str
     category: str
     model_id: str
+    run_id: str | None = None
     passed: bool
     scores: dict[str, MetricScore]
     inspection: ModelInspection
@@ -88,3 +89,26 @@ class EvaluationReport(BaseModel):
     models: list[str]
     summary: dict[str, ModelSummary]
     results: list[EvaluationResult]
+
+
+class LiveModelConfig(BaseModel):
+    id: str
+    label: str
+    supports_structured_outputs: bool = True
+
+
+class LiveEvaluationConfig(BaseModel):
+    schema_version: Literal["1.0"] = "1.0"
+    name: str
+    description: str
+    models: list[LiveModelConfig]
+    langfuse_dataset: str
+
+    @model_validator(mode="after")
+    def validate_unique_models(self):
+        ids = [model.id for model in self.models]
+        if not ids:
+            raise ValueError("Live evaluation config must include at least one model.")
+        if len(ids) != len(set(ids)):
+            raise ValueError("Live evaluation config contains duplicate model IDs.")
+        return self
