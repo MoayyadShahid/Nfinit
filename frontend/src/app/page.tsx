@@ -5,7 +5,22 @@ import { CommandBar, type ExportFormat } from "@/components/CommandBar";
 import { EditorPane } from "@/components/EditorPane";
 import { ViewportPane } from "@/components/ViewportPane";
 import { DEFAULT_MODEL, getModelConfig } from "@/lib/constants";
-import type { ChatMessage, ContentPart, FaceSelection } from "@/lib/types";
+import {
+  addRevision,
+  createProject,
+  getProject,
+  listProjects,
+  listRevisions,
+  type ProjectRevision,
+  type ProjectState,
+  type ProjectSummary,
+} from "@/lib/projects";
+import {
+  getTextContent,
+  type ChatMessage,
+  type ContentPart,
+  type FaceSelection,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -31,11 +46,22 @@ export default function Home() {
   const [glbUrl, setGlbUrl] = useState<string | null>(null);
   const [selectedFace, setSelectedFace] = useState<FaceSelection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isProjectLoading, setIsProjectLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [revisions, setRevisions] = useState<ProjectRevision[]>([]);
+  const [currentRevision, setCurrentRevision] = useState<number | null>(null);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
 
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
 
-  const generateMesh = useCallback(async (codeToExecute: string) => {
+  const generateMesh = useCallback(async (
+    codeToExecute: string,
+    clearSelection = true
+  ) => {
     setError(null);
     try {
       const res = await fetch(`${BACKEND_URL}/generate-mesh`, {
@@ -51,17 +77,180 @@ export default function Home() {
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      setSelectedFace(null);
+      if (clearSelection) setSelectedFace(null);
       setGlbUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return url;
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Mesh generation failed");
-    } finally {
-      setIsLoading(false);
     }
   }, []);
+
+  const projectNameFromMessages = useCallback(
+    (items: ChatMessage[]) => {
+      const firstRequest = items.find((message) => message.role === "user");
+      const text = firstRequest ? getTextContent(firstRequest.content).trim() : "";
+      return text ? text.slice(0, 60) : "Untitled part";
+    },
+    []
+  );
+
+  const applyRevision = useCallback(
+    async (revision: ProjectRevision) => {
+      const state = revision.state;
+      setCode(state.code);
+      setMessages(state.messages);
+      setModelId(state.modelId || DEFAULT_MODEL);
+      setSelectedFace(state.selection);
+      setLastRunId(state.lastRunId);
+      setCurrentRevision(revision.revisionNumber);
+      setIsDirty(false);
+      await generateMesh(state.code, false);
+      setSelectedFace(state.selection);
+    },
+    [generateMesh]
+  );
+
+  const loadProject = useCallback(
+    async (nextProjectId: string) => {
+      if (
+        isDirty &&
+        !window.confirm("Discard unsaved changes and load another part?")
+      ) {
+        return;
+      }
+      setIsProjectLoading(true);
+      setError(null);
+      try {
+        const [project, history] = await Promise.all([
+          getProject(BACKEND_URL, nextProjectId),
+          listRevisions(BACKEND_URL, nextProjectId),
+        ]);
+        setProjectId(project.id);
+        setRevisions(history);
+        if (project.latestRevision) {
+          await applyRevision(project.latestRevision);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load project");
+      } finally {
+        setIsProjectLoading(false);
+      }
+    },
+    [applyRevision, isDirty]
+  );
+
+  const persistSnapshot = useCallback(
+    async (state: ProjectState, suggestedName?: string) => {
+      setIsSaving(true);
+      try {
+        if (projectId) {
+          const revision = await addRevision(BACKEND_URL, projectId, state);
+          setRevisions((previous) => [
+            revision,
+            ...previous.filter((item) => item.id !== revision.id),
+          ]);
+          setCurrentRevision(revision.revisionNumber);
+          setProjects((previous) =>
+            previous.map((project) =>
+              project.id === projectId
+                ? {
+                    ...project,
+                    revisionCount: revision.revisionNumber,
+                    updatedAt: revision.createdAt,
+                  }
+                : project
+            )
+          );
+        } else {
+          const project = await createProject(
+            BACKEND_URL,
+            suggestedName || projectNameFromMessages(state.messages),
+            state
+          );
+          setProjectId(project.id);
+          setProjects((previous) => [
+            project,
+            ...previous.filter((item) => item.id !== project.id),
+          ]);
+          setRevisions(project.latestRevision ? [project.latestRevision] : []);
+          setCurrentRevision(
+            project.latestRevision?.revisionNumber ?? null
+          );
+        }
+        setIsDirty(false);
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [projectId, projectNameFromMessages]
+  );
+
+  const saveCurrentRevision = useCallback(async () => {
+    setError(null);
+    try {
+      await persistSnapshot({
+        code,
+        messages,
+        modelId,
+        selection: selectedFace,
+        lastRunId,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save revision");
+    }
+  }, [
+    code,
+    lastRunId,
+    messages,
+    modelId,
+    persistSnapshot,
+    selectedFace,
+  ]);
+
+  const startNewProject = useCallback(() => {
+    if (isDirty && !window.confirm("Discard unsaved changes and start a new part?")) {
+      return;
+    }
+    setGlbUrl((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return null;
+    });
+    setProjectId(null);
+    setRevisions([]);
+    setCurrentRevision(null);
+    setCode(DEFAULT_CODE);
+    setMessages([]);
+    setModelId(DEFAULT_MODEL);
+    setSelectedFace(null);
+    setLastRunId(null);
+    setIsDirty(false);
+    setError(null);
+  }, [isDirty]);
+
+  const loadRevision = useCallback(
+    async (revisionNumber: number) => {
+      if (
+        isDirty &&
+        !window.confirm("Discard unsaved changes and load this revision?")
+      ) {
+        return;
+      }
+      const revision = revisions.find(
+        (item) => item.revisionNumber === revisionNumber
+      );
+      if (!revision) return;
+      setIsProjectLoading(true);
+      setError(null);
+      try {
+        await applyRevision(revision);
+      } finally {
+        setIsProjectLoading(false);
+      }
+    },
+    [applyRevision, isDirty, revisions]
+  );
 
   const handleChatSend = useCallback(
     async (text: string, imageUrls?: string[]) => {
@@ -107,22 +296,41 @@ export default function Home() {
         if (!res.ok) throw new Error(data.error || "Failed to generate code");
 
         const generatedCode = data.code;
-        setCode(generatedCode);
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: generatedCode,
-            agent: {
-              runId: data.runId,
-              plan: data.plan,
-              trace: data.trace,
-              inspection: data.inspection,
-              usage: data.usage,
-            },
+        const assistantMessage: ChatMessage = {
+          role: "assistant",
+          content: generatedCode,
+          agent: {
+            runId: data.runId,
+            plan: data.plan,
+            trace: data.trace,
+            inspection: data.inspection,
+            usage: data.usage,
           },
-        ]);
+        };
+        const completedMessages = [...newMessages, assistantMessage];
+        setCode(generatedCode);
+        setMessages(completedMessages);
+        setLastRunId(data.runId ?? null);
+        setIsDirty(true);
         await generateMesh(generatedCode);
+        try {
+          await persistSnapshot(
+            {
+              code: generatedCode,
+              messages: completedMessages,
+              modelId,
+              selection: null,
+              lastRunId: data.runId ?? null,
+            },
+            text.trim().slice(0, 60)
+          );
+        } catch (saveError) {
+          setError(
+            `Model generated, but revision save failed: ${
+              saveError instanceof Error ? saveError.message : "Unknown error"
+            }`
+          );
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Generation failed");
         setMessages((prev) => prev.slice(0, -1));
@@ -130,13 +338,25 @@ export default function Home() {
         setIsLoading(false);
       }
     },
-    [messages, code, modelId, modelConfig, selectedFace, generateMesh]
+    [
+      messages,
+      code,
+      modelId,
+      modelConfig,
+      selectedFace,
+      generateMesh,
+      persistSnapshot,
+    ]
   );
 
   const handleGenerate = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    await generateMesh(code);
+    try {
+      await generateMesh(code);
+    } finally {
+      setIsLoading(false);
+    }
   }, [code, generateMesh]);
 
   const handleExport = useCallback(
@@ -172,6 +392,26 @@ export default function Home() {
   );
 
   useEffect(() => {
+    let active = true;
+    listProjects(BACKEND_URL)
+      .then((items) => {
+        if (active) setProjects(items);
+      })
+      .catch((loadError) => {
+        if (active) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to list saved projects"
+          );
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.altKey && e.key === "Enter") {
         e.preventDefault();
@@ -192,10 +432,23 @@ export default function Home() {
     <div className="flex h-screen flex-col bg-[#000000] text-zinc-200">
       <CommandBar
         modelId={modelId}
-        onModelChange={setModelId}
+        onModelChange={(value) => {
+          setModelId(value);
+          setIsDirty(true);
+        }}
         layoutMode={layoutMode}
         onLayoutChange={setLayoutMode}
         onExport={handleExport}
+        projects={projects}
+        projectId={projectId}
+        revisions={revisions}
+        currentRevision={currentRevision}
+        isDirty={isDirty}
+        isSaving={isSaving}
+        onProjectChange={loadProject}
+        onRevisionChange={loadRevision}
+        onNewProject={startNewProject}
+        onSave={saveCurrentRevision}
       />
       <div
         className={cn(
@@ -210,7 +463,10 @@ export default function Home() {
           <div className="flex min-h-[200px] flex-col overflow-hidden md:min-h-0">
             <EditorPane
               code={code}
-              onCodeChange={setCode}
+              onCodeChange={(value) => {
+                setCode(value);
+                setIsDirty(true);
+              }}
               onGenerate={handleGenerate}
             />
           </div>
@@ -234,8 +490,11 @@ export default function Home() {
             <ViewportPane
               glbUrl={glbUrl}
               code={code}
-              isLoading={isLoading}
-              onSelectionChange={setSelectedFace}
+              isLoading={isLoading || isProjectLoading}
+              onSelectionChange={(selection) => {
+                setSelectedFace(selection);
+                setIsDirty(true);
+              }}
             />
           </div>
         )}
@@ -243,7 +502,7 @@ export default function Home() {
           <ChatPane
             messages={messages}
             onSend={handleChatSend}
-            isLoading={isLoading}
+            isLoading={isLoading || isProjectLoading}
             lastError={error}
             supportsVision={modelConfig?.supportsVision ?? false}
             selection={selectedFace}
