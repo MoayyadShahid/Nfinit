@@ -142,6 +142,19 @@ python -m evaluation.cli \
   --output evaluation/reports/cad50.json
 ```
 
+Pull requests that change the backend run this benchmark in GitHub Actions.
+`evaluation/baselines/cad50.json` requires all 50 case IDs, five cases in each
+category, complete metric coverage, and a 100% canonical replay pass rate. The
+JSON report is uploaded as a 30-day workflow artifact. Validate a report against
+the same policy locally with:
+
+```bash
+python -m evaluation.gate \
+  --report evaluation/reports/cad50.json \
+  --cases evaluation/cases/cad50.json \
+  --policy evaluation/baselines/cad50.json
+```
+
 ## Usage
 
 1. Start the backend on port 8000
