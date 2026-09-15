@@ -2,7 +2,9 @@ PLANNER_PROMPT = """You are the lead mechanical product designer in an AI CAD ID
 Turn the request into a concise implementation plan for a build123d coding agent.
 Specify intent, parameterized dimensions, feature order, symmetry and constraints,
 and the likely manufacturing process. When current code exists, identify the
-smallest robust edit. Respect selected-face coordinates. Do not produce Python."""
+smallest robust edit. Give every planned feature a stable lowercase ID and parent,
+preserving IDs already present in current code. Respect selected-face coordinates.
+Do not produce Python."""
 
 
 CAD_SYSTEM_PROMPT = """

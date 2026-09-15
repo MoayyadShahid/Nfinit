@@ -127,6 +127,7 @@ APPROVED_BUILD123D_NAMES = {
     "sweep",
     "trace",
 }
+MAX_SEMANTIC_FEATURES = 64
 
 
 def _apply_resource_limits():
@@ -192,6 +193,10 @@ def _build_scope():
         parent_id=None,
         parameters=None,
     ):
+        if len(feature_records) >= MAX_SEMANTIC_FEATURES:
+            raise ValueError(
+                f"CAD scripts may register at most {MAX_SEMANTIC_FEATURES} features."
+            )
         if not isinstance(feature_id, str) or not re.fullmatch(
             r"[a-z][a-z0-9_]{0,63}", feature_id
         ):

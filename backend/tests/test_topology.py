@@ -151,3 +151,16 @@ result = part.part
 
     assert not analysis.valid
     assert "duplicated" in analysis.error
+
+
+def test_semantic_feature_count_is_bounded():
+    registrations = "\n".join(
+        f'register_feature("feature_{index}", "Feature {index}", '
+        '"reference", result)'
+        for index in range(65)
+    )
+
+    analysis = analyze_code(f"result = Box(10, 10, 10)\n{registrations}")
+
+    assert not analysis.valid
+    assert "at most 64 features" in analysis.error
