@@ -64,12 +64,50 @@ OPENROUTER_API_KEY=sk-or-v1-your-key-here
 
 The FastAPI backend owns the LangGraph workflow; Next.js only proxies requests:
 
-1. **Plan** — translate the product request into dimensions, constraints, features, and manufacturing intent.
-2. **Generate** — produce parameterized build123d code from that plan.
-3. **Inspect** — execute the code and measure its solids, volume, and bounding box.
-4. **Repair** — feed execution failures back to the model, retrying up to three times.
+1. **Retrieve** — find relevant build123d implementation patterns.
+2. **Plan** — translate the product request into dimensions, constraints,
+   features, and manufacturing intent.
+3. **Generate** — produce parameterized build123d code from that plan.
+4. **Inspect** — execute the code and measure its solids, volume, and bounding
+   box.
+5. **Repair** — feed execution failures back to the model, retrying up to three
+   times.
 
 Clicking a model face adds its local point and normal to the next request, so prompts such as “add a mounting hole on this face” can target the selected geometry.
+
+### build123d pattern RAG
+
+Retrieval works without external credentials: a compact curated corpus is
+ranked locally with deterministic lexical scoring. When Pinecone is configured,
+the same graph node uses an integrated-embedding index and falls back to the
+local corpus on service errors. Only the latest text request and selected
+surface type are used as the search query. LangFuse receives a hash and length,
+not the query or retrieved source.
+
+Set `PINECONE_API_KEY` and either `PINECONE_INDEX_HOST` (preferred) or
+`PINECONE_INDEX_NAME`. The index must use integrated embedding with its text
+field mapped to `chunk_text`. Use a versioned namespace such as
+`build123d-patterns-v1`.
+
+The ingestion CLI extracts content-addressed snippets from a pinned checkout of
+the official build123d examples and docs. It verifies the upstream Apache-2.0
+license, preserves source URLs and license metadata, and refuses to publish
+fewer than 200 real patterns:
+
+```bash
+git clone https://github.com/gumyr/build123d.git /tmp/build123d
+cd /tmp/build123d
+REVISION=$(git rev-parse HEAD)
+cd /path/to/Nfinit/backend
+poetry run python -m agent.retrieval.ingest \
+  --source-root /tmp/build123d \
+  --revision "$REVISION" \
+  --output agent/retrieval/generated/build123d.jsonl \
+  --pinecone
+```
+
+Keep the upstream `LICENSE` and `NOTICE` with any exported or redistributed
+corpus. Set `PATTERN_RAG_ENABLED=false` to disable retrieval entirely.
 
 ### Semantic topology
 
@@ -81,9 +119,9 @@ exact face ID, surface type, distance, normal alignment, and confidence. The IDE
 adds that identity to subsequent agent prompts.
 
 These IDs identify one exact B-rep version; geometry-changing edits may replace
-them. Cross-edit feature identity requires the explicit semantic feature tree
-that will build on this topology layer rather than pretending OpenCASCADE solves
-the topological naming problem automatically.
+them. Cross-edit feature identity uses the explicit semantic feature tree built
+on this topology layer rather than pretending OpenCASCADE solves the
+topological naming problem automatically.
 
 Generated scripts declare that semantic history explicitly after each major
 operation:

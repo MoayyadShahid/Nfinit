@@ -6,7 +6,7 @@ export type ImagePart = {
 export type ContentPart = TextPart | ImagePart;
 
 export type AgentTraceStep = {
-  node: "plan" | "generate" | "inspect" | "repair";
+  node: "retrieve" | "plan" | "generate" | "inspect" | "repair";
   status: "complete" | "passed" | "failed";
   detail: string;
   duration_ms?: number;

@@ -1,0 +1,130 @@
+{
+  "patterns": [
+    {
+      "id": "plate_center_hole",
+      "title": "Plate with centered through hole",
+      "summary": "Create a rectangular base and subtract a coaxial cylindrical through hole.",
+      "keywords": ["plate", "box", "hole", "subtract", "through"],
+      "code": "width, depth, thickness = 60.0, 40.0, 6.0\nhole_diameter = 10.0\nwith BuildPart() as part:\n    Box(width, depth, thickness)\n    register_feature(\"base_plate\", \"Base plate\", \"additive\", part.part)\n    Hole(hole_diameter / 2, depth=thickness)\n    register_feature(\"center_hole\", \"Center hole\", \"subtractive\", part.part, parent_id=\"base_plate\")\nresult = part.part"
+    },
+    {
+      "id": "polar_mounting_holes",
+      "title": "Polar mounting-hole pattern",
+      "summary": "Distribute equal through holes on a bolt circle with PolarLocations.",
+      "keywords": ["polar", "pattern", "bolt", "circle", "mount", "hole"],
+      "code": "plate_radius, thickness = 40.0, 5.0\nbolt_circle_radius, hole_radius = 30.0, 2.0\nwith BuildPart() as part:\n    Cylinder(plate_radius, thickness)\n    with PolarLocations(bolt_circle_radius, 6):\n        Hole(hole_radius, depth=thickness)\n    register_feature(\"mount_holes\", \"Mounting holes\", \"pattern\", part.part, parameters={\"count\": 6})\nresult = part.part"
+    },
+    {
+      "id": "grid_vent_pattern",
+      "title": "Rectangular ventilation-hole grid",
+      "summary": "Use GridLocations to cut a regular matrix of circular vents.",
+      "keywords": ["grid", "pattern", "vent", "perforated", "holes"],
+      "code": "with BuildPart() as part:\n    Box(80, 50, 4)\n    with GridLocations(12, 12, 5, 3):\n        Hole(2.5, depth=4)\n    register_feature(\"vent_grid\", \"Vent grid\", \"pattern\", part.part, parameters={\"columns\": 5, \"rows\": 3})\nresult = part.part"
+    },
+    {
+      "id": "rounded_rectangle_extrude",
+      "title": "Extruded rounded-rectangle profile",
+      "summary": "Build a robust rounded sketch and extrude it into a solid enclosure body.",
+      "keywords": ["rounded", "rectangle", "sketch", "extrude", "enclosure"],
+      "code": "with BuildPart() as part:\n    with BuildSketch():\n        RectangleRounded(70, 45, 6)\n    extrude(amount=12)\n    register_feature(\"rounded_body\", \"Rounded body\", \"additive\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "counterbored_mount",
+      "title": "Counterbored fastener hole",
+      "summary": "Cut a through hole with a cylindrical recess for a socket-head screw.",
+      "keywords": ["counterbore", "fastener", "screw", "mount", "hole"],
+      "code": "with BuildPart() as part:\n    Box(40, 30, 10)\n    CounterBoreHole(radius=2.5, counter_bore_radius=4.5, counter_bore_depth=3, depth=10)\n    register_feature(\"fastener_hole\", \"Counterbored fastener hole\", \"subtractive\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "countersunk_mount",
+      "title": "Countersunk fastener hole",
+      "summary": "Cut a through hole with a conical recess for a flush screw head.",
+      "keywords": ["countersink", "fastener", "screw", "flush", "hole"],
+      "code": "with BuildPart() as part:\n    Box(40, 30, 6)\n    CounterSinkHole(radius=2.0, counter_sink_radius=4.0, depth=6)\n    register_feature(\"flush_hole\", \"Countersunk hole\", \"subtractive\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "edge_fillet",
+      "title": "Fillet vertical solid edges",
+      "summary": "Apply fillets after robust base geometry using an axis-based edge selector.",
+      "keywords": ["fillet", "round", "edge", "vertical"],
+      "code": "with BuildPart() as part:\n    Box(50, 30, 12)\n    fillet(part.edges() | Axis.Z, radius=3)\n    register_feature(\"vertical_fillets\", \"Vertical fillets\", \"fillet\", part.part, parameters={\"radius\": 3})\nresult = part.part"
+    },
+    {
+      "id": "top_edge_chamfer",
+      "title": "Chamfer top perimeter edges",
+      "summary": "Select the upper horizontal edge group and apply a manufacturing chamfer.",
+      "keywords": ["chamfer", "bevel", "top", "edge", "manufacturing"],
+      "code": "with BuildPart() as part:\n    Box(50, 30, 12)\n    top_edges = part.edges().group_by(Axis.Z)[-1]\n    chamfer(top_edges, length=1.5)\n    register_feature(\"top_chamfer\", \"Top chamfer\", \"chamfer\", part.part, parameters={\"length\": 1.5})\nresult = part.part"
+    },
+    {
+      "id": "slotted_plate",
+      "title": "Plate with an elongated slot",
+      "summary": "Sketch a centered slot and subtract its extrusion from a plate.",
+      "keywords": ["slot", "elongated", "cutout", "plate", "subtract"],
+      "code": "with BuildPart() as part:\n    Box(70, 35, 5)\n    with BuildSketch():\n        SlotOverall(30, 8)\n    extrude(amount=5, mode=Mode.SUBTRACT)\n    register_feature(\"adjustment_slot\", \"Adjustment slot\", \"subtractive\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "revolved_knob",
+      "title": "Revolved axisymmetric knob",
+      "summary": "Create a radial half-profile on XZ and revolve it around the Z axis.",
+      "keywords": ["revolve", "knob", "axisymmetric", "profile", "lathe"],
+      "code": "with BuildPart() as part:\n    with BuildSketch(Plane.XZ):\n        Rectangle(12, 24, align=(Align.MIN, Align.CENTER))\n    revolve(axis=Axis.Z)\n    register_feature(\"knob_body\", \"Revolved knob\", \"additive\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "lofted_transition",
+      "title": "Loft between separated profiles",
+      "summary": "Create profiles on offset planes and loft a smooth solid transition.",
+      "keywords": ["loft", "transition", "profiles", "taper", "adapter"],
+      "code": "with BuildPart() as part:\n    with BuildSketch(Plane.XY):\n        Circle(18)\n    with BuildSketch(Plane.XY.offset(35)):\n        RectangleRounded(24, 18, 3)\n    loft()\n    register_feature(\"lofted_body\", \"Lofted transition\", \"additive\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "swept_tube",
+      "title": "Sweep a circular tube along a path",
+      "summary": "Build a line path, sketch a normal circular profile, and sweep a solid.",
+      "keywords": ["sweep", "tube", "pipe", "path", "hose"],
+      "code": "with BuildPart() as part:\n    with BuildLine() as path:\n        Polyline((0, 0), (30, 0), (45, 15))\n    with BuildSketch(Plane.YZ):\n        Circle(3)\n    sweep(path=path.wire)\n    register_feature(\"swept_tube\", \"Swept tube\", \"additive\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "mirrored_mounting_tabs",
+      "title": "Symmetric mirrored mounting tabs",
+      "summary": "Create one tab and mirror the additive geometry for bilateral symmetry.",
+      "keywords": ["mirror", "symmetric", "tabs", "mount", "bracket"],
+      "code": "with BuildPart() as part:\n    Box(50, 30, 8)\n    with Locations((30, 0, 0)):\n        Box(10, 16, 4)\n    mirror(about=Plane.YZ)\n    register_feature(\"mount_tabs\", \"Mirrored mounting tabs\", \"pattern\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "corner_bosses",
+      "title": "Four corner mounting bosses",
+      "summary": "Place additive cylinders at a rectangular location grid.",
+      "keywords": ["boss", "standoff", "corners", "grid", "mount"],
+      "code": "with BuildPart() as part:\n    Box(80, 50, 4)\n    with GridLocations(60, 30, 2, 2):\n        Cylinder(5, 12)\n    register_feature(\"corner_bosses\", \"Corner bosses\", \"pattern\", part.part, parameters={\"count\": 4})\nresult = part.part"
+    },
+    {
+      "id": "hollow_cylindrical_sleeve",
+      "title": "Hollow cylindrical sleeve",
+      "summary": "Subtract a coaxial inner cylinder to form a constant-thickness sleeve.",
+      "keywords": ["sleeve", "tube", "hollow", "cylinder", "wall"],
+      "code": "outer_radius, wall, length = 15.0, 2.0, 40.0\nwith BuildPart() as part:\n    Cylinder(outer_radius, length)\n    Cylinder(outer_radius - wall, length, mode=Mode.SUBTRACT)\n    register_feature(\"sleeve_bore\", \"Sleeve bore\", \"subtractive\", part.part, parameters={\"wall\": wall})\nresult = part.part"
+    },
+    {
+      "id": "hexagonal_body",
+      "title": "Extruded regular-polygon body",
+      "summary": "Sketch a regular hexagon and extrude it for a nut-like or tool body.",
+      "keywords": ["hexagon", "polygon", "extrude", "nut", "wrench"],
+      "code": "with BuildPart() as part:\n    with BuildSketch():\n        RegularPolygon(12, 6)\n    extrude(amount=8)\n    register_feature(\"hex_body\", \"Hexagonal body\", \"additive\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "side_port",
+      "title": "Transverse cylindrical side port",
+      "summary": "Orient a subtractive cylinder along X to cut a port through a body.",
+      "keywords": ["side", "port", "cross", "hole", "axis"],
+      "code": "with BuildPart() as part:\n    Box(40, 30, 24)\n    with Locations((0, 0, 0)):\n        Cylinder(4, 40, rotation=(0, 90, 0), mode=Mode.SUBTRACT)\n    register_feature(\"side_port\", \"Side port\", \"subtractive\", part.part)\nresult = part.part"
+    },
+    {
+      "id": "embossed_label",
+      "title": "Embossed text label",
+      "summary": "Create text in a sketch on the top workplane and extrude it additively.",
+      "keywords": ["text", "label", "emboss", "engrave", "marking"],
+      "code": "with BuildPart() as part:\n    Box(70, 35, 6)\n    with BuildSketch(Plane.XY.offset(3)):\n        Text(\"NFNIT\", font_size=10)\n    extrude(amount=1)\n    register_feature(\"embossed_label\", \"Embossed label\", \"additive\", part.part)\nresult = part.part"
+    }
+  ]
+}
