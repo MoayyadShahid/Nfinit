@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 import tempfile
 import traceback
@@ -6,17 +7,29 @@ from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from dotenv import load_dotenv
 from pydantic import BaseModel
+
+from agent import (
+    MAX_REPAIR_ATTEMPTS,
+    CadRunRequest,
+    CadRunResponse,
+    ModelInspection,
+    run_cad_agent,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+load_dotenv(Path(__file__).with_name(".env"))
+
 app = FastAPI(title="Nfinit Geometry Engine")
 
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[origin.strip() for origin in cors_origins],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -30,15 +43,6 @@ class GenerateMeshRequest(BaseModel):
 class ExportModelRequest(BaseModel):
     code: str
     format: str  # "step" | "brep" | "stl"
-
-
-class ModelInspection(BaseModel):
-    valid: bool
-    shape_type: str | None = None
-    solid_count: int | None = None
-    volume_mm3: float | None = None
-    bounding_box_mm: dict[str, float] | None = None
-    error: str | None = None
 
 
 def _execute_code(code: str, scope: dict) -> object:
@@ -122,12 +126,11 @@ def _build_scope():
     return scope
 
 
-@app.post("/inspect-model", response_model=ModelInspection)
-async def inspect_model(request: GenerateMeshRequest):
-    """Execute CAD code and return geometry facts for the agent's verification loop."""
+def _inspect_code(code: str) -> ModelInspection:
+    """Execute CAD code and return geometry facts."""
     try:
         scope = _build_scope()
-        result = _execute_code(request.code.strip(), scope)
+        result = _execute_code(code.strip(), scope)
         bounding_box = result.bounding_box()
         size = bounding_box.size
         solids = result.solids() if hasattr(result, "solids") else []
@@ -146,6 +149,55 @@ async def inspect_model(request: GenerateMeshRequest):
     except Exception as e:
         logger.info("Model inspection failed: %s", e)
         return ModelInspection(valid=False, error=f"{type(e).__name__}: {str(e)}")
+
+
+@app.post("/inspect-model", response_model=ModelInspection)
+async def inspect_model(request: GenerateMeshRequest):
+    """Execute CAD code and return geometry facts."""
+    return _inspect_code(request.code)
+
+
+@app.post("/cad/run", response_model=CadRunResponse)
+async def cad_run(request: CadRunRequest):
+    """Plan, generate, execute, and repair a CAD request through LangGraph."""
+    if not request.messages or request.messages[-1].role != "user":
+        raise HTTPException(
+            status_code=400,
+            detail="A non-empty message list ending with a user message is required.",
+        )
+
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="OPENROUTER_API_KEY is not configured on the backend.",
+        )
+
+    try:
+        result = await run_cad_agent(request, api_key, _inspect_code)
+    except Exception as e:
+        logger.error("CAD agent failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail=f"CAD agent failed: {str(e)}") from e
+
+    if result["validation_error"]:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": (
+                    "The CAD agent could not produce valid geometry after "
+                    f"{MAX_REPAIR_ATTEMPTS} repairs: {result['validation_error']}"
+                ),
+                "plan": result["plan"],
+                "trace": result["trace"],
+            },
+        )
+
+    return CadRunResponse(
+        code=result["code"],
+        plan=result["plan"],
+        inspection=ModelInspection.model_validate(result["inspection"]),
+        trace=result["trace"],
+    )
 
 
 @app.post("/export-model")
