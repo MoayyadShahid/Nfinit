@@ -53,16 +53,28 @@ npm run dev
 ```
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+BACKEND_URL=http://localhost:8000
 ```
 
 **Backend:** Optional. Copy `backend/.env.example` to `backend/.env` to customize CORS origins.
+
+## Agent workflow
+
+Nfinit uses a LangGraph workflow rather than a single prompt-to-code call:
+
+1. **Plan** — translate the product request into dimensions, constraints, features, and manufacturing intent.
+2. **Generate** — produce parameterized build123d code from that plan.
+3. **Inspect** — execute the code and measure its solids, volume, and bounding box.
+4. **Repair** — feed execution failures back to the model, retrying up to three times.
+
+Clicking a model face adds its local point and normal to the next request, so prompts such as “add a mounting hole on this face” can target the selected geometry.
 
 ## Usage
 
 1. Start the backend on port 8000
 2. Start the frontend on port 3000
 3. Open http://localhost:3000
-4. Select a model (DeepSeek V3.2, Claude Opus 4.6, or Minimax 2.5)
+4. Select a quality-first model (Claude Opus 5 or GPT-6 Astra Pro)
 5. Type a prompt (e.g. "a 10mm cube with a 3mm hole through the center")
 6. Press Generate or Cmd+Enter
 
