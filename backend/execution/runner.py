@@ -1,8 +1,10 @@
 import json
 import os
 import shutil
+import site
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +15,12 @@ from agent.models import ModelInspection
 from .policy import CodePolicyError, validate_cad_code
 
 SandboxOperation = Literal["inspect", "glb", "step", "brep", "stl"]
+
+ISOLATED_BOOTSTRAP = (
+    "import json,runpy,sys;"
+    "sys.path[:0]=json.loads(sys.argv[2]);"
+    "runpy.run_path(sys.argv[1],run_name='__main__')"
+)
 
 
 class SandboxError(RuntimeError):
@@ -51,6 +59,22 @@ def _worker_environment(work_dir: Path) -> dict[str, str]:
         "OMP_NUM_THREADS": "1",
         **configured_limits,
     }
+
+
+def _trusted_package_paths() -> list[str]:
+    candidates = [
+        *site.getsitepackages(),
+        site.getusersitepackages(),
+        sysconfig.get_paths().get("purelib", ""),
+        sysconfig.get_paths().get("platlib", ""),
+    ]
+    return list(
+        dict.fromkeys(
+            str(Path(path).resolve())
+            for path in candidates
+            if path and Path(path).is_dir()
+        )
+    )
 
 
 def _decode_worker_response(process: subprocess.CompletedProcess[str]) -> dict:
@@ -93,7 +117,14 @@ def _run_worker(
 
     try:
         process = subprocess.run(
-            [sys.executable, "-I", str(worker)],
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                ISOLATED_BOOTSTRAP,
+                str(worker),
+                json.dumps(_trusted_package_paths()),
+            ],
             input=json.dumps(payload),
             text=True,
             capture_output=True,
