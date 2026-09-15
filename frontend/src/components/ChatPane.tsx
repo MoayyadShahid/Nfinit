@@ -164,6 +164,10 @@ export function ChatPane({
         {messages.map((msg, i) => {
           const text = getTextContent(msg.content);
           const imgs = getImageUrls(msg.content);
+          const planSummary = msg.agent?.plan
+            .split(/\n|(?<=[.!?])\s+/)
+            .find((line) => line.trim())
+            ?.trim();
 
           return msg.role === "user" ? (
             <div key={i} className="flex justify-end">
@@ -189,53 +193,54 @@ export function ChatPane({
                 <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-zinc-300">
                   <Sparkles className="size-3 text-violet-400" />
                   Model updated
-                  {msg.agent?.runId && (
-                    <span className="ml-2 font-mono text-[9px] font-normal text-zinc-600">
-                      {msg.agent.runId.slice(0, 8)}
-                    </span>
-                  )}
                 </div>
                 {msg.agent ? (
                   <>
-                    <div className="space-y-1.5">
-                      {msg.agent.trace.map((step, traceIndex) => (
-                        <div
-                          key={`${step.node}-${traceIndex}`}
-                          className="flex items-start gap-2 text-[11px] text-zinc-500"
-                        >
-                          {step.node === "repair" ? (
-                            <RotateCcw className="mt-0.5 size-3 shrink-0 text-amber-400" />
-                          ) : (
-                            <Check className="mt-0.5 size-3 shrink-0 text-emerald-400" />
-                          )}
-                          <span>
-                            <span className="capitalize text-zinc-400">
-                              {step.node}
-                            </span>
-                            {" · "}
-                            {step.detail}
-                            {typeof step.duration_ms === "number" && (
-                              <span className="ml-1 text-zinc-600">
-                                ({step.duration_ms} ms)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-xs leading-5 text-zinc-400">
+                      {planSummary || "Your part was generated and validated successfully."}
+                    </p>
                     <details className="mt-2 border-t border-white/8 pt-2 text-[11px]">
                       <summary className="cursor-pointer text-zinc-500 hover:text-zinc-300">
-                        View design plan
+                        Technical details
                       </summary>
-                      <p className="mt-2 whitespace-pre-wrap text-zinc-400">
+                      <p className="mt-2 whitespace-pre-wrap leading-5 text-zinc-500">
                         {msg.agent.plan}
                       </p>
-                    </details>
-                    {msg.agent.usage && (
-                      <div className="mt-2 text-[9px] text-zinc-600">
-                        {msg.agent.usage.total_tokens.toLocaleString()} tokens
+                      <div className="mt-2 space-y-1.5 border-t border-white/8 pt-2">
+                        {msg.agent.trace.map((step, traceIndex) => (
+                          <div
+                            key={`${step.node}-${traceIndex}`}
+                            className="flex items-start gap-2 text-zinc-500"
+                          >
+                            {step.node === "repair" ? (
+                              <RotateCcw className="mt-0.5 size-3 shrink-0 text-amber-400" />
+                            ) : (
+                              <Check className="mt-0.5 size-3 shrink-0 text-emerald-400" />
+                            )}
+                            <span>
+                              <span className="capitalize text-zinc-400">
+                                {step.node}
+                              </span>
+                              {" · "}
+                              {step.detail}
+                              {typeof step.duration_ms === "number" && (
+                                <span className="ml-1 text-zinc-600">
+                                  ({step.duration_ms} ms)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                      {(msg.agent.runId || msg.agent.usage) && (
+                        <div className="mt-2 font-mono text-[9px] text-zinc-600">
+                          {msg.agent.runId && `run ${msg.agent.runId.slice(0, 8)}`}
+                          {msg.agent.runId && msg.agent.usage && " · "}
+                          {msg.agent.usage &&
+                            `${msg.agent.usage.total_tokens.toLocaleString()} tokens`}
+                        </div>
+                      )}
+                    </details>
                   </>
                 ) : (
                   <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs text-zinc-300">
