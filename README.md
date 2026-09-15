@@ -96,6 +96,25 @@ Tracing is disabled automatically when credentials are absent. Prompts, source
 code, and image data are never exported: traces contain only counts, hashes,
 geometry results, timing, model identifiers, and token usage.
 
+## Project persistence
+
+The backend stores projects in SQLite at `backend/data/nfinit.db` by default.
+Set `NFNIT_DATABASE_PATH` to place the database elsewhere. Each project begins
+with revision 1, and every save appends an immutable snapshot containing code,
+chat messages, model selection, selected-face context, and the latest agent run
+ID. Loading an older revision never overwrites history; save it again to create
+a new revision.
+
+Project APIs:
+
+- `POST /projects` and `GET /projects`
+- `GET`, `PATCH`, and `DELETE /projects/{project_id}`
+- `POST` and `GET /projects/{project_id}/revisions`
+- `GET /projects/{project_id}/revisions/{revision_number}`
+
+SQLite WAL mode and transactional revision numbering keep concurrent saves
+consistent. Database files are excluded from Git.
+
 ## Evaluations
 
 The backend includes a typed evaluation runner with two modes:

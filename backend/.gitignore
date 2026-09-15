@@ -52,6 +52,9 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 evaluation/reports/
+data/*.db
+data/*.db-shm
+data/*.db-wal
 
 # Jupyter Notebook
 .ipynb_checkpoints

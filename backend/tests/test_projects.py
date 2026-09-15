@@ -1,0 +1,69 @@
+import pytest
+
+from projects.models import ProjectCreate, ProjectState
+from projects.store import ProjectNotFoundError, ProjectStore
+
+
+def initial_state() -> ProjectState:
+    return ProjectState(
+        code="result = Box(10, 10, 10)",
+        messages=[
+            {"role": "user", "content": "Make a cube"},
+            {
+                "role": "assistant",
+                "content": "result = Box(10, 10, 10)",
+                "agent": {"runId": "run-one", "plan": "Build a cube"},
+            },
+        ],
+        modelId="anthropic/claude-opus-5",
+        lastRunId="run-one",
+    )
+
+
+def test_project_store_persists_immutable_revision_history(tmp_path):
+    database = tmp_path / "nested" / "projects.db"
+    store = ProjectStore(database)
+    created = store.create_project(
+        ProjectCreate(name="  Mount prototype  ", state=initial_state())
+    )
+
+    assert created.name == "Mount prototype"
+    assert created.revision_count == 1
+    assert created.latest_revision.revision_number == 1
+    assert created.latest_revision.state.last_run_id == "run-one"
+
+    updated_state = initial_state().model_copy(
+        update={
+            "code": "result = Box(20, 10, 10)",
+            "last_run_id": "run-two",
+        }
+    )
+    second = store.add_revision(created.id, updated_state)
+
+    reopened = ProjectStore(database)
+    loaded = reopened.get_project(created.id)
+    revisions = reopened.list_revisions(created.id)
+
+    assert second.revision_number == 2
+    assert loaded.revision_count == 2
+    assert loaded.latest_revision.state.code == "result = Box(20, 10, 10)"
+    assert [revision.revision_number for revision in revisions] == [2, 1]
+    assert reopened.get_revision(created.id, 1).state.code == (
+        "result = Box(10, 10, 10)"
+    )
+
+
+def test_project_store_renames_lists_and_cascades_delete(tmp_path):
+    store = ProjectStore(tmp_path / "projects.db")
+    created = store.create_project(ProjectCreate(name="First"))
+
+    renamed = store.rename_project(created.id, "Desk mount")
+
+    assert renamed.name == "Desk mount"
+    assert store.list_projects()[0].revision_count == 1
+
+    store.delete_project(created.id)
+
+    assert store.list_projects() == []
+    with pytest.raises(ProjectNotFoundError):
+        store.get_project(created.id)
