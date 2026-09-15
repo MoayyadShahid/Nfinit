@@ -335,7 +335,7 @@ def _topology(result, selection=None):
             face = record["shape"]
             distance = float(face.distance_to(point))
             surface_point = face.closest_points(point)[0]
-            normal = tuple(face.normal_at(*tuple(surface_point)))
+            normal = tuple(face.normal_at(surface_point))
             normal_alignment = max(
                 -1.0,
                 min(
