@@ -194,6 +194,7 @@ interface ViewportPaneProps {
 
 function ViewportContent({
   glbUrl,
+  code,
   isLoading,
   onSelectionChange,
 }: ViewportPaneProps) {
