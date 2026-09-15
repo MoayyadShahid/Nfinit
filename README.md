@@ -85,6 +85,26 @@ them. Cross-edit feature identity requires the explicit semantic feature tree
 that will build on this topology layer rather than pretending OpenCASCADE solves
 the topological naming problem automatically.
 
+Generated scripts declare that semantic history explicitly after each major
+operation:
+
+```python
+register_feature(
+    "mounting_holes",
+    "Mounting hole pattern",
+    "pattern",
+    part.part,
+    parent_id="base_plate",
+    parameters={"count": 4, "spacing": 30.0},
+)
+```
+
+Feature IDs are authored names that remain stable through parameter edits. The
+sandbox snapshots topology at each declaration, then `/analyze-model` attributes
+surviving final faces to the feature that introduced them. Legacy scripts remain
+valid: they return an empty feature tree and list their faces as unassigned
+instead of receiving guessed history.
+
 ## Execution sandbox
 
 Generated code never runs inside the FastAPI process. Before execution, an AST

@@ -63,3 +63,91 @@ def test_topology_rejects_unsafe_code_before_worker_execution():
 
     assert not analysis.valid
     assert "sandbox_security_error" in analysis.error
+
+
+def test_explicit_feature_tree_attributes_surviving_brep_faces():
+    analysis = analyze_code(
+        """
+width, depth, height = 20.0, 16.0, 4.0
+hole_radius = 3.0
+with BuildPart() as part:
+    Box(width, depth, height)
+    register_feature(
+        "base_plate",
+        "Base plate",
+        "additive",
+        part.part,
+        parameters={"width": width, "depth": depth, "height": height},
+    )
+    Hole(hole_radius, depth=height)
+    register_feature(
+        "center_hole",
+        "Center hole",
+        "subtractive",
+        part.part,
+        parent_id="base_plate",
+        parameters={"radius": hole_radius},
+    )
+result = part.part
+"""
+    )
+
+    assert analysis.valid
+    assert [feature.id for feature in analysis.features] == [
+        "base_plate",
+        "center_hole",
+    ]
+    assert analysis.features[1].parent_id == "base_plate"
+    assert analysis.features[0].parameters["width"] == 20
+    owned_faces = {
+        face_id
+        for feature in analysis.features
+        for face_id in feature.owned_face_ids
+    }
+    assert owned_faces == {face.id for face in analysis.faces}
+    assert analysis.unassigned_face_ids == []
+
+
+def test_authored_feature_ids_survive_parameter_changes():
+    template = """
+size = {size}
+with BuildPart() as part:
+    Box(size, 10, 5)
+    register_feature(
+        "main_body",
+        "Main body",
+        "additive",
+        part.part,
+        parameters={{"size": size}},
+    )
+result = part.part
+"""
+
+    first = analyze_code(template.format(size=20))
+    second = analyze_code(template.format(size=30))
+
+    assert first.topology_version != second.topology_version
+    assert [feature.id for feature in first.features] == ["main_body"]
+    assert [feature.id for feature in second.features] == ["main_body"]
+
+
+def test_legacy_code_reports_unassigned_faces_without_inventing_history():
+    analysis = analyze_code("result = Box(10, 20, 30)")
+
+    assert analysis.features == []
+    assert analysis.unassigned_face_ids == [face.id for face in analysis.faces]
+
+
+def test_duplicate_feature_ids_fail_validation_in_worker():
+    analysis = analyze_code(
+        """
+with BuildPart() as part:
+    Box(10, 10, 10)
+    register_feature("body", "Body", "additive", part.part)
+    register_feature("body", "Duplicate", "other", part.part)
+result = part.part
+"""
+    )
+
+    assert not analysis.valid
+    assert "duplicated" in analysis.error

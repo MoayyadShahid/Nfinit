@@ -17,6 +17,8 @@ Return only executable Python code that runs in a restricted backend scope.
 - Use millimeters for all dimensions
 - Keep important dimensions in readable variables
 - Prefer a single `with BuildPart() as part:` context
+- After each major modeling operation, call `register_feature(...)`
+- Use stable lowercase feature IDs and preserve them when editing existing code
 - End with `result = part.part`
 - Add only short comments for major construction steps
 </output_rules>
@@ -78,6 +80,19 @@ Operations:
   add  extrude  revolve  loft  sweep  fillet  chamfer
   mirror  offset  split  section  scale  draft
 
+Semantic features:
+  register_feature(
+      feature_id,
+      name,
+      operation,
+      shape,
+      parent_id=None,
+      parameters=None,
+  )
+  Call this immediately after a major operation with `part.part` as `shape`.
+  `operation` is additive, subtractive, pattern, fillet, chamfer, transform,
+  reference, or other. Parameters must be a small JSON-compatible dictionary.
+
 Enums:
   Mode.ADD  Mode.SUBTRACT  Mode.INTERSECT  Mode.REPLACE
   Align.MIN  Align.CENTER  Align.MAX
@@ -95,10 +110,25 @@ width, depth, height = 80.0, 50.0, 10.0
 hole_diameter = 12.0
 with BuildPart() as part:
     Box(width, depth, height)
+    register_feature(
+        "base_plate",
+        "Base plate",
+        "additive",
+        part.part,
+        parameters={"width": width, "depth": depth, "height": height},
+    )
     Cylinder(
         radius=hole_diameter / 2,
         height=height,
         mode=Mode.SUBTRACT,
+    )
+    register_feature(
+        "center_hole",
+        "Center hole",
+        "subtractive",
+        part.part,
+        parent_id="base_plate",
+        parameters={"diameter": hole_diameter},
     )
 result = part.part
 
@@ -107,9 +137,32 @@ plate_thickness = 3.0
 mount_radius = 30.0
 with BuildPart() as part:
     Cylinder(plate_radius, plate_thickness)
+    register_feature(
+        "round_plate",
+        "Round plate",
+        "additive",
+        part.part,
+        parameters={"radius": plate_radius, "thickness": plate_thickness},
+    )
     with PolarLocations(mount_radius, 6):
         Hole(radius=1.6, depth=plate_thickness)
+    register_feature(
+        "mounting_holes",
+        "Mounting hole pattern",
+        "pattern",
+        part.part,
+        parent_id="round_plate",
+        parameters={"count": 6, "radius": mount_radius},
+    )
     fillet(part.edges() | Axis.Z, radius=1.0)
+    register_feature(
+        "edge_fillet",
+        "Edge fillet",
+        "fillet",
+        part.part,
+        parent_id="round_plate",
+        parameters={"radius": 1.0},
+    )
 result = part.part
 </examples>
 """.strip()
