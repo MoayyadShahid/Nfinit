@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
 
 import main
-from execution import SandboxArtifact
+from execution import SandboxArtifact, TopologyAnalysis
+from execution.topology import ResolvedFaceSelection
 
 
 def test_cad_run_exposes_agent_response(monkeypatch):
@@ -80,6 +81,43 @@ def test_inspection_rejects_code_that_accesses_files():
     assert response.status_code == 200
     assert response.json()["valid"] is False
     assert "sandbox_security_error" in response.json()["error"]
+
+
+def test_analyze_model_exposes_resolved_brep_face(monkeypatch):
+    def fake_analyze(code, selection):
+        assert code == "result = Box(10, 10, 10)"
+        assert selection.entity_id is None
+        return TopologyAnalysis(
+            valid=True,
+            topology_version="topology-123",
+            selected_face=ResolvedFaceSelection(
+                face_id="face-123",
+                surface_type="plane",
+                distance_mm=0,
+                normal_alignment=1,
+                confidence=1,
+            ),
+        )
+
+    monkeypatch.setattr(main, "analyze_code", fake_analyze)
+    client = TestClient(main.app)
+    response = client.post(
+        "/analyze-model",
+        json={
+            "code": "result = Box(10, 10, 10)",
+            "selection": {"point": [5, 0, 0], "normal": [1, 0, 0]},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["topologyVersion"] == "topology-123"
+    assert response.json()["selectedFace"] == {
+        "faceId": "face-123",
+        "surfaceType": "plane",
+        "distanceMm": 0.0,
+        "normalAlignment": 1.0,
+        "confidence": 1.0,
+    }
 
 
 def test_mesh_generation_uses_sandbox_artifact(monkeypatch, tmp_path):

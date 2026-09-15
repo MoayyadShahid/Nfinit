@@ -5,7 +5,9 @@ one JSON request on stdin and one JSON response on stdout.
 """
 
 import contextlib
+import hashlib
 import json
+import math
 import os
 import resource
 import socket
@@ -230,6 +232,147 @@ def _inspect(result):
     }
 
 
+def _vector(value, digits: int = 6):
+    return [round(float(component), digits) for component in value]
+
+
+def _bounds(shape):
+    bounds = shape.bounding_box()
+    return {
+        "minimum": _vector(bounds.min),
+        "maximum": _vector(bounds.max),
+    }
+
+
+def _entity_id(prefix: str, payload: dict, occurrence: int = 0):
+    canonical = json.dumps(
+        {"geometry": payload, "occurrence": occurrence},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:20]
+    return f"{prefix}_{digest}"
+
+
+def _topology(result, selection=None):
+    edge_records = []
+    for edge in result.edges():
+        payload = {
+            "curve_type": edge.geom_type.name.lower(),
+            "length_mm": round(float(edge.length), 6),
+            "center_mm": _vector(edge.center()),
+            "bounds_mm": _bounds(edge),
+        }
+        signature = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        edge_records.append({"shape": edge, "payload": payload, "signature": signature})
+
+    occurrences = {}
+    for record in sorted(edge_records, key=lambda item: item["signature"]):
+        occurrence = occurrences.get(record["signature"], 0)
+        occurrences[record["signature"]] = occurrence + 1
+        record["payload"]["id"] = _entity_id(
+            "edge", record["payload"], occurrence
+        )
+
+    face_records = []
+    for face in result.faces():
+        edge_ids = sorted(
+            record["payload"]["id"]
+            for face_edge in face.edges()
+            for record in edge_records
+            if record["shape"].is_same(face_edge)
+        )
+        payload = {
+            "surface_type": face.geom_type.name.lower(),
+            "area_mm2": round(float(face.area), 6),
+            "center_mm": _vector(face.center()),
+            "normal": _vector(face.normal_at()),
+            "bounds_mm": _bounds(face),
+            "edge_ids": edge_ids,
+        }
+        signature = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        face_records.append({"shape": face, "payload": payload, "signature": signature})
+
+    occurrences = {}
+    for record in sorted(face_records, key=lambda item: item["signature"]):
+        occurrence = occurrences.get(record["signature"], 0)
+        occurrences[record["signature"]] = occurrence + 1
+        record["payload"]["id"] = _entity_id(
+            "face", record["payload"], occurrence
+        )
+
+    edges = sorted(
+        (record["payload"] for record in edge_records),
+        key=lambda item: item["id"],
+    )
+    faces = sorted(
+        (record["payload"] for record in face_records),
+        key=lambda item: item["id"],
+    )
+    topology_version = hashlib.sha256(
+        json.dumps(
+            {
+                "edges": [edge["id"] for edge in edges],
+                "faces": [face["id"] for face in faces],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()[:20]
+
+    selected_face = None
+    if selection and face_records:
+        point = tuple(float(value) for value in selection["point"])
+        supplied_normal = tuple(float(value) for value in selection["normal"])
+        normal_length = math.sqrt(sum(value * value for value in supplied_normal))
+        if normal_length == 0:
+            raise ValueError("Selection normal must be non-zero.")
+        supplied_normal = tuple(value / normal_length for value in supplied_normal)
+        bounds = result.bounding_box()
+        diagonal = math.dist(tuple(bounds.min), tuple(bounds.max))
+        matches = []
+        for record in face_records:
+            face = record["shape"]
+            distance = float(face.distance_to(point))
+            surface_point = face.closest_points(point)[0]
+            normal = tuple(face.normal_at(surface_point))
+            normal_alignment = max(
+                -1.0,
+                min(
+                    1.0,
+                    sum(
+                        normal[index] * supplied_normal[index]
+                        for index in range(3)
+                    ),
+                ),
+            )
+            score = distance / max(diagonal, 1.0) + (1.0 - normal_alignment) * 0.5
+            matches.append((score, distance, normal_alignment, record))
+
+        _, distance, normal_alignment, record = min(
+            matches, key=lambda match: (match[0], match[3]["payload"]["id"])
+        )
+        if distance <= max(2.0, diagonal * 0.05) and normal_alignment > 0:
+            tolerance = max(0.1, diagonal * 0.005)
+            confidence = normal_alignment / (1.0 + distance / tolerance)
+            selected_face = {
+                "faceId": record["payload"]["id"],
+                "surfaceType": record["payload"]["surface_type"],
+                "distanceMm": round(distance, 6),
+                "normalAlignment": round(normal_alignment, 6),
+                "confidence": round(max(0.0, min(1.0, confidence)), 4),
+            }
+
+    return {
+        "valid": True,
+        "topologyVersion": topology_version,
+        "faces": faces,
+        "edges": edges,
+        "selectedFace": selected_face,
+        "error": None,
+    }
+
+
 def _export(result, operation: str, output_name: str):
     from build123d.exporters3d import export_brep, export_gltf, export_step, export_stl
 
@@ -260,11 +403,12 @@ def main():
     _disable_network()
     result = _execute(request["code"])
     operation = request["operation"]
-    data = (
-        _inspect(result)
-        if operation == "inspect"
-        else _export(result, operation, request["output_name"])
-    )
+    if operation == "inspect":
+        data = _inspect(result)
+    elif operation == "topology":
+        data = _topology(result, request.get("selection"))
+    else:
+        data = _export(result, operation, request["output_name"])
     print(json.dumps({"ok": True, "data": data}), flush=True)
 
 

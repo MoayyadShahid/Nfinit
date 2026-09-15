@@ -233,6 +233,7 @@ export default function Home() {
             )}
             <ViewportPane
               glbUrl={glbUrl}
+              code={code}
               isLoading={isLoading}
               onSelectionChange={setSelectedFace}
             />

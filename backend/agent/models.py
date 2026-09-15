@@ -9,8 +9,14 @@ class ChatMessage(BaseModel):
 
 
 class FaceSelection(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
     point: tuple[float, float, float]
     normal: tuple[float, float, float]
+    entity_id: str | None = Field(default=None, alias="entityId")
+    topology_version: str | None = Field(default=None, alias="topologyVersion")
+    surface_type: str | None = Field(default=None, alias="surfaceType")
+    confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class CadRunRequest(BaseModel):
