@@ -14,11 +14,18 @@ from agent import (
     MAX_REPAIR_ATTEMPTS,
     CadRunRequest,
     CadRunResponse,
+    FaceSelection,
     ModelInspection,
     flush_tracing,
     run_cad_agent,
 )
-from execution import SandboxError, export_code, inspect_code as sandbox_inspect_code
+from execution import (
+    SandboxError,
+    TopologyAnalysis,
+    analyze_code,
+    export_code,
+    inspect_code as sandbox_inspect_code,
+)
 from projects import router as projects_router
 
 logging.basicConfig(level=logging.INFO)
@@ -55,6 +62,11 @@ class ExportModelRequest(BaseModel):
     format: str  # "step" | "brep" | "stl"
 
 
+class AnalyzeModelRequest(BaseModel):
+    code: str
+    selection: FaceSelection | None = None
+
+
 def _inspect_code(code: str) -> ModelInspection:
     """Execute CAD code in the sandbox and return geometry facts."""
     return sandbox_inspect_code(code)
@@ -64,6 +76,12 @@ def _inspect_code(code: str) -> ModelInspection:
 async def inspect_model(request: GenerateMeshRequest):
     """Execute CAD code and return geometry facts."""
     return _inspect_code(request.code)
+
+
+@app.post("/analyze-model", response_model=TopologyAnalysis)
+async def analyze_model(request: AnalyzeModelRequest):
+    """Index B-rep entities and optionally resolve a geometric face selection."""
+    return analyze_code(request.code, request.selection)
 
 
 @app.post("/cad/run", response_model=CadRunResponse)

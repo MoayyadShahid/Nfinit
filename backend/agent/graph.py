@@ -35,7 +35,7 @@ class AgentState(TypedDict):
     current_code: str
     model_id: str
     supports_structured_outputs: bool
-    selection: dict[str, list[float]] | None
+    selection: dict[str, Any] | None
     plan: str
     code: str
     inspection: dict[str, Any] | None
@@ -74,6 +74,15 @@ def _last_user_content(state: AgentState) -> str | list[dict[str, Any]]:
             "\n\nSelected face in the current model:"
             f"\n- point (mm): {point}"
             f"\n- outward normal: {normal}"
+        )
+        if selection.get("entity_id"):
+            selection_text += (
+                f"\n- B-rep face ID: {selection['entity_id']}"
+                f"\n- surface type: {selection.get('surface_type') or 'unknown'}"
+                f"\n- topology version: "
+                f"{selection.get('topology_version') or 'unknown'}"
+            )
+        selection_text += (
             '\nApply "this face", "here", and similar references to this face.'
         )
     code_text = (
@@ -396,14 +405,7 @@ async def run_cad_agent(
         "current_code": request.code,
         "model_id": request.model_id,
         "supports_structured_outputs": request.supports_structured_outputs,
-        "selection": (
-            {
-                "point": list(request.selection.point),
-                "normal": list(request.selection.normal),
-            }
-            if request.selection
-            else None
-        ),
+        "selection": request.selection.model_dump() if request.selection else None,
         "plan": "",
         "code": "",
         "inspection": None,

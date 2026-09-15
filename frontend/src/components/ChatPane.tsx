@@ -215,7 +215,10 @@ export function ChatPane({
         {selection && (
           <div className="flex items-center gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-2.5 py-1.5 text-[11px] text-blue-200">
             <MapPin className="size-3.5" />
-            Prompt will target the selected face at ({selection.point.join(", ")} mm)
+            Prompt will target{" "}
+            {selection.entityId
+              ? `${selection.surfaceType ?? "B-rep face"} ${selection.entityId.slice(0, 13)}`
+              : `the face at (${selection.point.join(", ")} mm)`}
           </div>
         )}
         {lastError && (

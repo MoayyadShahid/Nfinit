@@ -23,6 +23,10 @@ export type ModelInspection = {
 export type FaceSelection = {
   point: [number, number, number];
   normal: [number, number, number];
+  entityId?: string;
+  topologyVersion?: string;
+  surfaceType?: string;
+  confidence?: number;
 };
 
 export type ChatMessage = {

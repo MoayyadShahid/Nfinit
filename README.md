@@ -71,6 +71,20 @@ The FastAPI backend owns the LangGraph workflow; Next.js only proxies requests:
 
 Clicking a model face adds its local point and normal to the next request, so prompts such as “add a mounting hole on this face” can target the selected geometry.
 
+### Semantic topology
+
+`POST /analyze-model` executes CAD code in the sandbox and returns a deterministic
+index of B-rep faces and edges. Entity IDs are content-addressed from geometric
+properties and adjacency, so repeated analysis of identical geometry returns the
+same IDs. A supplied point and outward normal resolves a viewport click to the
+exact face ID, surface type, distance, normal alignment, and confidence. The IDE
+adds that identity to subsequent agent prompts.
+
+These IDs identify one exact B-rep version; geometry-changing edits may replace
+them. Cross-edit feature identity requires the explicit semantic feature tree
+that will build on this topology layer rather than pretending OpenCASCADE solves
+the topological naming problem automatically.
+
 ## Execution sandbox
 
 Generated code never runs inside the FastAPI process. Before execution, an AST

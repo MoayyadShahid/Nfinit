@@ -4,11 +4,13 @@ import { Center, GizmoHelper, GizmoViewcube, Grid, OrbitControls, useGLTF } from
 import { LayoutGrid } from "lucide-react";
 import type { FaceSelection } from "@/lib/types";
 import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
 const PHOTO_BOOTH_GRAY = "#d4d4d4";
 const NORMAL_TOLERANCE = 0.01;
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 interface ThreeFaceSelection {
   point: THREE.Vector3;
@@ -185,6 +187,7 @@ function ClearSelectionOnMiss({ onMiss }: { onMiss: () => void }) {
 
 interface ViewportPaneProps {
   glbUrl: string | null;
+  code: string;
   isLoading: boolean;
   onSelectionChange?: (selection: FaceSelection | null) => void;
 }
@@ -195,17 +198,22 @@ function ViewportContent({
   onSelectionChange,
 }: ViewportPaneProps) {
   const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
+  const [resolvedFace, setResolvedFace] = useState<FaceSelection | null>(null);
   const [showGrid, setShowGrid] = useState(true);
+  const resolutionRequest = useRef(0);
 
   const clearSelection = useCallback(() => {
+    resolutionRequest.current += 1;
     setFaceSelection(null);
+    setResolvedFace(null);
     onSelectionChange?.(null);
   }, [onSelectionChange]);
 
   const selectFace = useCallback(
-    (selection: ThreeFaceSelection) => {
+    async (selection: ThreeFaceSelection) => {
       setFaceSelection(selection);
-      onSelectionChange?.({
+      setResolvedFace(null);
+      const geometricSelection: FaceSelection = {
         point: (selection.cadPoint ?? selection.point)
           .toArray()
           .map((value) => Number(value.toFixed(3))) as [
@@ -220,9 +228,44 @@ function ViewportContent({
           number,
           number,
         ],
-      });
+      };
+      onSelectionChange?.(geometricSelection);
+      if (!glbUrl) return;
+
+      const requestId = ++resolutionRequest.current;
+      try {
+        const response = await fetch(`${BACKEND_URL}/analyze-model`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, selection: geometricSelection }),
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (!response.ok) return;
+        const analysis = await response.json();
+        if (requestId !== resolutionRequest.current || !analysis.selectedFace) {
+          return;
+        }
+        const semanticSelection: FaceSelection = {
+          ...geometricSelection,
+          entityId: analysis.selectedFace.faceId,
+          topologyVersion: analysis.topologyVersion,
+          surfaceType: analysis.selectedFace.surfaceType,
+          confidence: analysis.selectedFace.confidence,
+        };
+        setResolvedFace(semanticSelection);
+        onSelectionChange?.(semanticSelection);
+      } catch {
+        // Positional selection remains usable when semantic resolution fails.
+      }
     },
-    [onSelectionChange]
+    [code, glbUrl, onSelectionChange]
+  );
+
+  useEffect(
+    () => () => {
+      resolutionRequest.current += 1;
+    },
+    []
   );
 
   useEffect(() => {
@@ -254,7 +297,11 @@ function ViewportContent({
         <div className="absolute bottom-3 left-3 z-20 rounded-md border border-blue-400/60 bg-zinc-950/85 px-3 py-2 text-xs text-zinc-200 shadow-lg">
           <div className="font-medium text-blue-300">Face selected</div>
           <div className="mt-0.5 text-[10px] text-zinc-400">
-            Your next prompt will edit this location
+            {resolvedFace?.entityId
+              ? `${resolvedFace.surfaceType ?? "surface"} · ${resolvedFace.entityId.slice(0, 13)}`
+              : glbUrl
+                ? "Resolving exact B-rep face…"
+                : "Positional selection"}
           </div>
         </div>
       )}

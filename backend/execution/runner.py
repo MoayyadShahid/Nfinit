@@ -10,11 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from agent.models import ModelInspection
+from agent.models import FaceSelection, ModelInspection
 
 from .policy import CodePolicyError, validate_cad_code
+from .topology import TopologyAnalysis
 
-SandboxOperation = Literal["inspect", "glb", "step", "brep", "stl"]
+SandboxOperation = Literal["inspect", "topology", "glb", "step", "brep", "stl"]
 
 ISOLATED_BOOTSTRAP = (
     "import json,runpy,sys;"
@@ -106,6 +107,7 @@ def _run_worker(
     output_name: str | None = None,
     timeout_seconds: float | None = None,
     worker_path: Path | None = None,
+    selection: FaceSelection | None = None,
 ) -> dict:
     worker = worker_path or Path(__file__).with_name("worker.py")
     timeout = timeout_seconds or float(
@@ -114,6 +116,8 @@ def _run_worker(
     payload = {"code": code, "operation": operation}
     if output_name:
         payload["output_name"] = output_name
+    if selection:
+        payload["selection"] = selection.model_dump(mode="json")
 
     try:
         process = subprocess.run(
@@ -159,9 +163,34 @@ def inspect_code(code: str) -> ModelInspection:
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
+def analyze_code(
+    code: str, selection: FaceSelection | None = None
+) -> TopologyAnalysis:
+    try:
+        validate_cad_code(code)
+    except CodePolicyError as error:
+        return TopologyAnalysis(
+            valid=False, error=f"sandbox_security_error: {str(error)}"
+        )
+
+    work_dir = Path(tempfile.mkdtemp(prefix="nfinit-topology-"))
+    try:
+        data = _run_worker(
+            code,
+            "topology",
+            work_dir,
+            selection=selection,
+        )
+        return TopologyAnalysis.model_validate(data)
+    except SandboxError as error:
+        return TopologyAnalysis(valid=False, error=str(error))
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
 def export_code(code: str, operation: SandboxOperation) -> SandboxArtifact:
-    if operation == "inspect":
-        raise ValueError("Use inspect_code for inspection.")
+    if operation in ("inspect", "topology"):
+        raise ValueError("Use the corresponding analysis function.")
     try:
         validate_cad_code(code)
     except CodePolicyError as error:
