@@ -114,9 +114,11 @@ export default function Home() {
             role: "assistant",
             content: generatedCode,
             agent: {
+              runId: data.runId,
               plan: data.plan,
               trace: data.trace,
               inspection: data.inspection,
+              usage: data.usage,
             },
           },
         ]);

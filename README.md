@@ -85,6 +85,17 @@ code, and unsafe control flow. Valid code runs in an isolated Python worker with
 The limits can be tuned with the `CAD_SANDBOX_*` variables documented in
 `backend/.env.example`.
 
+## Tracing
+
+Every CAD run receives a UUID that is returned as `runId`. Node latency and
+OpenRouter token usage are included in the API response and shown in the chat.
+When `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are configured, the backend
+also exports nested run, node, and generation observations to LangFuse.
+
+Tracing is disabled automatically when credentials are absent. Prompts, source
+code, and image data are never exported: traces contain only counts, hashes,
+geometry results, timing, model identifiers, and token usage.
+
 ## Usage
 
 1. Start the backend on port 8000

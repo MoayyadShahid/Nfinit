@@ -151,6 +151,11 @@ export function ChatPane({
               <div className="max-w-[92%] rounded-lg border border-[#1f1f1f] bg-[#141414] px-3 py-2">
                 <div className="mb-2 text-xs font-medium text-zinc-300">
                   CAD agent
+                  {msg.agent?.runId && (
+                    <span className="ml-2 font-mono text-[9px] font-normal text-zinc-600">
+                      {msg.agent.runId.slice(0, 8)}
+                    </span>
+                  )}
                 </div>
                 {msg.agent ? (
                   <>
@@ -171,6 +176,11 @@ export function ChatPane({
                             </span>
                             {" · "}
                             {step.detail}
+                            {typeof step.duration_ms === "number" && (
+                              <span className="ml-1 text-zinc-600">
+                                ({step.duration_ms} ms)
+                              </span>
+                            )}
                           </span>
                         </div>
                       ))}
@@ -183,6 +193,11 @@ export function ChatPane({
                         {msg.agent.plan}
                       </p>
                     </details>
+                    {msg.agent.usage && (
+                      <div className="mt-2 text-[9px] text-zinc-600">
+                        {msg.agent.usage.total_tokens.toLocaleString()} tokens
+                      </div>
+                    )}
                   </>
                 ) : (
                   <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs text-zinc-300">

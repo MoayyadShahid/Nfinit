@@ -5,8 +5,9 @@ from execution import SandboxArtifact
 
 
 def test_cad_run_exposes_agent_response(monkeypatch):
-    async def fake_run_cad_agent(_request, _api_key, _inspect_code):
+    async def fake_run_cad_agent(_request, _api_key, _inspect_code, run_id=None):
         return {
+            "run_id": run_id,
             "code": "result = Box(10, 10, 10)",
             "plan": "Create a 10 mm cube.",
             "inspection": {
@@ -26,6 +27,11 @@ def test_cad_run_exposes_agent_response(monkeypatch):
                     "detail": "Built 1 solid.",
                 }
             ],
+            "usage": {
+                "input_tokens": 100,
+                "output_tokens": 25,
+                "total_tokens": 125,
+            },
         }
 
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
@@ -44,6 +50,8 @@ def test_cad_run_exposes_agent_response(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["inspection"]["bounding_box_mm"]["x"] == 10
+    assert response.json()["runId"]
+    assert response.json()["usage"]["total_tokens"] == 125
 
 
 def test_cad_run_requires_user_message(monkeypatch):
