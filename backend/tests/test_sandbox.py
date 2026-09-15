@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from execution.policy import CodePolicyError, validate_cad_code
-from execution.runner import SandboxError, _run_worker, inspect_code
+from execution.runner import SandboxError, _run_worker, export_code, inspect_code
 
 
 @pytest.mark.parametrize(
@@ -64,3 +64,17 @@ def test_valid_geometry_executes_in_worker():
     assert inspection.valid
     assert inspection.solid_count == 1
     assert inspection.bounding_box_mm == {"x": 10, "y": 20, "z": 30}
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("build123d") is None,
+    reason="build123d runtime is not installed",
+)
+@pytest.mark.parametrize("operation", ["glb", "step", "brep", "stl"])
+def test_valid_geometry_exports_in_worker(operation: str):
+    artifact = export_code("result = Box(10, 20, 30)", operation)
+    try:
+        assert artifact.path.is_file()
+        assert artifact.path.stat().st_size > 0
+    finally:
+        artifact.cleanup()
