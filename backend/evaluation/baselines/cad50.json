@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "suite": "cad50",
+  "required_case_count": 50,
+  "minimum_pass_rate": 1.0,
+  "maximum_failed_cases": 0,
+  "required_categories": {
+    "edge_finish": 5,
+    "failure_recovery": 5,
+    "iterative_edit": 5,
+    "manufacturing": 5,
+    "mechanical_part": 5,
+    "pattern": 5,
+    "primitive": 5,
+    "selection_edit": 5,
+    "sketch_profile": 5,
+    "subtractive": 5
+  },
+  "required_metrics": [
+    "policy",
+    "execution",
+    "solid_count",
+    "repair_attempts"
+  ],
+  "require_bounding_box_metric": true
+}
