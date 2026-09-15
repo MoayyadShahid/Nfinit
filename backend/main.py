@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -24,8 +25,14 @@ logger = logging.getLogger(__name__)
 
 load_dotenv(Path(__file__).with_name(".env"))
 
-app = FastAPI(title="Nfinit Geometry Engine")
-app.add_event_handler("shutdown", flush_tracing)
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    yield
+    flush_tracing()
+
+
+app = FastAPI(title="Nfinit Geometry Engine", lifespan=lifespan)
 
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
