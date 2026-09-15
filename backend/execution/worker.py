@@ -55,7 +55,13 @@ def _disable_network():
     def denied(*_args, **_kwargs):
         raise PermissionError("Network access is disabled in the CAD sandbox.")
 
-    socket.socket = denied
+    original_socket = socket.socket
+
+    class DeniedSocket(original_socket):
+        def __new__(cls, *_args, **_kwargs):
+            raise PermissionError("Network access is disabled in the CAD sandbox.")
+
+    socket.socket = DeniedSocket
     socket.create_connection = denied
 
 
