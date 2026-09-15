@@ -59,10 +59,6 @@ export function ChatPane({
     });
   }, [messages]);
 
-  useEffect(() => {
-    if (!supportsVision) setImages([]);
-  }, [supportsVision]);
-
   const addFiles = useCallback(async (files: FileList | File[]) => {
     const list = Array.from(files).filter((f) =>
       ACCEPTED_TYPES.includes(f.type)

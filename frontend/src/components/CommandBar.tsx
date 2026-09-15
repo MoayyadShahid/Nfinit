@@ -26,7 +26,6 @@ interface CommandBarProps {
   onModelChange: (modelId: string) => void;
   layoutMode: LayoutMode;
   onLayoutChange: (mode: LayoutMode) => void;
-  code: string;
   onExport: (format: ExportFormat) => void;
 }
 
@@ -41,7 +40,6 @@ export function CommandBar({
   onModelChange,
   layoutMode,
   onLayoutChange,
-  code,
   onExport,
 }: CommandBarProps) {
   const [exportOpen, setExportOpen] = useState(false);

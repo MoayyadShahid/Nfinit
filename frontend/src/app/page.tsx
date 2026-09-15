@@ -193,7 +193,6 @@ export default function Home() {
         onModelChange={setModelId}
         layoutMode={layoutMode}
         onLayoutChange={setLayoutMode}
-        code={code}
         onExport={handleExport}
       />
       <div
