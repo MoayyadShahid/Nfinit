@@ -26,6 +26,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const LAST_PROJECT_KEY = "nfinit:last-project-id";
 
 export type LayoutMode = "default" | "code" | "mesh";
 
@@ -128,6 +129,7 @@ export default function Home() {
           listRevisions(BACKEND_URL, nextProjectId),
         ]);
         setProjectId(project.id);
+        window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
         setRevisions(history);
         if (project.latestRevision) {
           await applyRevision(project.latestRevision);
@@ -163,6 +165,7 @@ export default function Home() {
                 : project
             )
           );
+          window.localStorage.setItem(LAST_PROJECT_KEY, projectId);
         } else {
           const project = await createProject(
             BACKEND_URL,
@@ -170,6 +173,7 @@ export default function Home() {
             state
           );
           setProjectId(project.id);
+          window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
           setProjects((previous) => [
             project,
             ...previous.filter((item) => item.id !== project.id),
@@ -234,6 +238,7 @@ export default function Home() {
       return null;
     });
     setProjectId(null);
+    window.localStorage.removeItem(LAST_PROJECT_KEY);
     setRevisions([]);
     setCurrentRevision(null);
     setCode(DEFAULT_CODE);
@@ -413,7 +418,9 @@ export default function Home() {
       .then(async (items) => {
         if (!active) return;
         setProjects(items);
-        const latest = items[0];
+        const storedProjectId = window.localStorage.getItem(LAST_PROJECT_KEY);
+        const latest =
+          items.find((project) => project.id === storedProjectId) ?? items[0];
         if (!latest) return;
         setIsProjectLoading(true);
         const [project, history] = await Promise.all([
@@ -422,6 +429,7 @@ export default function Home() {
         ]);
         if (!active) return;
         setProjectId(project.id);
+        window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
         setRevisions(history);
         if (project.latestRevision) {
           await applyRevision(project.latestRevision);
@@ -443,6 +451,15 @@ export default function Home() {
       active = false;
     };
   }, [applyRevision]);
+
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [isDirty]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

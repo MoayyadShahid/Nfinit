@@ -41,10 +41,12 @@ factory-ordering platform.
 
 - The first successful generation creates a named project automatically.
 - Each successful generation appends one immutable revision.
+- The last opened project is restored on the next visit.
 - Manual code, model, or selection changes show an unsaved indicator.
 - Users can explicitly save valid changes and load previous revisions.
 - Manual code is sandbox-validated before a revision is created.
 - Loading or replacing dirty work requires confirmation.
+- Closing or refreshing a dirty workspace triggers the browser's leave warning.
 
 ### Export
 
