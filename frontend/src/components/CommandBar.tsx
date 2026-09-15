@@ -10,7 +10,16 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { MODEL_CONFIGS } from "@/lib/constants";
-import { Box, ChevronDown, Code2, Download, LayoutGrid } from "lucide-react";
+import type { ProjectRevision, ProjectSummary } from "@/lib/projects";
+import {
+  Box,
+  ChevronDown,
+  Code2,
+  Download,
+  FilePlus2,
+  LayoutGrid,
+  Save,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const EXPORT_FORMATS = [
@@ -18,6 +27,7 @@ const EXPORT_FORMATS = [
   { id: "brep", label: "BREP", ext: ".brep", desc: "OpenCASCADE tools" },
   { id: "stl", label: "STL", ext: ".stl", desc: "3D printing" },
 ] as const;
+const UNSAVED_PROJECT = "__unsaved__";
 
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]["id"];
 
@@ -27,6 +37,16 @@ interface CommandBarProps {
   layoutMode: LayoutMode;
   onLayoutChange: (mode: LayoutMode) => void;
   onExport: (format: ExportFormat) => void;
+  projects: ProjectSummary[];
+  projectId: string | null;
+  revisions: ProjectRevision[];
+  currentRevision: number | null;
+  isDirty: boolean;
+  isSaving: boolean;
+  onProjectChange: (projectId: string) => void;
+  onRevisionChange: (revision: number) => void;
+  onNewProject: () => void;
+  onSave: () => void;
 }
 
 const LAYOUT_OPTIONS: { mode: LayoutMode; label: string; icon: typeof LayoutGrid }[] = [
@@ -41,6 +61,16 @@ export function CommandBar({
   layoutMode,
   onLayoutChange,
   onExport,
+  projects,
+  projectId,
+  revisions,
+  currentRevision,
+  isDirty,
+  isSaving,
+  onProjectChange,
+  onRevisionChange,
+  onNewProject,
+  onSave,
 }: CommandBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -65,21 +95,57 @@ export function CommandBar({
   }, [exportOpen]);
 
   return (
-    <header className="flex h-12 shrink-0 items-center border-b border-[#1f1f1f] bg-[#0a0a0a] px-4">
-      <div className="flex flex-1 items-center gap-3">
+    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-[#1f1f1f] bg-[#0a0a0a] px-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="text-sm font-medium text-zinc-400">nfinit</span>
-        <Select value={modelId} onValueChange={onModelChange}>
-          <SelectTrigger className="h-8 w-[200px] border-[#1f1f1f] bg-transparent text-sm text-zinc-200">
-            <SelectValue placeholder="Select model" />
+        <Select
+          value={projectId ?? UNSAVED_PROJECT}
+          onValueChange={onProjectChange}
+        >
+          <SelectTrigger className="h-8 min-w-0 max-w-[190px] flex-1 border-[#1f1f1f] bg-transparent text-xs text-zinc-200">
+            <SelectValue placeholder="Unsaved part" />
           </SelectTrigger>
           <SelectContent>
-            {MODEL_CONFIGS.map((cfg) => (
-              <SelectItem key={cfg.id} value={cfg.id}>
-                {cfg.label}
+            <SelectItem value={UNSAVED_PROJECT} disabled>
+              Unsaved part
+            </SelectItem>
+            {projects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        <button
+          type="button"
+          onClick={onNewProject}
+          title="New part"
+          className="flex h-8 items-center gap-1 rounded-md border border-zinc-700 px-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+        >
+          <FilePlus2 className="size-3.5" />
+          <span className="hidden xl:inline">New</span>
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={isSaving || (!isDirty && projectId !== null)}
+          title={
+            projectId === null
+              ? "Save part"
+              : isDirty
+                ? "Save revision"
+                : "No unsaved changes"
+          }
+          className="relative flex h-8 items-center gap-1 rounded-md border border-zinc-700 px-2 text-xs text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Save className="size-3.5" />
+          <span className="hidden xl:inline">
+            {isSaving ? "Saving…" : "Save"}
+          </span>
+          {isDirty && (
+            <span className="absolute -right-1 -top-1 size-2 rounded-full bg-blue-400" />
+          )}
+        </button>
       </div>
       <div className="flex flex-1 items-center justify-center">
         <div className="flex rounded-lg border border-zinc-700 bg-[#0a0a0a] p-0.5">
@@ -102,7 +168,39 @@ export function CommandBar({
           ))}
         </div>
       </div>
-      <div className="flex flex-1 items-center justify-end">
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        {projectId && currentRevision !== null && (
+          <Select
+            value={String(currentRevision)}
+            onValueChange={(value) => onRevisionChange(Number(value))}
+          >
+            <SelectTrigger className="h-8 w-[92px] border-[#1f1f1f] bg-transparent text-xs text-zinc-300">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {revisions.map((revision) => (
+                <SelectItem
+                  key={revision.id}
+                  value={String(revision.revisionNumber)}
+                >
+                  Revision {revision.revisionNumber}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+        <Select value={modelId} onValueChange={onModelChange}>
+          <SelectTrigger className="h-8 w-[170px] border-[#1f1f1f] bg-transparent text-xs text-zinc-200">
+            <SelectValue placeholder="Select model" />
+          </SelectTrigger>
+          <SelectContent>
+            {MODEL_CONFIGS.map((cfg) => (
+              <SelectItem key={cfg.id} value={cfg.id}>
+                {cfg.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="relative" ref={exportRef}>
           <button
             type="button"

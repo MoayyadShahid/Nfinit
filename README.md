@@ -4,6 +4,11 @@ AI-native CAD IDE for comparing how different LLMs handle 3D geometry code.
 
 <img width="1470" height="761" alt="Screenshot 2026-02-17 at 6 27 44 PM" src="https://github.com/user-attachments/assets/88c0ec7a-4c47-4efb-925f-0d5ef71f04ea" />
 
+The current product scope is intentionally narrow: describe one part, preview
+it, refine it through chat or face selection, save revisions, and export STL or
+STEP. See [`docs/SIMPLE_LOVABLE_MVP.md`](docs/SIMPLE_LOVABLE_MVP.md) for the
+requirements and explicitly deferred work.
+
 
 ## Setup
 
