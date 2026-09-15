@@ -45,7 +45,7 @@ jobs:
         run: poetry install --with dev --no-root --no-interaction
       - name: Run backend tests
         working-directory: backend
-        run: poetry run pytest -q
+        run: poetry run python -m pytest -q
 
   cad50:
     name: CAD50 deterministic gate
