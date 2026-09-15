@@ -71,6 +71,20 @@ The FastAPI backend owns the LangGraph workflow; Next.js only proxies requests:
 
 Clicking a model face adds its local point and normal to the next request, so prompts such as “add a mounting hole on this face” can target the selected geometry.
 
+## Execution sandbox
+
+Generated code never runs inside the FastAPI process. Before execution, an AST
+policy rejects imports, introspection, filesystem/network primitives, dynamic
+code, and unsafe control flow. Valid code runs in an isolated Python worker with:
+
+- restricted built-ins and no exporter access from generated code
+- a scrubbed environment and disabled network sockets
+- wall-clock, CPU, memory, file-size, and file-descriptor limits
+- a private temporary directory that is deleted after inspection or export
+
+The limits can be tuned with the `CAD_SANDBOX_*` variables documented in
+`backend/.env.example`.
+
 ## Usage
 
 1. Start the backend on port 8000
