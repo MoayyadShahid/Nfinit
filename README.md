@@ -96,6 +96,39 @@ Tracing is disabled automatically when credentials are absent. Prompts, source
 code, and image data are never exported: traces contain only counts, hashes,
 geometry results, timing, model identifiers, and token usage.
 
+## Evaluations
+
+The backend includes a typed evaluation runner with two modes:
+
+- **Replay** re-executes recorded model code in the real CAD sandbox. It is
+  deterministic, free, and suitable for local development or CI.
+- **Live** runs selected OpenRouter models through the full LangGraph workflow.
+  It requires `OPENROUTER_API_KEY` and sends traces to LangFuse when configured.
+
+Run the included smoke fixtures from `backend/`:
+
+```bash
+python -m evaluation.cli \
+  --cases evaluation/cases/smoke.json \
+  --mode replay \
+  --replays evaluation/replays/smoke.json \
+  --output evaluation/reports/smoke.json
+```
+
+Run selected live models:
+
+```bash
+python -m evaluation.cli \
+  --cases evaluation/cases/smoke.json \
+  --mode live \
+  --model anthropic/claude-opus-5 \
+  --model openai/gpt-6-astra-pro \
+  --output evaluation/reports/live.json
+```
+
+Reports compare pass rate, geometry accuracy, policy compliance, repair count,
+latency, and token usage by model. A nonzero exit code indicates a regression.
+
 ## Usage
 
 1. Start the backend on port 8000

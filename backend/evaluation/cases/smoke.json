@@ -1,0 +1,66 @@
+{
+  "cases": [
+    {
+      "id": "box_10x20x30",
+      "category": "primitive",
+      "description": "Create a dimensionally exact rectangular solid.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a box that is 10 mm wide, 20 mm deep, and 30 mm tall."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 10,
+          "y": 20,
+          "z": 30
+        },
+        "volume_mm3": 6000
+      },
+      "tags": ["smoke", "dimensions"]
+    },
+    {
+      "id": "plate_center_hole",
+      "category": "subtractive",
+      "description": "Create a plate with a centered through-hole.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create an 80 by 50 by 6 mm plate with a centered 10 mm through-hole."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 80,
+          "y": 50,
+          "z": 6
+        }
+      },
+      "tags": ["smoke", "subtractive"]
+    },
+    {
+      "id": "edit_plate_thickness",
+      "category": "iterative_edit",
+      "description": "Change one parameter while preserving other dimensions.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Change only the plate thickness from 6 mm to 8 mm."
+        }
+      ],
+      "current_code": "width, depth, thickness = 80.0, 50.0, 6.0\nwith BuildPart() as part:\n    Box(width, depth, thickness)\nresult = part.part",
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 80,
+          "y": 50,
+          "z": 8
+        }
+      },
+      "tags": ["smoke", "edit-preservation"]
+    }
+  ]
+}
