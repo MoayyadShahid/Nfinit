@@ -19,6 +19,7 @@ from agent import (
     run_cad_agent,
 )
 from execution import SandboxError, export_code, inspect_code as sandbox_inspect_code
+from projects import router as projects_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(projects_router)
 
 
 class GenerateMeshRequest(BaseModel):
