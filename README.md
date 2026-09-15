@@ -11,11 +11,11 @@ AI-native CAD IDE for comparing how different LLMs handle 3D geometry code.
 
 ```bash
 cd backend
+cp .env.example .env
+# Add your OPENROUTER_API_KEY to .env
 poetry install
 poetry run uvicorn main:app --reload --port 8000
 ```
-
-Optional: copy `.env.example` to `.env` and adjust CORS origins if needed.
 
 **Note:** build123d requires OCP (OpenCASCADE) and VTK. If `poetry install` fails (e.g. VTK wheel not found), use conda:
 
@@ -41,7 +41,6 @@ npm run dev
 # Or from frontend directory:
 cd frontend
 cp .env.local.example .env.local  # or create .env.local
-# Add your OPENROUTER_API_KEY to .env.local
 npm install
 npm run dev
 ```
@@ -51,16 +50,19 @@ npm run dev
 **Frontend:** Copy `frontend/.env.local.example` to `frontend/.env.local`:
 
 ```
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 BACKEND_URL=http://localhost:8000
 ```
 
-**Backend:** Optional. Copy `backend/.env.example` to `backend/.env` to customize CORS origins.
+**Backend:** Copy `backend/.env.example` to `backend/.env` and configure:
+
+```
+OPENROUTER_API_KEY=sk-or-v1-your-key-here
+```
 
 ## Agent workflow
 
-Nfinit uses a LangGraph workflow rather than a single prompt-to-code call:
+The FastAPI backend owns the LangGraph workflow; Next.js only proxies requests:
 
 1. **Plan** — translate the product request into dimensions, constraints, features, and manufacturing intent.
 2. **Generate** — produce parameterized build123d code from that plan.
@@ -68,6 +70,20 @@ Nfinit uses a LangGraph workflow rather than a single prompt-to-code call:
 4. **Repair** — feed execution failures back to the model, retrying up to three times.
 
 Clicking a model face adds its local point and normal to the next request, so prompts such as “add a mounting hole on this face” can target the selected geometry.
+
+## Execution sandbox
+
+Generated code never runs inside the FastAPI process. Before execution, an AST
+policy rejects imports, introspection, filesystem/network primitives, dynamic
+code, and unsafe control flow. Valid code runs in an isolated Python worker with:
+
+- restricted built-ins and no exporter access from generated code
+- a scrubbed environment and disabled network sockets
+- wall-clock, CPU, memory, file-size, and file-descriptor limits
+- a private temporary directory that is deleted after inspection or export
+
+The limits can be tuned with the `CAD_SANDBOX_*` variables documented in
+`backend/.env.example`.
 
 ## Usage
 
