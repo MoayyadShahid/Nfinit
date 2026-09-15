@@ -134,7 +134,7 @@ def _pattern_message(state: AgentState) -> dict[str, str] | None:
         RetrievedPattern.model_validate(pattern) for pattern in state["patterns"]
     ]
     context = format_pattern_context(patterns)
-    return {"role": "system", "content": context} if context else None
+    return {"role": "user", "content": context} if context else None
 
 
 def _append_trace(
