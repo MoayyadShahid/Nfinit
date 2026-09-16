@@ -1,6 +1,5 @@
 "use client";
 
-import type { LayoutMode } from "@/app/page";
 import {
   Select,
   SelectContent,
@@ -9,16 +8,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { MODEL_CONFIGS } from "@/lib/constants";
-import type { ProjectRevision, ProjectSummary } from "@/lib/projects";
+import type { ProjectSummary } from "@/lib/projects";
 import {
-  Box,
   ChevronDown,
   Code2,
   Download,
   FilePlus2,
-  LayoutGrid,
   Save,
+  Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -32,43 +29,27 @@ const UNSAVED_PROJECT = "__unsaved__";
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]["id"];
 
 interface CommandBarProps {
-  modelId: string;
-  onModelChange: (modelId: string) => void;
-  layoutMode: LayoutMode;
-  onLayoutChange: (mode: LayoutMode) => void;
   onExport: (format: ExportFormat) => void;
   projects: ProjectSummary[];
   projectId: string | null;
-  revisions: ProjectRevision[];
-  currentRevision: number | null;
   isDirty: boolean;
   isSaving: boolean;
+  advancedOpen: boolean;
+  onAdvancedChange: (open: boolean) => void;
   onProjectChange: (projectId: string) => void;
-  onRevisionChange: (revision: number) => void;
   onNewProject: () => void;
   onSave: () => void;
 }
 
-const LAYOUT_OPTIONS: { mode: LayoutMode; label: string; icon: typeof LayoutGrid }[] = [
-  { mode: "default", label: "Default", icon: LayoutGrid },
-  { mode: "code", label: "Code", icon: Code2 },
-  { mode: "mesh", label: "Mesh", icon: Box },
-];
-
 export function CommandBar({
-  modelId,
-  onModelChange,
-  layoutMode,
-  onLayoutChange,
   onExport,
   projects,
   projectId,
-  revisions,
-  currentRevision,
   isDirty,
   isSaving,
+  advancedOpen,
+  onAdvancedChange,
   onProjectChange,
-  onRevisionChange,
   onNewProject,
   onSave,
 }: CommandBarProps) {
@@ -95,14 +76,25 @@ export function CommandBar({
   }, [exportOpen]);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-[#1f1f1f] bg-[#0a0a0a] px-3">
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="text-sm font-medium text-zinc-400">nfinit</span>
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/8 bg-[#0b0c10]/95 px-4 backdrop-blur-xl md:px-5">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-blue-500 text-white shadow-lg shadow-violet-500/20">
+            <Sparkles className="size-4" />
+          </span>
+          <span className="hidden text-sm font-semibold tracking-tight text-white sm:inline">
+            nfinit
+          </span>
+        </div>
+        <span className="hidden h-5 w-px bg-white/10 sm:block" />
         <Select
           value={projectId ?? UNSAVED_PROJECT}
           onValueChange={onProjectChange}
         >
-          <SelectTrigger className="h-8 min-w-0 max-w-[190px] flex-1 border-[#1f1f1f] bg-transparent text-xs text-zinc-200">
+          <SelectTrigger
+            aria-label="Current part"
+            className="h-9 min-w-0 max-w-[220px] flex-1 border-white/10 bg-white/4 text-xs text-zinc-200"
+          >
             <SelectValue placeholder="Unsaved part" />
           </SelectTrigger>
           <SelectContent>
@@ -120,7 +112,7 @@ export function CommandBar({
           type="button"
           onClick={onNewProject}
           title="New part"
-          className="flex h-8 items-center gap-1 rounded-md border border-zinc-700 px-2 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-zinc-400 transition-colors hover:bg-white/8 hover:text-white"
         >
           <FilePlus2 className="size-3.5" />
           <span className="hidden xl:inline">New</span>
@@ -136,7 +128,7 @@ export function CommandBar({
                 ? "Save revision"
                 : "No unsaved changes"
           }
-          className="relative flex h-8 items-center gap-1 rounded-md border border-zinc-700 px-2 text-xs text-zinc-300 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+          className="relative flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-zinc-300 transition-colors hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Save className="size-3.5" />
           <span className="hidden xl:inline">
@@ -147,65 +139,26 @@ export function CommandBar({
           )}
         </button>
       </div>
-      <div className="flex flex-1 items-center justify-center">
-        <div className="flex rounded-lg border border-zinc-700 bg-[#0a0a0a] p-0.5">
-          {LAYOUT_OPTIONS.map(({ mode, label, icon: Icon }) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => onLayoutChange(mode)}
-              title={label}
-              className={cn(
-                "flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors",
-                layoutMode === mode
-                  ? "border border-zinc-600 bg-zinc-800 text-zinc-100"
-                  : "border border-transparent text-zinc-500 hover:border-zinc-700 hover:bg-zinc-800/50 hover:text-zinc-300"
-              )}
-            >
-              <Icon className="size-3.5" />
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-        {projectId && currentRevision !== null && (
-          <Select
-            value={String(currentRevision)}
-            onValueChange={(value) => onRevisionChange(Number(value))}
-          >
-            <SelectTrigger className="h-8 w-[92px] border-[#1f1f1f] bg-transparent text-xs text-zinc-300">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {revisions.map((revision) => (
-                <SelectItem
-                  key={revision.id}
-                  value={String(revision.revisionNumber)}
-                >
-                  Revision {revision.revisionNumber}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Select value={modelId} onValueChange={onModelChange}>
-          <SelectTrigger className="h-8 w-[170px] border-[#1f1f1f] bg-transparent text-xs text-zinc-200">
-            <SelectValue placeholder="Select model" />
-          </SelectTrigger>
-          <SelectContent>
-            {MODEL_CONFIGS.map((cfg) => (
-              <SelectItem key={cfg.id} value={cfg.id}>
-                {cfg.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex min-w-0 items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => onAdvancedChange(!advancedOpen)}
+          aria-pressed={advancedOpen}
+          className={cn(
+            "flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors",
+            advancedOpen
+              ? "bg-white/10 text-white"
+              : "text-zinc-400 hover:bg-white/8 hover:text-white"
+          )}
+        >
+          <Code2 className="size-3.5" />
+          <span className="hidden sm:inline">Advanced</span>
+        </button>
         <div className="relative" ref={exportRef}>
           <button
             type="button"
             onClick={() => setExportOpen((o) => !o)}
-            className="flex h-8 items-center gap-1.5 rounded-md border border-zinc-700 bg-transparent px-3 text-xs font-medium text-zinc-300 hover:border-zinc-600 hover:bg-zinc-800/50 hover:text-zinc-100"
+            className="flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-xs font-semibold text-zinc-950 shadow-sm transition-colors hover:bg-zinc-200"
           >
             <Download className="size-3.5" />
             Export
@@ -214,13 +167,13 @@ export function CommandBar({
             />
           </button>
           {exportOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border border-zinc-700 bg-[#141414] py-1 shadow-lg">
+            <div className="absolute right-0 top-full z-50 mt-2 min-w-[240px] rounded-xl border border-white/10 bg-[#17181d] p-1.5 shadow-2xl">
               {EXPORT_FORMATS.map(({ id, label, ext, desc }) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => handleExportClick(id)}
-                  className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-xs hover:bg-zinc-800"
+                  className="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2.5 text-left text-xs hover:bg-white/8"
                 >
                   <span className="font-medium text-zinc-100">
                     {label} {ext}

@@ -7,7 +7,7 @@ import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
-const PHOTO_BOOTH_GRAY = "#d4d4d4";
+const PHOTO_BOOTH_GRAY = "#e7e8eb";
 const NORMAL_TOLERANCE = 0.01;
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -62,9 +62,9 @@ function ClickableModel({
       if (child instanceof THREE.Mesh) {
         child.material = child.material.clone();
         if (child.material instanceof THREE.MeshStandardMaterial) {
-          child.material.color = new THREE.Color(0x6b7280);
-          child.material.metalness = 0.3;
-          child.material.roughness = 0.6;
+          child.material.color = new THREE.Color(0x485264);
+          child.material.metalness = 0.18;
+          child.material.roughness = 0.48;
         }
       }
     });
@@ -189,6 +189,7 @@ interface ViewportPaneProps {
   glbUrl: string | null;
   code: string;
   isLoading: boolean;
+  showSelectionCard?: boolean;
   onSelectionChange?: (selection: FaceSelection | null) => void;
 }
 
@@ -196,6 +197,7 @@ function ViewportContent({
   glbUrl,
   code,
   isLoading,
+  showSelectionCard = true,
   onSelectionChange,
 }: ViewportPaneProps) {
   const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
@@ -278,25 +280,25 @@ function ViewportContent({
   }, [clearSelection]);
 
   return (
-    <div className="relative h-full w-full bg-[#d4d4d4]">
+    <div className="relative h-full w-full bg-[#e7e8eb]">
       <div className="absolute right-3 top-3 z-20">
         <button
           type="button"
           onClick={() => setShowGrid((v) => !v)}
           title={showGrid ? "Hide face grid" : "Show face grid"}
-          className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors ${
+          className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium shadow-sm backdrop-blur transition-colors ${
             showGrid
-              ? "border-zinc-600 bg-zinc-800 text-zinc-100"
-              : "border-zinc-600/50 bg-zinc-900/70 text-zinc-500"
+              ? "border-zinc-700/20 bg-zinc-900/85 text-zinc-100"
+              : "border-zinc-700/10 bg-white/70 text-zinc-500"
           }`}
         >
           <LayoutGrid className="size-3.5" />
           Grid
         </button>
       </div>
-      {faceSelection && (
-        <div className="absolute bottom-3 left-3 z-20 rounded-md border border-blue-400/60 bg-zinc-950/85 px-3 py-2 text-xs text-zinc-200 shadow-lg">
-          <div className="font-medium text-blue-300">Face selected</div>
+      {faceSelection && showSelectionCard && (
+        <div className="absolute bottom-3 left-3 z-20 rounded-xl border border-violet-300/20 bg-zinc-950/90 px-3.5 py-2.5 text-xs text-zinc-200 shadow-xl backdrop-blur">
+          <div className="font-medium text-violet-300">Face selected</div>
           <div className="mt-0.5 text-[10px] text-zinc-400">
             {resolvedFace?.entityId
               ? `${resolvedFace.surfaceType ?? "surface"} · ${resolvedFace.entityId.slice(0, 13)}`
@@ -307,10 +309,10 @@ function ViewportContent({
         </div>
       )}
       {isLoading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#d4d4d4]/90">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#e7e8eb]/90">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
-            <span className="text-sm text-zinc-600">Generating mesh...</span>
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-zinc-300 border-t-violet-500" />
+            <span className="text-sm text-zinc-600">Building your model…</span>
           </div>
         </div>
       )}

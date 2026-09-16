@@ -20,7 +20,7 @@ export function EditorPane({
   onGenerate,
 }: EditorPaneProps) {
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-[#1f1f1f] bg-[#0a0a0a]">
+    <div className="flex h-full min-h-0 flex-col bg-[#0d0e12]">
       <div className="min-h-0 flex-1 overflow-hidden">
         <MonacoEditor
           height="100%"
@@ -42,10 +42,13 @@ export function EditorPane({
           }
         />
       </div>
-      <div className="flex justify-end border-t border-[#1f1f1f] p-3">
+      <div className="flex items-center justify-between border-t border-white/8 px-4 py-3">
+        <p className="text-[10px] text-zinc-600">
+          Preview changes before saving a revision.
+        </p>
         <Button
           onClick={onGenerate}
-          className="border border-zinc-600 bg-zinc-800 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-700"
+          className="rounded-lg bg-white text-zinc-950 hover:bg-zinc-200"
         >
           <span className="mr-1.5 text-xs text-zinc-400">⌥↵</span>
           Generate

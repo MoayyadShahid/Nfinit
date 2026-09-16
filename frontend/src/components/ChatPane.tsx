@@ -7,7 +7,17 @@ import {
   getTextContent,
   getImageUrls,
 } from "@/lib/types";
-import { Check, ImagePlus, MapPin, RotateCcw, X } from "lucide-react";
+import {
+  ArrowUp,
+  Check,
+  ChevronDown,
+  ImagePlus,
+  MapPin,
+  MessagesSquare,
+  RotateCcw,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useRef, useEffect, useState, useCallback } from "react";
 
 export type { ChatMessage } from "@/lib/types";
@@ -37,6 +47,7 @@ interface ChatPaneProps {
   lastError?: string | null;
   supportsVision?: boolean;
   selection?: FaceSelection | null;
+  variant?: "studio" | "welcome";
 }
 
 export function ChatPane({
@@ -46,9 +57,11 @@ export function ChatPane({
   lastError,
   supportsVision = false,
   selection,
+  variant = "studio",
 }: ChatPaneProps) {
   const [input, setInput] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -108,29 +121,97 @@ export function ChatPane({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const latestRequest = [...messages]
+    .reverse()
+    .find((message) => message.role === "user");
+  const latestRequestText = latestRequest
+    ? getTextContent(latestRequest.content).trim()
+    : "";
+
   return (
     <div
-      className="flex h-full min-h-0 flex-col border-l border-[#1f1f1f] bg-[#0a0a0a]"
+      className={`flex min-h-0 flex-col ${
+        variant === "welcome"
+          ? "h-full overflow-hidden rounded-2xl border border-white/10 bg-[#121319]/90 shadow-2xl shadow-black/30 backdrop-blur-xl"
+          : "overflow-hidden rounded-[22px] border border-white/12 bg-[#101116]/92 shadow-2xl shadow-black/40 backdrop-blur-2xl"
+      }`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      {variant === "studio" && (
+        <div className="flex h-11 shrink-0 items-center gap-3 border-b border-white/8 px-3.5">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen((open) => !open)}
+            aria-expanded={historyOpen}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/8 hover:text-white"
+          >
+            <MessagesSquare className="size-3.5 text-violet-400" />
+            History
+            <span className="text-zinc-600">{messages.length}</span>
+            <ChevronDown
+              className={`size-3 transition-transform ${historyOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+          {!historyOpen && latestRequestText && (
+            <p className="min-w-0 flex-1 truncate text-[11px] text-zinc-600">
+              Latest: {latestRequestText}
+            </p>
+          )}
+          {historyOpen && (
+            <p className="min-w-0 flex-1 text-right text-[10px] text-zinc-600">
+              Conversation behind this design
+            </p>
+          )}
+        </div>
+      )}
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto p-3 space-y-3"
+        className={`min-h-0 space-y-4 overflow-y-auto p-4 ${
+          variant === "studio"
+            ? historyOpen
+              ? "h-[min(48dvh,520px)]"
+              : "hidden"
+            : "flex-1"
+        }`}
       >
         {messages.length === 0 && (
-          <div className="flex h-full items-center justify-center text-sm text-zinc-500">
-            Describe your 3D part or request changes. The conversation history
-            will guide the model.
+          <div className="flex h-full flex-col justify-end">
+            {variant === "studio" ? (
+              <div className="flex flex-1 items-center justify-center px-4 text-center text-xs leading-5 text-zinc-600">
+                No conversation yet. Your next request will begin this design story.
+              </div>
+            ) : (
+              <div className="mb-1 grid gap-2 sm:grid-cols-3">
+                {[
+                  "A wall-mount bracket, 80 mm wide",
+                  "A desk cable organizer with 4 slots",
+                  "A compact enclosure with rounded corners",
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => setInput(suggestion)}
+                    className="rounded-xl border border-white/8 bg-white/[0.025] p-3 text-left text-[11px] leading-4 text-zinc-400 transition-colors hover:border-violet-400/30 hover:bg-violet-400/5 hover:text-zinc-200"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {messages.map((msg, i) => {
           const text = getTextContent(msg.content);
           const imgs = getImageUrls(msg.content);
+          const planSummary = msg.agent?.plan
+            .split(/\n|(?<=[.!?])\s+/)
+            .find((line) => line.trim())
+            ?.trim();
 
           return msg.role === "user" ? (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[85%] rounded-lg bg-blue-600/30 px-3 py-2 text-sm text-zinc-200">
+              <div className="max-w-[88%] rounded-2xl rounded-br-md bg-violet-500/15 px-3.5 py-2.5 text-sm leading-5 text-zinc-200">
                 {text}
                 {imgs.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -148,56 +229,58 @@ export function ChatPane({
             </div>
           ) : (
             <div key={i} className="flex justify-start">
-              <div className="max-w-[92%] rounded-lg border border-[#1f1f1f] bg-[#141414] px-3 py-2">
-                <div className="mb-2 text-xs font-medium text-zinc-300">
-                  CAD agent
-                  {msg.agent?.runId && (
-                    <span className="ml-2 font-mono text-[9px] font-normal text-zinc-600">
-                      {msg.agent.runId.slice(0, 8)}
-                    </span>
-                  )}
+              <div className="max-w-[94%] rounded-2xl rounded-bl-md border border-white/8 bg-white/[0.025] px-3.5 py-3">
+                <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-zinc-300">
+                  <Sparkles className="size-3 text-violet-400" />
+                  Model updated
                 </div>
                 {msg.agent ? (
                   <>
-                    <div className="space-y-1.5">
-                      {msg.agent.trace.map((step, traceIndex) => (
-                        <div
-                          key={`${step.node}-${traceIndex}`}
-                          className="flex items-start gap-2 text-[11px] text-zinc-400"
-                        >
-                          {step.node === "repair" ? (
-                            <RotateCcw className="mt-0.5 size-3 shrink-0 text-amber-400" />
-                          ) : (
-                            <Check className="mt-0.5 size-3 shrink-0 text-emerald-400" />
-                          )}
-                          <span>
-                            <span className="capitalize text-zinc-300">
-                              {step.node}
-                            </span>
-                            {" · "}
-                            {step.detail}
-                            {typeof step.duration_ms === "number" && (
-                              <span className="ml-1 text-zinc-600">
-                                ({step.duration_ms} ms)
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <details className="mt-2 border-t border-zinc-800 pt-2 text-[11px]">
+                    <p className="text-xs leading-5 text-zinc-400">
+                      {planSummary || "Your part was generated and validated successfully."}
+                    </p>
+                    <details className="mt-2 border-t border-white/8 pt-2 text-[11px]">
                       <summary className="cursor-pointer text-zinc-500 hover:text-zinc-300">
-                        View design plan
+                        Technical details
                       </summary>
-                      <p className="mt-2 whitespace-pre-wrap text-zinc-400">
+                      <p className="mt-2 whitespace-pre-wrap leading-5 text-zinc-500">
                         {msg.agent.plan}
                       </p>
-                    </details>
-                    {msg.agent.usage && (
-                      <div className="mt-2 text-[9px] text-zinc-600">
-                        {msg.agent.usage.total_tokens.toLocaleString()} tokens
+                      <div className="mt-2 space-y-1.5 border-t border-white/8 pt-2">
+                        {msg.agent.trace.map((step, traceIndex) => (
+                          <div
+                            key={`${step.node}-${traceIndex}`}
+                            className="flex items-start gap-2 text-zinc-500"
+                          >
+                            {step.node === "repair" ? (
+                              <RotateCcw className="mt-0.5 size-3 shrink-0 text-amber-400" />
+                            ) : (
+                              <Check className="mt-0.5 size-3 shrink-0 text-emerald-400" />
+                            )}
+                            <span>
+                              <span className="capitalize text-zinc-400">
+                                {step.node}
+                              </span>
+                              {" · "}
+                              {step.detail}
+                              {typeof step.duration_ms === "number" && (
+                                <span className="ml-1 text-zinc-600">
+                                  ({step.duration_ms} ms)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    )}
+                      {(msg.agent.runId || msg.agent.usage) && (
+                        <div className="mt-2 font-mono text-[9px] text-zinc-600">
+                          {msg.agent.runId && `run ${msg.agent.runId.slice(0, 8)}`}
+                          {msg.agent.runId && msg.agent.usage && " · "}
+                          {msg.agent.usage &&
+                            `${msg.agent.usage.total_tokens.toLocaleString()} tokens`}
+                        </div>
+                      )}
+                    </details>
                   </>
                 ) : (
                   <pre className="overflow-x-auto whitespace-pre-wrap wrap-break-word text-xs text-zinc-300">
@@ -211,9 +294,13 @@ export function ChatPane({
         })}
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-[#1f1f1f] p-3">
+      <div
+        className={`flex flex-col gap-2 ${
+          variant === "welcome" || historyOpen ? "border-t border-white/8" : ""
+        } p-3`}
+      >
         {selection && (
-          <div className="flex items-center gap-2 rounded-md border border-blue-500/30 bg-blue-500/10 px-2.5 py-1.5 text-[11px] text-blue-200">
+          <div className="flex items-center gap-2 rounded-xl border border-violet-400/20 bg-violet-400/8 px-3 py-2 text-[11px] text-violet-200">
             <MapPin className="size-3.5" />
             Prompt will target{" "}
             {selection.entityId
@@ -255,22 +342,7 @@ export function ChatPane({
           </div>
         )}
 
-        <div className="flex gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder="Describe changes or paste errors..."
-            rows={2}
-            disabled={isLoading}
-            className="min-h-[60px] flex-1 resize-none rounded-md border border-[#1f1f1f] bg-[#000000] px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
-          />
-
+        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-[#090a0d] p-2 shadow-inner focus-within:border-violet-400/40 focus-within:ring-4 focus-within:ring-violet-400/5">
           {supportsVision && (
             <>
               <input
@@ -287,27 +359,50 @@ export function ChatPane({
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
-                className="shrink-0 text-zinc-400 hover:text-zinc-200"
+                className="size-9 shrink-0 rounded-xl text-zinc-500 hover:bg-white/8 hover:text-zinc-200"
                 title="Attach image"
               >
                 <ImagePlus className="size-4" />
               </Button>
             </>
           )}
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder={
+              variant === "welcome"
+                ? "Describe the part you want to make…"
+                : selection
+                  ? "What should change on this face?"
+                  : "Describe your next change…"
+            }
+            rows={variant === "welcome" ? 3 : 1}
+            disabled={isLoading}
+            className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-zinc-200 outline-none placeholder:text-zinc-600 disabled:opacity-50"
+          />
 
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="shrink-0 border border-zinc-600 bg-zinc-800 text-zinc-100 hover:border-zinc-500 hover:bg-zinc-700"
+            size="icon"
+            title="Send request"
+            className="size-9 shrink-0 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200"
           >
-            Send
+            <ArrowUp className="size-4" />
           </Button>
         </div>
 
-        <p className="px-1 text-[10px] text-zinc-600">
-          Tip: Add dimensions in mm (e.g. width 80, thickness 6) for better
-          accuracy.
-        </p>
+        {variant === "welcome" && (
+          <p className="px-1 text-center text-[10px] text-zinc-600">
+            Include dimensions in millimeters for a more accurate first result.
+          </p>
+        )}
       </div>
     </div>
   );

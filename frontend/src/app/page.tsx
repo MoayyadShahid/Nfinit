@@ -4,7 +4,14 @@ import { ChatPane } from "@/components/ChatPane";
 import { CommandBar, type ExportFormat } from "@/components/CommandBar";
 import { EditorPane } from "@/components/EditorPane";
 import { ViewportPane } from "@/components/ViewportPane";
-import { DEFAULT_MODEL, getModelConfig } from "@/lib/constants";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DEFAULT_MODEL, getModelConfig, MODEL_CONFIGS } from "@/lib/constants";
 import {
   addRevision,
   createProject,
@@ -20,15 +27,22 @@ import {
   type ChatMessage,
   type ContentPart,
   type FaceSelection,
+  type ModelInspection,
 } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import {
+  Box,
+  CheckCircle2,
+  Code2,
+  MousePointer2,
+  Ruler,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const LAST_PROJECT_KEY = "nfinit:last-project-id";
-
-export type LayoutMode = "default" | "code" | "mesh";
 
 const DEFAULT_CODE = [
   "width, depth, height = 10.0, 10.0, 10.0",
@@ -40,7 +54,6 @@ const DEFAULT_CODE = [
 ].join("\n");
 
 export default function Home() {
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>("default");
   const [code, setCode] = useState(DEFAULT_CODE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL);
@@ -56,8 +69,25 @@ export default function Home() {
   const [currentRevision, setCurrentRevision] = useState<number | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(true);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [inspection, setInspection] = useState<ModelInspection | null>(null);
 
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
+
+  const inspectModel = useCallback(async (codeToInspect: string) => {
+    const response = await fetch(`${BACKEND_URL}/inspect-model`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: codeToInspect }),
+    });
+    const result = await response.json().catch(() => null);
+    if (response.ok && result?.valid) {
+      setInspection(result);
+      return result as ModelInspection;
+    }
+    return null;
+  }, []);
 
   const generateMesh = useCallback(async (
     codeToExecute: string,
@@ -107,10 +137,13 @@ export default function Home() {
       setLastRunId(state.lastRunId);
       setCurrentRevision(revision.revisionNumber);
       setIsDirty(false);
-      await generateMesh(state.code, false);
+      await Promise.all([
+        generateMesh(state.code, false),
+        inspectModel(state.code),
+      ]);
       setSelectedFace(state.selection);
     },
-    [generateMesh]
+    [generateMesh, inspectModel]
   );
 
   const loadProject = useCallback(
@@ -208,6 +241,7 @@ export default function Home() {
             "Fix the code error before saving this revision."
         );
       }
+      setInspection(validation);
       await persistSnapshot({
         code,
         messages,
@@ -245,6 +279,7 @@ export default function Home() {
     setMessages([]);
     setModelId(DEFAULT_MODEL);
     setSelectedFace(null);
+    setInspection(null);
     setLastRunId(null);
     setIsDirty(true);
     setError(null);
@@ -332,6 +367,7 @@ export default function Home() {
         setCode(generatedCode);
         setMessages(completedMessages);
         setLastRunId(data.runId ?? null);
+        setInspection(data.inspection ?? null);
         setIsDirty(true);
         await generateMesh(generatedCode);
         try {
@@ -374,11 +410,11 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     try {
-      await generateMesh(code);
+      await Promise.all([generateMesh(code), inspectModel(code)]);
     } finally {
       setIsLoading(false);
     }
-  }, [code, generateMesh]);
+  }, [code, generateMesh, inspectModel]);
 
   const handleExport = useCallback(
     async (format: ExportFormat) => {
@@ -445,7 +481,10 @@ export default function Home() {
         }
       })
       .finally(() => {
-        if (active) setIsProjectLoading(false);
+        if (active) {
+          setIsProjectLoading(false);
+          setHasInitialized(true);
+        }
       });
     return () => {
       active = false;
@@ -478,87 +517,259 @@ export default function Home() {
     };
   }, [glbUrl]);
 
+  const showWelcome =
+    hasInitialized && !projectId && messages.length === 0 && glbUrl === null;
+
   return (
-    <div className="flex h-screen flex-col bg-[#000000] text-zinc-200">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[#090a0d] text-zinc-200">
       <CommandBar
-        modelId={modelId}
-        onModelChange={(value) => {
-          setModelId(value);
-          setIsDirty(true);
-        }}
-        layoutMode={layoutMode}
-        onLayoutChange={setLayoutMode}
         onExport={handleExport}
         projects={projects}
         projectId={projectId}
-        revisions={revisions}
-        currentRevision={currentRevision}
         isDirty={isDirty}
         isSaving={isSaving}
+        advancedOpen={advancedOpen}
+        onAdvancedChange={setAdvancedOpen}
         onProjectChange={loadProject}
-        onRevisionChange={loadRevision}
         onNewProject={startNewProject}
         onSave={saveCurrentRevision}
       />
-      <div
-        className={cn(
-          "grid min-h-0 flex-1 overflow-hidden",
-          layoutMode === "default" &&
-            "grid-cols-1 md:grid-cols-[1fr_1.2fr_1fr]",
-          layoutMode === "code" && "grid-cols-1 md:grid-cols-[2fr_1fr]",
-          layoutMode === "mesh" && "grid-cols-1 md:grid-cols-[2fr_1fr]"
-        )}
-      >
-        {layoutMode !== "mesh" && (
-          <div className="flex min-h-[200px] flex-col overflow-hidden md:min-h-0">
-            <EditorPane
-              code={code}
-              onCodeChange={(value) => {
-                setCode(value);
-                setIsDirty(true);
-              }}
-              onGenerate={handleGenerate}
-            />
-          </div>
-        )}
-        {layoutMode !== "code" && (
-          <div className="relative min-h-[200px] overflow-hidden md:min-h-0">
-            {error && (
-              <div className="absolute left-4 right-4 top-4 z-20 flex items-start justify-between gap-3 rounded border border-red-500/50 bg-red-950/80 px-3 py-2 text-sm text-red-200">
-                <span className="flex-1">{error}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(error);
-                  }}
-                  className="shrink-0 rounded px-2 py-1 text-xs hover:bg-red-900/50"
-                >
-                  Copy
-                </button>
+
+      {!hasInitialized ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <div className="size-8 animate-spin rounded-full border-2 border-zinc-800 border-t-violet-400" />
+        </div>
+      ) : showWelcome ? (
+        <main className="relative min-h-0 flex-1 overflow-y-auto">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(124,58,237,0.16),transparent_36%),radial-gradient(circle_at_80%_80%,rgba(37,99,235,0.09),transparent_30%)]" />
+          <div className="relative mx-auto flex min-h-full max-w-5xl flex-col items-center justify-center px-4 py-10 sm:px-8">
+            <div className="mb-8 max-w-2xl text-center">
+              <div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-300 shadow-xl shadow-violet-500/10">
+                <Sparkles className="size-5" />
               </div>
-            )}
+              <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] text-white sm:text-5xl">
+                What do you want to make?
+              </h1>
+              <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-500 sm:text-base">
+                Describe a single part in plain language. Add dimensions if you have
+                them—we’ll turn it into editable, export-ready CAD.
+              </p>
+            </div>
+            <div className="h-[340px] w-full max-w-3xl">
+              <ChatPane
+                messages={messages}
+                onSend={handleChatSend}
+                isLoading={isLoading || isProjectLoading}
+                lastError={error}
+                supportsVision={modelConfig?.supportsVision ?? false}
+                selection={selectedFace}
+                variant="welcome"
+              />
+            </div>
+            <p className="mt-5 text-center text-[11px] text-zinc-600">
+              Valid geometry is saved automatically as an immutable revision.
+            </p>
+          </div>
+        </main>
+      ) : (
+        <main className="relative min-h-0 flex-1 overflow-hidden bg-[#15161a] p-2">
+          <div className="h-full overflow-hidden rounded-2xl border border-black/10 bg-[#e7e8eb] shadow-2xl shadow-black/30">
             <ViewportPane
               glbUrl={glbUrl}
               code={code}
               isLoading={isLoading || isProjectLoading}
+              showSelectionCard={false}
               onSelectionChange={(selection) => {
                 setSelectedFace(selection);
                 setIsDirty(true);
               }}
             />
           </div>
-        )}
-        <div className="flex min-h-[200px] flex-col overflow-hidden md:min-h-0">
-          <ChatPane
-            messages={messages}
-            onSend={handleChatSend}
-            isLoading={isLoading || isProjectLoading}
-            lastError={error}
-            supportsVision={modelConfig?.supportsVision ?? false}
-            selection={selectedFace}
-          />
+
+          <div className="pointer-events-none absolute left-5 top-5 z-20 hidden sm:block">
+            <div className="pointer-events-auto min-w-[230px] rounded-2xl border border-white/15 bg-[#101116]/88 p-3.5 text-zinc-200 shadow-xl shadow-black/20 backdrop-blur-xl">
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-white/8 text-zinc-400">
+                  <Ruler className="size-3.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-600">
+                    Overall size
+                  </p>
+                  {inspection?.bounding_box_mm ? (
+                    <p className="mt-0.5 text-xs font-medium text-white">
+                      {inspection.bounding_box_mm.x.toFixed(1)} ×{" "}
+                      {inspection.bounding_box_mm.y.toFixed(1)} ×{" "}
+                      {inspection.bounding_box_mm.z.toFixed(1)} mm
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      Awaiting model dimensions
+                    </p>
+                  )}
+                </div>
+              </div>
+              {inspection && (
+                <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-2.5 text-[10px] text-zinc-500">
+                  <span className="flex items-center gap-1.5">
+                    <Box className="size-3" />
+                    {inspection.shape_type ?? "Solid"}
+                  </span>
+                  <span>{Math.round(inspection.volume_mm3 ?? 0).toLocaleString()} mm³</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {selectedFace && (
+            <div className="pointer-events-none absolute right-5 top-20 z-20 max-w-[260px]">
+              <div className="pointer-events-auto rounded-2xl border border-violet-300/25 bg-[#17131f]/92 p-4 text-zinc-200 shadow-2xl shadow-violet-950/20 backdrop-blur-xl">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-violet-400/12 text-violet-300">
+                    <MousePointer2 className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-violet-100">
+                      {selectedFace.surfaceType
+                        ? `${selectedFace.surfaceType[0].toUpperCase()}${selectedFace.surfaceType.slice(1)} face`
+                        : "Selected face"}
+                    </p>
+                    <p className="mt-1 font-mono text-[9px] text-violet-300/50">
+                      {selectedFace.entityId?.slice(0, 18) ??
+                        selectedFace.point.join(", ")}
+                    </p>
+                    <p className="mt-2 text-[11px] leading-4 text-zinc-400">
+                      Describe the change below. Your request will target this face.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="pointer-events-none absolute inset-x-3 bottom-4 z-30 flex flex-col items-center gap-2">
+            {revisions.length > 0 && (
+              <div className="pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-[#101116]/88 p-1.5 shadow-xl backdrop-blur-xl">
+                <span className="hidden items-center gap-1.5 px-2 text-[10px] font-medium text-zinc-500 sm:flex">
+                  <CheckCircle2 className="size-3 text-emerald-400" />
+                  History
+                </span>
+                {revisions
+                  .slice()
+                  .reverse()
+                  .map((revision) => {
+                    const active = revision.revisionNumber === currentRevision;
+                    return (
+                      <button
+                        key={revision.id}
+                        type="button"
+                        onClick={() => loadRevision(revision.revisionNumber)}
+                        title={`Revision ${revision.revisionNumber} · ${new Date(
+                          revision.createdAt
+                        ).toLocaleString()}`}
+                        className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-medium transition-colors ${
+                          active
+                            ? "bg-white text-zinc-950 shadow-sm"
+                            : "text-zinc-500 hover:bg-white/8 hover:text-white"
+                        }`}
+                      >
+                        <span
+                          className={`size-1.5 rounded-full ${
+                            active ? "bg-violet-500" : "bg-zinc-700"
+                          }`}
+                        />
+                        v{revision.revisionNumber}
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
+            <div className="pointer-events-auto w-full max-w-3xl">
+              <ChatPane
+                messages={messages}
+                onSend={handleChatSend}
+                isLoading={isLoading || isProjectLoading}
+                lastError={error}
+                supportsVision={modelConfig?.supportsVision ?? false}
+                selection={selectedFace}
+              />
+            </div>
+          </div>
+        </main>
+      )}
+
+      {error && (
+        <div className="fixed left-1/2 top-20 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 rounded-xl border border-red-400/20 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur">
+          <span className="min-w-0 flex-1">{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+            className="rounded-md p-1 text-red-300 hover:bg-white/10"
+          >
+            <X className="size-4" />
+          </button>
         </div>
-      </div>
+      )}
+
+      {advancedOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close advanced tools"
+            className="fixed inset-0 top-16 z-40 bg-black/55 backdrop-blur-[2px]"
+            onClick={() => setAdvancedOpen(false)}
+          />
+          <aside className="fixed inset-y-0 right-0 z-50 mt-16 flex w-full max-w-3xl flex-col border-l border-white/10 bg-[#0d0e12] shadow-2xl shadow-black/60">
+            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/8 px-4">
+              <Code2 className="size-4 text-violet-400" />
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold text-white">Advanced editor</h2>
+                <p className="text-[10px] text-zinc-600">Edit build123d source directly</p>
+              </div>
+              <Select
+                value={modelId}
+                onValueChange={(value) => {
+                  setModelId(value);
+                  setIsDirty(true);
+                }}
+              >
+                <SelectTrigger
+                  aria-label="Generation model"
+                  className="h-8 w-[180px] border-white/10 bg-white/5 text-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MODEL_CONFIGS.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                onClick={() => setAdvancedOpen(false)}
+                aria-label="Close advanced editor"
+                className="rounded-lg p-2 text-zinc-500 hover:bg-white/8 hover:text-white"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <EditorPane
+                code={code}
+                onCodeChange={(value) => {
+                  setCode(value);
+                  setIsDirty(true);
+                }}
+                onGenerate={handleGenerate}
+              />
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 }
