@@ -2,7 +2,6 @@
 
 import { ChatPane } from "@/components/ChatPane";
 import { CommandBar, type ExportFormat } from "@/components/CommandBar";
-import { DesignInspector } from "@/components/DesignInspector";
 import { EditorPane } from "@/components/EditorPane";
 import { ViewportPane } from "@/components/ViewportPane";
 import {
@@ -30,7 +29,15 @@ import {
   type FaceSelection,
   type ModelInspection,
 } from "@/lib/types";
-import { Code2, Sparkles, X } from "lucide-react";
+import {
+  Box,
+  CheckCircle2,
+  Code2,
+  MousePointer2,
+  Ruler,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const BACKEND_URL =
@@ -551,45 +558,134 @@ export default function Home() {
           </div>
         </main>
       ) : (
-        <main className="grid min-h-0 flex-1 grid-rows-[minmax(280px,1fr)_minmax(300px,44vh)] overflow-hidden lg:grid-cols-[360px_minmax(0,1fr)] lg:grid-rows-1 xl:grid-cols-[360px_minmax(0,1fr)_290px]">
-          <div className="order-2 flex min-h-0 flex-col overflow-hidden lg:order-1">
-            <ChatPane
-              messages={messages}
-              onSend={handleChatSend}
-              isLoading={isLoading || isProjectLoading}
-              lastError={error}
-              supportsVision={modelConfig?.supportsVision ?? false}
-              selection={selectedFace}
-            />
-          </div>
-          <div className="relative order-1 min-h-0 overflow-hidden bg-[#17181d] p-2 lg:order-2 lg:p-3">
-            <div className="h-full overflow-hidden rounded-xl border border-black/10 bg-[#e7e8eb] shadow-2xl shadow-black/20">
+        <main className="relative min-h-0 flex-1 overflow-hidden bg-[#15161a] p-2">
+          <div className="h-full overflow-hidden rounded-2xl border border-black/10 bg-[#e7e8eb] shadow-2xl shadow-black/30">
             <ViewportPane
               glbUrl={glbUrl}
               code={code}
               isLoading={isLoading || isProjectLoading}
+              showSelectionCard={false}
               onSelectionChange={(selection) => {
                 setSelectedFace(selection);
                 setIsDirty(true);
               }}
             />
           </div>
+
+          <div className="pointer-events-none absolute left-5 top-5 z-20 hidden sm:block">
+            <div className="pointer-events-auto min-w-[230px] rounded-2xl border border-white/15 bg-[#101116]/88 p-3.5 text-zinc-200 shadow-xl shadow-black/20 backdrop-blur-xl">
+              <div className="flex items-center gap-2">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-white/8 text-zinc-400">
+                  <Ruler className="size-3.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-600">
+                    Overall size
+                  </p>
+                  {inspection?.bounding_box_mm ? (
+                    <p className="mt-0.5 text-xs font-medium text-white">
+                      {inspection.bounding_box_mm.x.toFixed(1)} ×{" "}
+                      {inspection.bounding_box_mm.y.toFixed(1)} ×{" "}
+                      {inspection.bounding_box_mm.z.toFixed(1)} mm
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-xs text-zinc-500">
+                      Awaiting model dimensions
+                    </p>
+                  )}
+                </div>
+              </div>
+              {inspection && (
+                <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-2.5 text-[10px] text-zinc-500">
+                  <span className="flex items-center gap-1.5">
+                    <Box className="size-3" />
+                    {inspection.shape_type ?? "Solid"}
+                  </span>
+                  <span>{Math.round(inspection.volume_mm3 ?? 0).toLocaleString()} mm³</span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="order-3 hidden min-h-0 xl:flex xl:flex-col">
-            <DesignInspector
-              inspection={inspection}
-              selection={selectedFace}
-              revisions={revisions}
-              currentRevision={currentRevision}
-              isDirty={isDirty}
-              onRevisionChange={loadRevision}
-            />
+
+          {selectedFace && (
+            <div className="pointer-events-none absolute right-5 top-20 z-20 max-w-[260px]">
+              <div className="pointer-events-auto rounded-2xl border border-violet-300/25 bg-[#17131f]/92 p-4 text-zinc-200 shadow-2xl shadow-violet-950/20 backdrop-blur-xl">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-violet-400/12 text-violet-300">
+                    <MousePointer2 className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-violet-100">
+                      {selectedFace.surfaceType
+                        ? `${selectedFace.surfaceType[0].toUpperCase()}${selectedFace.surfaceType.slice(1)} face`
+                        : "Selected face"}
+                    </p>
+                    <p className="mt-1 font-mono text-[9px] text-violet-300/50">
+                      {selectedFace.entityId?.slice(0, 18) ??
+                        selectedFace.point.join(", ")}
+                    </p>
+                    <p className="mt-2 text-[11px] leading-4 text-zinc-400">
+                      Describe the change below. Your request will target this face.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="pointer-events-none absolute inset-x-3 bottom-4 z-30 flex flex-col items-center gap-2">
+            {revisions.length > 0 && (
+              <div className="pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-[#101116]/88 p-1.5 shadow-xl backdrop-blur-xl">
+                <span className="hidden items-center gap-1.5 px-2 text-[10px] font-medium text-zinc-500 sm:flex">
+                  <CheckCircle2 className="size-3 text-emerald-400" />
+                  History
+                </span>
+                {revisions
+                  .slice()
+                  .reverse()
+                  .map((revision) => {
+                    const active = revision.revisionNumber === currentRevision;
+                    return (
+                      <button
+                        key={revision.id}
+                        type="button"
+                        onClick={() => loadRevision(revision.revisionNumber)}
+                        title={`Revision ${revision.revisionNumber} · ${new Date(
+                          revision.createdAt
+                        ).toLocaleString()}`}
+                        className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-medium transition-colors ${
+                          active
+                            ? "bg-white text-zinc-950 shadow-sm"
+                            : "text-zinc-500 hover:bg-white/8 hover:text-white"
+                        }`}
+                      >
+                        <span
+                          className={`size-1.5 rounded-full ${
+                            active ? "bg-violet-500" : "bg-zinc-700"
+                          }`}
+                        />
+                        v{revision.revisionNumber}
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
+            <div className="pointer-events-auto w-full max-w-3xl">
+              <ChatPane
+                messages={messages}
+                onSend={handleChatSend}
+                isLoading={isLoading || isProjectLoading}
+                lastError={error}
+                supportsVision={modelConfig?.supportsVision ?? false}
+                selection={selectedFace}
+              />
+            </div>
           </div>
         </main>
       )}
 
       {error && (
-        <div className="fixed bottom-5 left-1/2 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 rounded-xl border border-red-400/20 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur">
+        <div className="fixed left-1/2 top-20 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 rounded-xl border border-red-400/20 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur">
           <span className="min-w-0 flex-1">{error}</span>
           <button
             type="button"

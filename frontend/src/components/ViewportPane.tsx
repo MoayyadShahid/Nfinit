@@ -189,6 +189,7 @@ interface ViewportPaneProps {
   glbUrl: string | null;
   code: string;
   isLoading: boolean;
+  showSelectionCard?: boolean;
   onSelectionChange?: (selection: FaceSelection | null) => void;
 }
 
@@ -196,6 +197,7 @@ function ViewportContent({
   glbUrl,
   code,
   isLoading,
+  showSelectionCard = true,
   onSelectionChange,
 }: ViewportPaneProps) {
   const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
@@ -294,7 +296,7 @@ function ViewportContent({
           Grid
         </button>
       </div>
-      {faceSelection && (
+      {faceSelection && showSelectionCard && (
         <div className="absolute bottom-3 left-3 z-20 rounded-xl border border-violet-300/20 bg-zinc-950/90 px-3.5 py-2.5 text-xs text-zinc-200 shadow-xl backdrop-blur">
           <div className="font-medium text-violet-300">Face selected</div>
           <div className="mt-0.5 text-[10px] text-zinc-400">

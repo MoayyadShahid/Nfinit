@@ -10,8 +10,10 @@ import {
 import {
   ArrowUp,
   Check,
+  ChevronDown,
   ImagePlus,
   MapPin,
+  MessagesSquare,
   RotateCcw,
   Sparkles,
   X,
@@ -59,6 +61,7 @@ export function ChatPane({
 }: ChatPaneProps) {
   const [input, setInput] = useState("");
   const [images, setImages] = useState<string[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -118,47 +121,84 @@ export function ChatPane({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const latestRequest = [...messages]
+    .reverse()
+    .find((message) => message.role === "user");
+  const latestRequestText = latestRequest
+    ? getTextContent(latestRequest.content).trim()
+    : "";
+
   return (
     <div
-      className={`flex h-full min-h-0 flex-col ${
+      className={`flex min-h-0 flex-col ${
         variant === "welcome"
-          ? "overflow-hidden rounded-2xl border border-white/10 bg-[#121319]/90 shadow-2xl shadow-black/30 backdrop-blur-xl"
-          : "border-r border-white/8 bg-[#0e0f13]"
+          ? "h-full overflow-hidden rounded-2xl border border-white/10 bg-[#121319]/90 shadow-2xl shadow-black/30 backdrop-blur-xl"
+          : "overflow-hidden rounded-[22px] border border-white/12 bg-[#101116]/92 shadow-2xl shadow-black/40 backdrop-blur-2xl"
       }`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      {variant === "studio" && (
+        <div className="flex h-11 shrink-0 items-center gap-3 border-b border-white/8 px-3.5">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen((open) => !open)}
+            aria-expanded={historyOpen}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/8 hover:text-white"
+          >
+            <MessagesSquare className="size-3.5 text-violet-400" />
+            History
+            <span className="text-zinc-600">{messages.length}</span>
+            <ChevronDown
+              className={`size-3 transition-transform ${historyOpen ? "rotate-180" : ""}`}
+            />
+          </button>
+          {!historyOpen && latestRequestText && (
+            <p className="min-w-0 flex-1 truncate text-[11px] text-zinc-600">
+              Latest: {latestRequestText}
+            </p>
+          )}
+          {historyOpen && (
+            <p className="min-w-0 flex-1 text-right text-[10px] text-zinc-600">
+              Conversation behind this design
+            </p>
+          )}
+        </div>
+      )}
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4"
+        className={`min-h-0 space-y-4 overflow-y-auto p-4 ${
+          variant === "studio"
+            ? historyOpen
+              ? "h-[min(48dvh,520px)]"
+              : "hidden"
+            : "flex-1"
+        }`}
       >
         {messages.length === 0 && (
           <div className="flex h-full flex-col justify-end">
-            {variant === "studio" && (
-              <div className="mb-auto flex flex-1 items-center justify-center px-4 text-center text-xs leading-5 text-zinc-600">
-                Describe a change, or select a face in the model to edit it precisely.
+            {variant === "studio" ? (
+              <div className="flex flex-1 items-center justify-center px-4 text-center text-xs leading-5 text-zinc-600">
+                No conversation yet. Your next request will begin this design story.
+              </div>
+            ) : (
+              <div className="mb-1 grid gap-2 sm:grid-cols-3">
+                {[
+                  "A wall-mount bracket, 80 mm wide",
+                  "A desk cable organizer with 4 slots",
+                  "A compact enclosure with rounded corners",
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => setInput(suggestion)}
+                    className="rounded-xl border border-white/8 bg-white/[0.025] p-3 text-left text-[11px] leading-4 text-zinc-400 transition-colors hover:border-violet-400/30 hover:bg-violet-400/5 hover:text-zinc-200"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
               </div>
             )}
-            <div
-              className={`mb-1 grid gap-2 ${
-                variant === "welcome" ? "sm:grid-cols-3" : "grid-cols-1"
-              }`}
-            >
-              {[
-                "A wall-mount bracket, 80 mm wide",
-                "A desk cable organizer with 4 slots",
-                "A compact enclosure with rounded corners",
-              ].map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => setInput(suggestion)}
-                  className="rounded-xl border border-white/8 bg-white/[0.025] p-3 text-left text-[11px] leading-4 text-zinc-400 transition-colors hover:border-violet-400/30 hover:bg-violet-400/5 hover:text-zinc-200"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
           </div>
         )}
         {messages.map((msg, i) => {
@@ -254,7 +294,11 @@ export function ChatPane({
         })}
       </div>
 
-      <div className="flex flex-col gap-2 border-t border-white/8 p-4">
+      <div
+        className={`flex flex-col gap-2 ${
+          variant === "welcome" || historyOpen ? "border-t border-white/8" : ""
+        } p-3`}
+      >
         {selection && (
           <div className="flex items-center gap-2 rounded-xl border border-violet-400/20 bg-violet-400/8 px-3 py-2 text-[11px] text-violet-200">
             <MapPin className="size-3.5" />
@@ -338,7 +382,7 @@ export function ChatPane({
                   ? "What should change on this face?"
                   : "Describe your next change…"
             }
-            rows={variant === "welcome" ? 3 : 2}
+            rows={variant === "welcome" ? 3 : 1}
             disabled={isLoading}
             className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-zinc-200 outline-none placeholder:text-zinc-600 disabled:opacity-50"
           />
@@ -354,9 +398,11 @@ export function ChatPane({
           </Button>
         </div>
 
-        <p className="px-1 text-center text-[10px] text-zinc-600">
-          Include dimensions in millimeters for a more accurate first result.
-        </p>
+        {variant === "welcome" && (
+          <p className="px-1 text-center text-[10px] text-zinc-600">
+            Include dimensions in millimeters for a more accurate first result.
+          </p>
+        )}
       </div>
     </div>
   );
