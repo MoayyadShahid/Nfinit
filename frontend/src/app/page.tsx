@@ -71,15 +71,23 @@ export default function Home() {
   const [isDirty, setIsDirty] = useState(true);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [inspection, setInspection] = useState<ModelInspection | null>(null);
 
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
-  const inspection = useMemo<ModelInspection | null>(() => {
-    for (let index = messages.length - 1; index >= 0; index -= 1) {
-      const value = messages[index].agent?.inspection;
-      if (value) return value;
+
+  const inspectModel = useCallback(async (codeToInspect: string) => {
+    const response = await fetch(`${BACKEND_URL}/inspect-model`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: codeToInspect }),
+    });
+    const result = await response.json().catch(() => null);
+    if (response.ok && result?.valid) {
+      setInspection(result);
+      return result as ModelInspection;
     }
     return null;
-  }, [messages]);
+  }, []);
 
   const generateMesh = useCallback(async (
     codeToExecute: string,
@@ -129,10 +137,13 @@ export default function Home() {
       setLastRunId(state.lastRunId);
       setCurrentRevision(revision.revisionNumber);
       setIsDirty(false);
-      await generateMesh(state.code, false);
+      await Promise.all([
+        generateMesh(state.code, false),
+        inspectModel(state.code),
+      ]);
       setSelectedFace(state.selection);
     },
-    [generateMesh]
+    [generateMesh, inspectModel]
   );
 
   const loadProject = useCallback(
@@ -230,6 +241,7 @@ export default function Home() {
             "Fix the code error before saving this revision."
         );
       }
+      setInspection(validation);
       await persistSnapshot({
         code,
         messages,
@@ -267,6 +279,7 @@ export default function Home() {
     setMessages([]);
     setModelId(DEFAULT_MODEL);
     setSelectedFace(null);
+    setInspection(null);
     setLastRunId(null);
     setIsDirty(true);
     setError(null);
@@ -354,6 +367,7 @@ export default function Home() {
         setCode(generatedCode);
         setMessages(completedMessages);
         setLastRunId(data.runId ?? null);
+        setInspection(data.inspection ?? null);
         setIsDirty(true);
         await generateMesh(generatedCode);
         try {
@@ -396,11 +410,11 @@ export default function Home() {
     setIsLoading(true);
     setError(null);
     try {
-      await generateMesh(code);
+      await Promise.all([generateMesh(code), inspectModel(code)]);
     } finally {
       setIsLoading(false);
     }
-  }, [code, generateMesh]);
+  }, [code, generateMesh, inspectModel]);
 
   const handleExport = useCallback(
     async (format: ExportFormat) => {
