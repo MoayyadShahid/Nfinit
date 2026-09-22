@@ -27,7 +27,7 @@ function Brand() {
 
 function ProductShowcase() {
   return (
-    <div className="landing-window relative mx-auto w-full max-w-5xl overflow-hidden rounded-[22px] border border-white/12 bg-[#e9eaed] shadow-[0_35px_100px_rgba(0,0,0,0.5)]">
+    <div className="landing-window relative mx-auto w-full max-w-4xl overflow-hidden rounded-[22px] border border-white/12 bg-[#e9eaed] shadow-[0_35px_100px_rgba(0,0,0,0.5)]">
       <div className="flex h-9 items-center justify-between border-b border-black/8 bg-[#111217] px-3">
         <div className="flex items-center gap-1.5">
           <span className="size-1.5 rounded-full bg-white/20" />
@@ -184,7 +184,7 @@ function ProductShowcase() {
 
 export default function LandingPage() {
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-[#08090b] text-white selection:bg-violet-400/30">
+    <div className="relative min-h-dvh overflow-x-hidden bg-[#08090b] text-white selection:bg-violet-400/30 lg:h-dvh lg:overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-[-24rem] h-[42rem] w-[62rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,0.16),rgba(37,99,235,0.06)_38%,transparent_70%)]" />
         <div className="absolute inset-0 opacity-[0.018] [background-image:url('data:image/svg+xml,%3Csvg_viewBox=%220_0_180_180%22_xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter_id=%22n%22%3E%3CfeTurbulence_type=%22fractalNoise%22_baseFrequency=%22.9%22_numOctaves=%224%22_stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect_width=%22100%25%22_height=%22100%25%22_filter=%22url(%23n)%22_opacity=%22.5%22/%3E%3C/svg%3E')]" />
@@ -209,13 +209,13 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl flex-col items-center px-5 pb-6 pt-[clamp(2rem,7vh,5.5rem)] sm:px-8">
+      <main className="relative z-10 mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl flex-col items-center px-5 pb-5 pt-[clamp(1.75rem,4.5vh,3rem)] sm:px-8 lg:h-[calc(100dvh-4rem)] lg:min-h-0">
         <div className="mx-auto max-w-3xl text-center">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-medium tracking-[0.12em] text-white/45">
             <Box className="size-3 text-violet-400" />
             AI CAD
           </div>
-          <h1 className="text-balance text-[clamp(2.8rem,6.4vw,5.8rem)] font-semibold leading-[0.94] tracking-[-0.065em]">
+          <h1 className="text-balance text-[clamp(2.8rem,6vw,5.2rem)] font-semibold leading-[0.94] tracking-[-0.065em]">
             Ideas become objects.
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-balance text-sm tracking-[-0.01em] text-white/42 sm:text-base">
@@ -230,15 +230,8 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        <div className="mt-[clamp(2.5rem,6vh,4.5rem)] w-full">
+        <div className="mt-[clamp(2rem,4vh,2.75rem)] w-full">
           <ProductShowcase />
-          <div className="mx-auto mt-4 flex max-w-xl items-center justify-center gap-5 text-[9px] font-medium tracking-[0.14em] text-white/25 sm:gap-9 sm:text-[10px]">
-            <span>PROMPT</span>
-            <span className="h-px w-6 bg-white/10" />
-            <span>EDIT</span>
-            <span className="h-px w-6 bg-white/10" />
-            <span>STEP / STL</span>
-          </div>
         </div>
       </main>
     </div>
