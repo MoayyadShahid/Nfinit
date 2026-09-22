@@ -202,7 +202,7 @@ export default function LandingPage() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <Link
-            href="/studio"
+            href="/login?next=/studio"
             className="theme-muted rounded-full px-3 py-2 text-xs font-medium transition-colors hover:text-[var(--page-fg)] sm:px-4"
           >
             Log in

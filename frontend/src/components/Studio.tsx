@@ -1,7 +1,11 @@
 "use client";
 
 import { ChatPane } from "@/components/ChatPane";
-import { CommandBar, type ExportFormat } from "@/components/CommandBar";
+import {
+  CommandBar,
+  type ExportFormat,
+  type Viewer,
+} from "@/components/CommandBar";
 import { EditorPane } from "@/components/EditorPane";
 import { ViewportPane } from "@/components/ViewportPane";
 import {
@@ -53,7 +57,7 @@ const DEFAULT_CODE = [
   "result = part.part",
 ].join("\n");
 
-export default function Home() {
+export default function Studio({ viewer }: { viewer?: Viewer | null }) {
   const [code, setCode] = useState(DEFAULT_CODE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL);
@@ -523,6 +527,7 @@ export default function Home() {
   return (
     <div className="theme-page flex h-dvh flex-col overflow-hidden">
       <CommandBar
+        viewer={viewer}
         onExport={handleExport}
         projects={projects}
         projectId={projectId}
