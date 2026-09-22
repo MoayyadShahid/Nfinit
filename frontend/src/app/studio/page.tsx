@@ -10,14 +10,25 @@ export const metadata: Metadata = {
 };
 export const dynamic = "force-dynamic";
 
-export default async function StudioPage() {
+export default async function StudioPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ prompt?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const rawPrompt = Array.isArray(params.prompt) ? params.prompt[0] : params.prompt;
+  const prompt = rawPrompt?.trim().slice(0, 500) || undefined;
+
   const user = await getAuthenticatedUser();
   if (isSupabaseConfigured() && !user) {
-    redirect("/login?next=/studio");
+    // Keep a prompt typed on the landing page through sign-in.
+    const next = prompt ? `/studio?prompt=${encodeURIComponent(prompt)}` : "/studio";
+    redirect(`/login?next=${encodeURIComponent(next)}`);
   }
 
   return (
     <Studio
+      initialPrompt={prompt}
       viewer={
         user
           ? {

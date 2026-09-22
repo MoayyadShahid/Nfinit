@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,9 +12,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Display serif for what people say (spec §3). Never below 24px.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  axes: ["opsz", "SOFT", "WONK"],
+});
+
 export const metadata: Metadata = {
-  title: "nfinit — Make anything",
-  description: "Describe, refine, and export production-ready 3D parts.",
+  title: "nfinit",
+  description: "Describe a part, click a face to change it, print it tonight.",
 };
 
 export default function RootLayout({
@@ -25,14 +33,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Light (porcelain) is the default. The landing and login pages are
+            always light; the theme is only chosen inside the studio. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("nfinit:theme");if(t!=="midnight"&&t!=="porcelain"){t=matchMedia("(prefers-color-scheme: light)").matches?"porcelain":"midnight"}var r=document.documentElement;r.dataset.theme=t;r.classList.toggle("dark",t==="midnight");r.style.colorScheme=t==="midnight"?"dark":"light"}catch(e){document.documentElement.dataset.theme="midnight";document.documentElement.classList.add("dark")}})();`,
+            __html: `(function(){var r=document.documentElement,t="porcelain";try{var p=location.pathname;if(p!=="/"&&p!=="/login"){var s=localStorage.getItem("nfinit:theme");if(s==="midnight")t=s}}catch(e){}r.dataset.theme=t;r.classList.toggle("dark",t==="midnight");r.style.colorScheme=t==="midnight"?"dark":"light"})();`,
           }}
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} antialiased`}
       >
         {children}
       </body>

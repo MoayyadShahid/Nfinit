@@ -48,6 +48,8 @@ interface ChatPaneProps {
   supportsVision?: boolean;
   selection?: FaceSelection | null;
   variant?: "studio" | "welcome";
+  /** Prefills the input, e.g. with a prompt typed on the landing page. */
+  initialInput?: string;
 }
 
 export function ChatPane({
@@ -58,8 +60,9 @@ export function ChatPane({
   supportsVision = false,
   selection,
   variant = "studio",
+  initialInput = "",
 }: ChatPaneProps) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialInput);
   const [images, setImages] = useState<string[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
