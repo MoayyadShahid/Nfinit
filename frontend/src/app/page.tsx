@@ -1,5 +1,5 @@
 import { Wordmark } from "@/components/brand/Wordmark";
-import { DimensionRule } from "@/components/landing/DimensionRule";
+import { SectionLabel } from "@/components/landing/SectionLabel";
 import { FlowHook } from "@/components/landing/FlowHook";
 import { ForceLightTheme } from "@/components/landing/ForceLightTheme";
 import { HeroDrone } from "@/components/landing/HeroDrone";
@@ -94,13 +94,13 @@ export default function LandingPage() {
 
           <Plate
             className="aspect-square w-full lg:col-span-5 lg:row-span-2 lg:row-start-1 lg:aspect-[4/5]"
-            label="Plate 01 · 5-inch quad frame"
+            label="Plate 01 · 5-inch FPV frame"
             hint="Drag to spin"
             spec={
               <>
-                PETG · 220{T}mm
+                PA-CF · 220{T}mm
                 <br />
-                2h 40m
+                3h 10m
               </>
             }
           >
@@ -120,7 +120,7 @@ export default function LandingPage() {
 
         {/* Gallery (§7) */}
         <section className="mx-auto max-w-[1264px] px-4 pb-24 sm:px-8 lg:pb-40">
-          <DimensionRule label="04 Plates" className="mb-12 lg:mb-16" />
+          <SectionLabel label="04 Plates" className="mb-12 lg:mb-16" />
           <h2 className="type-h2 mb-10 lg:mb-12">
             Things people actually <em>print.</em>
           </h2>

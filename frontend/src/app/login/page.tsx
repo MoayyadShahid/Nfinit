@@ -61,9 +61,9 @@ export default async function LoginPage({
       <ForceLightTheme />
       <AuthPlate
         className="h-[220px] rounded-none lg:col-span-7 lg:h-auto"
-        label="Plate 01 · 5-inch quad frame"
+        label="Plate 01 · 5-inch FPV frame"
         hint="Drag to spin"
-        spec={`PETG · 220${T}mm · 2h 40m`}
+        spec={`PA-CF · 220${T}mm · 3h 10m`}
         halted={Boolean(error)}
       >
         <HeroDrone />

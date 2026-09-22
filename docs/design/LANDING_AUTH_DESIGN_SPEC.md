@@ -207,7 +207,7 @@ turns a sentence into an object.
   2. **The part's contact shadow,** baked into the render, not CSS.
 
   Everything else is flat.
-- **Section dividers are dimension rules:** a hairline with 5px end ticks and a mono label sitting in a gap (`— 02 REFINE —`). The rule draws in on scroll.
+- **Section labels are plain mono text** (`02 REFINE`), with no rule lines. The founder rejected the dimension-rule dividers (a hairline with end ticks either side of the label).
 
 ---
 
@@ -333,9 +333,14 @@ The word "AI" appears **zero times above the fold.**
 
 **Phase 1 (ship now): one real 3D part, placeholders for the rest.**
 
-- **Hero and auth plates: an interactive drone.** A simple 5-inch quad frame
-  built from primitives in r3f (`DroneScene.tsx`). It's graphite, with a
-  single Hot PLA part (the printed camera mount) and bone props. It hovers
+- **Hero and auth plates: an interactive drone.** A bare 5-inch stretched-X
+  FPV frame in r3f (`DroneScene.tsx`), modelled on a real carbon frame:
+  - flat extruded arms with drilled motor pads and lightening slots
+  - a bottom plate, aluminium standoffs, and a top plate with an X cut-out
+  - a camera cage whose two nuts are the only Hot PLA
+  - a procedural carbon-weave texture (captioned as printed PA-CF)
+  - no motors, props or electronics
+  It hovers
   gently, auto-rotates and spins when dragged. Zoom and pan are off, and on
   touch only a sideways drag spins it, so the page still scrolls. The founder
   chose this over an empty demo slot: it makes the product feel tangible.
@@ -505,7 +510,7 @@ little. Make it bigger.
 | `frontend/src/components/landing/Plate.tsx` | New. Image, corner spec labels, prompt-on-hover, and the `LayerReveal` wrapper. |
 | `frontend/src/components/landing/LayerReveal.tsx` | New, client component. clip-path `steps(16)`, nozzle line, IntersectionObserver, reduced-motion aware. |
 | `frontend/src/components/landing/PromptBar.tsx` | New, client component. Typewriter placeholder, chips, submit that routes to `/studio?prompt=` or `/login?next=`. |
-| `frontend/src/components/landing/DimensionRule.tsx` | New. Section divider with ticks and a mono label. |
+| `frontend/src/components/landing/SectionLabel.tsx` | New. Plain mono section label (replaced the dimension-rule divider). |
 | `frontend/src/components/landing/FlowHook.tsx` | New. Sticky SVG pipe hook in four states (§7). |
 | `frontend/src/app/page.tsx` | Rebuild to §7. Delete `ProductShowcase`, the glow and the noise div. |
 | `frontend/src/app/login/page.tsx` | Rebuild to §8, parsing `prompt` out of `next` for the pull-quote. |

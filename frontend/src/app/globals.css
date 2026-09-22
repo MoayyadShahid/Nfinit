@@ -329,7 +329,6 @@ html[data-theme="porcelain"] .text-zinc-600 {
 .type-quote {
   font-family: var(--font-fraunces), Georgia, "Times New Roman", serif;
   font-variation-settings: "SOFT" 50, "WONK" 0;
-  margin: 0;
   color: var(--ink);
 }
 
@@ -844,65 +843,6 @@ html[data-theme="midnight"] .wb-submit:hover {
   opacity: 1;
 }
 
-/* Dimension rule (§5). */
-.wb-rule {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-}
-
-.wb-rule-line {
-  position: relative;
-  flex: 1;
-  height: 9px;
-  transform: scaleX(0);
-  transition: transform 700ms var(--ease-draw);
-}
-
-.wb-rule-line::before {
-  content: "";
-  position: absolute;
-  inset: 4px 0 auto;
-  height: 1px;
-  background: var(--hairline-strong);
-}
-
-.wb-rule-line::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--hairline-strong);
-  opacity: 0;
-  transition: opacity 140ms linear 560ms;
-}
-
-.wb-rule-line:first-child {
-  transform-origin: right center;
-}
-
-.wb-rule-line:first-child::after {
-  left: 0;
-}
-
-.wb-rule-line:last-child {
-  transform-origin: left center;
-}
-
-.wb-rule-line:last-child::after {
-  right: 0;
-}
-
-.wb-rule[data-inview="true"] .wb-rule-line {
-  transform: scaleX(1);
-}
-
-.wb-rule[data-inview="true"] .wb-rule-line::after {
-  opacity: 1;
-}
-
 /* Spec sticker (§6). */
 .wb-sticker {
   padding: 6px 10px;
@@ -1156,19 +1096,11 @@ html[data-theme="midnight"] .wb-submit:hover {
   [data-active="true"] .wb-stamp {
     animation: none;
   }
-  .wb-rule-line,
-  .wb-rule-line::after,
   .wb-sketch,
   .wb-flow-state,
   .wb-plate-prompt,
   .wb-plate-br {
     transition: none;
-  }
-  .wb-rule-line {
-    transform: none;
-  }
-  .wb-rule-line::after {
-    opacity: 1;
   }
   .wb-sketch {
     stroke-dashoffset: 0;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { DimensionRule } from "./DimensionRule";
+import { SectionLabel } from "./SectionLabel";
 import { useInView, usePrefersReducedMotion } from "./useInView";
 
 /*
@@ -208,7 +208,7 @@ function StepBlock({
       ref={ref}
       className="flex flex-col gap-8 lg:min-h-[64vh] lg:justify-center"
     >
-      <DimensionRule label={label} />
+      <SectionLabel label={label} />
       <div className="flex flex-col gap-5">{children}</div>
       <div className="lg:hidden">
         <Frame>
