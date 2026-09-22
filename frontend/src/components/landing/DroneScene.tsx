@@ -15,7 +15,7 @@ import {
 
 /*
  * A bare 5-inch FPV frame for the landing hero, modelled on a real stretched-X
- * carbon frame: flat arms with drilled motor pads, a bottom plate, standoffs,
+ * carbon frame: a one-piece bottom plate with drilled motor pads, standoffs,
  * a top plate with an X cut-out and a camera cage. No motors, props or
  * electronics. Scene units are centimetres. The two camera-cage nuts are the
  * only Hot PLA on screen (spec §2).
@@ -57,38 +57,108 @@ function roundedRect(w: number, h: number, r: number, cx = 0, cy = 0) {
   return s;
 }
 
-/** One arm along +x: a tapered bar ending in a round motor pad. */
-function armShape() {
-  const root = -2;
+type Vec = [number, number];
+
+/** Body outline: a chamfered rectangle, counter-clockwise. */
+const BODY_HALF_W = 2.3;
+const BODY_HALF_L = 5.2;
+const CHAMFER = 0.7;
+const BODY: Vec[] = [
+  [BODY_HALF_W - CHAMFER, -BODY_HALF_L],
+  [BODY_HALF_W, -BODY_HALF_L + CHAMFER],
+  [BODY_HALF_W, BODY_HALF_L - CHAMFER],
+  [BODY_HALF_W - CHAMFER, BODY_HALF_L],
+  [-BODY_HALF_W + CHAMFER, BODY_HALF_L],
+  [-BODY_HALF_W, BODY_HALF_L - CHAMFER],
+  [-BODY_HALF_W, -BODY_HALF_L + CHAMFER],
+  [-BODY_HALF_W + CHAMFER, -BODY_HALF_L],
+];
+
+/** Where segment a→b (a inside the body) crosses the body outline. */
+function exitPoint(a: Vec, b: Vec): { point: Vec; param: number } {
+  const n = BODY.length;
+  for (let k = 0; k < n; k++) {
+    const p = BODY[k];
+    const q = BODY[(k + 1) % n];
+    const r: Vec = [b[0] - a[0], b[1] - a[1]];
+    const e: Vec = [q[0] - p[0], q[1] - p[1]];
+    const den = r[0] * e[1] - r[1] * e[0];
+    if (Math.abs(den) < 1e-9) continue;
+    const w: Vec = [p[0] - a[0], p[1] - a[1]];
+    const s = (w[0] * e[1] - w[1] * e[0]) / den; // along a→b
+    const f = (w[0] * r[1] - w[1] * r[0]) / den; // along the body edge
+    if (s > 0 && s <= 1 && f >= 0 && f <= 1) {
+      return { point: [a[0] + s * r[0], a[1] + s * r[1]], param: k + f };
+    }
+  }
+  throw new Error("Arm edge does not leave the body");
+}
+
+/**
+ * The unibody bottom plate: body and four arms cut as one flat outline, like
+ * a CNC'd carbon frame, so everything sits on one level.
+ */
+function unibodyShape() {
   const rootHalf = 0.8;
   const tipHalf = 0.58;
   const a = Math.asin(tipHalf / PAD_RADIUS);
   const meet = MOTOR_RADIUS - Math.sqrt(PAD_RADIUS ** 2 - tipHalf ** 2);
 
+  const arms = ARM_ANGLES.map((deg) => {
+    const t = (deg * Math.PI) / 180;
+    const d: Vec = [Math.cos(t), Math.sin(t)];
+    const nrm: Vec = [-d[1], d[0]];
+    const edge = (side: 1 | -1) => {
+      const root: Vec = [side * rootHalf * nrm[0], side * rootHalf * nrm[1]];
+      const tip: Vec = [
+        meet * d[0] + side * tipHalf * nrm[0],
+        meet * d[1] + side * tipHalf * nrm[1],
+      ];
+      return { tip, exit: exitPoint(root, tip) };
+    };
+    return { t, d, right: edge(-1), left: edge(1) };
+  });
+
+  const n = BODY.length;
   const s = new Shape();
-  s.moveTo(root, -rootHalf);
-  s.lineTo(meet, -tipHalf);
-  s.absarc(MOTOR_RADIUS, 0, PAD_RADIUS, Math.PI + a, 3 * Math.PI - a, false);
-  s.lineTo(root, rootHalf);
+  arms.forEach((arm, i) => {
+    const [cx, cy] = [MOTOR_RADIUS * arm.d[0], MOTOR_RADIUS * arm.d[1]];
+    if (i === 0) s.moveTo(...arm.right.exit.point);
+    else s.lineTo(...arm.right.exit.point);
+    s.lineTo(...arm.right.tip);
+    s.absarc(cx, cy, PAD_RADIUS, arm.t + Math.PI + a, arm.t + 3 * Math.PI - a, false);
+    s.lineTo(...arm.left.exit.point);
+
+    // Walk the body outline counter-clockwise to the next arm.
+    const next = arms[(i + 1) % arms.length];
+    const from = arm.left.exit.param;
+    let to = next.right.exit.param;
+    if (to < from) to += n;
+    for (let j = Math.ceil(from); j <= Math.floor(to); j++) {
+      if (j === from) continue;
+      s.lineTo(...BODY[j % n]);
+    }
+  });
   s.closePath();
 
-  // 12 × 12 mm motor pattern, shaft clearance, and a lightening slot.
-  for (const [dx, dy] of [
-    [0.6, 0.6],
-    [-0.6, 0.6],
-    [0.6, -0.6],
-    [-0.6, -0.6],
-  ]) {
-    s.holes.push(circleHole(MOTOR_RADIUS + dx, dy, 0.16));
+  // Motor pads: 12 × 12 mm pattern and shaft clearance. Arm lightening slots.
+  for (const arm of arms) {
+    const [cx, cy] = [MOTOR_RADIUS * arm.d[0], MOTOR_RADIUS * arm.d[1]];
+    for (const [u, v] of [
+      [0.6, 0.6],
+      [-0.6, 0.6],
+      [0.6, -0.6],
+      [-0.6, -0.6],
+    ]) {
+      const x = cx + u * arm.d[0] - v * arm.d[1];
+      const y = cy + u * arm.d[1] + v * arm.d[0];
+      s.holes.push(circleHole(x, y, 0.16));
+    }
+    s.holes.push(circleHole(cx, cy, 0.42));
+    s.holes.push(rotatedSlot(arm.t, 3.6, 7.6, 0.2));
   }
-  s.holes.push(circleHole(MOTOR_RADIUS, 0, 0.42));
-  s.holes.push(slotHole(3.2, 7.4, 0, 0.2));
-  return s;
-}
 
-function bottomPlateShape() {
-  const s = roundedRect(4.6, 10.4, 0.9);
-  // 30.5 mm flight-controller stack pattern.
+  // 30.5 mm flight-controller stack and two body cut-outs.
   for (const [x, y] of [
     [1.525, 1.525],
     [-1.525, 1.525],
@@ -100,6 +170,15 @@ function bottomPlateShape() {
   s.holes.push(slotHole(-0.9, 0.9, -3.9, 0.3));
   s.holes.push(slotHole(-0.9, 0.9, 3.9, 0.3));
   return s;
+}
+
+/** A rounded slot along direction `t`, from distance t0 to t1. */
+function rotatedSlot(t: number, t0: number, t1: number, r: number) {
+  const [dx, dy] = [Math.cos(t), Math.sin(t)];
+  const hole = new Path();
+  hole.absarc(t0 * dx, t0 * dy, r, t + Math.PI / 2, t + (Math.PI * 3) / 2, false);
+  hole.absarc(t1 * dx, t1 * dy, r, t - Math.PI / 2, t + Math.PI / 2, false);
+  return hole;
 }
 
 function topPlateShape() {
@@ -197,15 +276,13 @@ function FlatPart({
   geometry,
   y,
   map,
-  rotationY = 0,
 }: {
   geometry: ExtrudeGeometry;
   y: number;
   map: CanvasTexture;
-  rotationY?: number;
 }) {
   return (
-    <group rotation={[0, rotationY, 0]} position={[0, y, 0]}>
+    <group position={[0, y, 0]}>
       <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]}>
         <Carbon map={map} />
       </mesh>
@@ -236,8 +313,7 @@ function Frame({ animate }: { animate: boolean }) {
 
   const geo = useMemo(
     () => ({
-      arm: extrude(armShape(), 0.4),
-      bottom: extrude(bottomPlateShape(), 0.2),
+      base: extrude(unibodyShape(), 0.4),
       top: extrude(topPlateShape(), 0.2),
       cage: extrude(cagePlateShape(), 0.2),
     }),
@@ -270,16 +346,7 @@ function Frame({ animate }: { animate: boolean }) {
 
   return (
     <group ref={ref}>
-      <FlatPart geometry={geo.bottom} y={-0.25} map={map} />
-      {ARM_ANGLES.map((deg) => (
-        <FlatPart
-          key={deg}
-          geometry={geo.arm}
-          y={0}
-          map={map}
-          rotationY={(deg * Math.PI) / 180}
-        />
-      ))}
+      <FlatPart geometry={geo.base} y={0} map={map} />
       {standoffs.map(([x, z]) => (
         <Standoff key={`${x},${z}`} x={x} z={z} from={0.4} to={PLATE_TOP} />
       ))}

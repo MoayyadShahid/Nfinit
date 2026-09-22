@@ -335,8 +335,8 @@ The word "AI" appears **zero times above the fold.**
 
 - **Hero and auth plates: an interactive drone.** A bare 5-inch stretched-X
   FPV frame in r3f (`DroneScene.tsx`), modelled on a real carbon frame:
-  - flat extruded arms with drilled motor pads and lightening slots
-  - a bottom plate, aluminium standoffs, and a top plate with an X cut-out
+  - a one-piece (unibody) bottom plate: body and arms cut as a single flat outline, with drilled motor pads and lightening slots
+  - aluminium standoffs, and a top plate with an X cut-out
   - a camera cage whose two nuts are the only Hot PLA
   - a procedural carbon-weave texture (captioned as printed PA-CF)
   - no motors, props or electronics
