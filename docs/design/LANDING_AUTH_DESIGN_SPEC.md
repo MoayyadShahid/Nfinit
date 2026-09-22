@@ -38,8 +38,9 @@ What we rejected, and why:
 - **The drawing-sheet border with A–D zone labels** (C): it's charming but busy, and it fights "clean".
 - **A live r3f scene in the hero** (D): phase 2 at most.
 
-> **Research caveat:** the agents' network proxy blocked suzanne3d.com and
-> every reference site, and moidshahid.com didn't resolve. Competitor facts come
+> **Research caveat:** this session's network policy blocks suzanne3d.com,
+> moayyadshahid.com and every other reference site (the agents also tried the
+> misspelling moidshahid.com, which doesn't exist). Competitor facts come
 > from search listings only. The reference techniques (Teenage Engineering spec
 > labels, Apple sticky scroll, Linear hairlines and so on) come from general
 > knowledge. Look at Suzanne once yourself before shipping.
@@ -302,16 +303,30 @@ The word "AI" appears **zero times above the fold.**
 
 ### Visual assets
 
-**Phase 1 (ship now):**
-- **Seven renders** exported from the real nfinit viewer: the hero bracket plus six gallery parts, each in two backgrounds (paper and midnight). They're AVIF, about 40KB each.
-- **The flow section** is a hand-built SVG of the pipe hook in four states: sketch, face selected, solid, layered. It is cheap, crisp and themeable.
+**Phase 1 (ship now): placeholders, not fake product.**
 
-**Phase 2 (optional):**
+Until real renders exist, every plate (hero, gallery, auth) is a **demo
+slot**, a deliberate empty frame:
+- Same size and position as the final plate (4:5 hero, 1:1 gallery, full-height auth panel).
+- `--inset` fill, 1px dashed `--hairline-strong` border, radius 2.
+- One centred mono label: `DEMO · COMING SOON` (hero), or the part name and specs for gallery slots (`CABLE CLIP · 4 MIN`).
+- The corner spec labels stay, so the layout reads as finished.
+- No drawn product UI, no fake app window, no hand-made SVG part standing in for a render. The old `ProductShowcase` is deleted, not restyled.
+
+The layer-print reveal still runs on the empty slot (the nozzle line sweeps
+it once), so the motion language ships now and simply gets a real image later.
+
+The **flow section** stays a simple SVG diagram of the pipe hook (sketch,
+face selected, layered). It explains the flow, and isn't pretending to be a
+product screenshot.
+
+**Phase 2 (when real renders exist):**
+- **Seven renders** exported from the real nfinit viewer, dropped into the existing slots: the hero bracket plus six gallery parts, each in two backgrounds (paper and midnight). They're AVIF, about 40KB each.
 - **One real photograph** of a printed part on a PEI bed, for the Print step. It earns more trust than any render.
 - **A lazy r3f scene** for the flow (proposal D's matcap plus clipping-plane approach). It uses `frameloop="demand"` and loads only when within 400px of the viewport.
 
 **Performance budget:**
-- LCP under 1.8s on 4G (the hero plate is a still image and is the LCP element)
+- LCP under 1.8s on 4G (the headline is the LCP element while the hero is a placeholder; later, the hero still image)
 - Initial JS under 90KB gzipped
 - No WebGL above the fold
 

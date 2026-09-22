@@ -109,6 +109,7 @@ em{font-style:italic}
 .nozzle.play{animation:nozzle 1400ms steps(16) both,jitter 60ms steps(2) infinite}
 @keyframes nozzle{0%{top:86%;opacity:1}92%{opacity:1}100%{top:8%;opacity:0}}
 @keyframes jitter{50%{translate:6px 0}}
+.slot{inset:10px;background:var(--inset);border:1px dashed var(--hairline-strong);border-radius:2px;display:grid;place-items:center}
 .part-top{fill:var(--part-top)}.part-front{fill:var(--part-front)}.part-side{fill:var(--part-side)}.part-hole{fill:var(--part-hole)}
 .part-shadow{fill:var(--ink);opacity:.12}
 
@@ -287,14 +288,14 @@ footer{margin-top:96px;padding-top:20px;border-top:1px solid var(--hairline);dis
         </div>
       </div>
     </div>
-    <figure class="plate" style="margin:0" aria-label="Shelf bracket, printing in">
+    <figure class="plate" style="margin:0;background:var(--paper)" aria-label="Demo placeholder">
       <span class="corner tl">Plate 01 · Shelf bracket</span>
       <div class="nozzle" data-nozzle></div>
-      <div class="reveal" data-reveal><div class="art"><svg><use href="#bracket"/></svg></div></div>
+      <div class="reveal slot" data-reveal><span class="label">Demo · coming soon</span></div>
       <span class="corner br">PETG · 80 × 48 × 6 MM<br>1H 12M</span>
     </figure>
   </section>
-  <p class="spec" style="margin:0">↑ The hero at real proportions: serif display, a prompt bar that types its own examples, and a part that prints in. <button class="btn-ghost" id="replay" type="button" style="border:0;background:none;font:inherit;color:var(--accent-text);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Replay print</button></p>
+  <p class="spec" style="margin:0">↑ The hero at real proportions: serif display, a prompt bar that types its own examples, and a placeholder demo slot that the nozzle sweeps until real renders exist. <button class="btn-ghost" id="replay" type="button" style="border:0;background:none;font:inherit;color:var(--accent-text);cursor:pointer;text-decoration:underline;text-underline-offset:3px">Replay print</button></p>
 
   <div class="rule"><span>— The idea —</span></div>
   <section class="intro">
@@ -447,10 +448,10 @@ footer{margin-top:96px;padding-top:20px;border-top:1px solid var(--hairline);dis
     </div>
     <div class="auth">
       <div class="left">
-        <figure class="plate" style="margin:0" aria-label="Lid hinge printing in">
+        <figure class="plate" style="margin:0" aria-label="Demo placeholder">
           <span class="corner tl">Plate 04</span>
           <div class="nozzle" data-nozzle></div>
-          <div class="reveal" data-reveal id="authReveal"><div class="art" style="inset:18% 8% 20%"><svg><use href="#hinge"/></svg></div></div>
+          <div class="reveal slot" data-reveal id="authReveal"><span class="label">Demo · coming soon</span></div>
           <span class="corner br">Lid hinge · PLA · 22 MIN</span>
         </figure>
       </div>
