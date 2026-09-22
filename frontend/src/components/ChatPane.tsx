@@ -132,19 +132,19 @@ export function ChatPane({
     <div
       className={`flex min-h-0 flex-col ${
         variant === "welcome"
-          ? "h-full overflow-hidden rounded-2xl border border-white/10 bg-[#121319]/90 shadow-2xl shadow-black/30 backdrop-blur-xl"
-          : "overflow-hidden rounded-[22px] border border-white/12 bg-[#101116]/92 shadow-2xl shadow-black/40 backdrop-blur-2xl"
+          ? "theme-floating h-full overflow-hidden rounded-2xl border shadow-2xl shadow-black/15 backdrop-blur-xl"
+          : "theme-floating overflow-hidden rounded-[22px] border shadow-2xl shadow-black/20 backdrop-blur-2xl"
       }`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
       {variant === "studio" && (
-        <div className="flex h-11 shrink-0 items-center gap-3 border-b border-white/8 px-3.5">
+        <div className="flex h-11 shrink-0 items-center gap-3 border-b border-[var(--hairline)] px-3.5">
           <button
             type="button"
             onClick={() => setHistoryOpen((open) => !open)}
             aria-expanded={historyOpen}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:bg-white/8 hover:text-white"
+            className="theme-control flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:text-[var(--page-fg)]"
           >
             <MessagesSquare className="size-3.5 text-violet-400" />
             History
@@ -192,7 +192,7 @@ export function ChatPane({
                     key={suggestion}
                     type="button"
                     onClick={() => setInput(suggestion)}
-                    className="rounded-xl border border-white/8 bg-white/[0.025] p-3 text-left text-[11px] leading-4 text-zinc-400 transition-colors hover:border-violet-400/30 hover:bg-violet-400/5 hover:text-zinc-200"
+                    className="theme-inset rounded-xl border p-3 text-left text-[11px] leading-4 text-zinc-400 transition-colors hover:border-violet-400/30 hover:text-zinc-200"
                   >
                     {suggestion}
                   </button>
@@ -229,7 +229,7 @@ export function ChatPane({
             </div>
           ) : (
             <div key={i} className="flex justify-start">
-              <div className="max-w-[94%] rounded-2xl rounded-bl-md border border-white/8 bg-white/[0.025] px-3.5 py-3">
+              <div className="theme-inset max-w-[94%] rounded-2xl rounded-bl-md border px-3.5 py-3">
                 <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-zinc-300">
                   <Sparkles className="size-3 text-violet-400" />
                   Model updated
@@ -239,14 +239,14 @@ export function ChatPane({
                     <p className="text-xs leading-5 text-zinc-400">
                       {planSummary || "Your part was generated and validated successfully."}
                     </p>
-                    <details className="mt-2 border-t border-white/8 pt-2 text-[11px]">
+                    <details className="mt-2 border-t border-[var(--hairline)] pt-2 text-[11px]">
                       <summary className="cursor-pointer text-zinc-500 hover:text-zinc-300">
                         Technical details
                       </summary>
                       <p className="mt-2 whitespace-pre-wrap leading-5 text-zinc-500">
                         {msg.agent.plan}
                       </p>
-                      <div className="mt-2 space-y-1.5 border-t border-white/8 pt-2">
+                      <div className="mt-2 space-y-1.5 border-t border-[var(--hairline)] pt-2">
                         {msg.agent.trace.map((step, traceIndex) => (
                           <div
                             key={`${step.node}-${traceIndex}`}
@@ -296,7 +296,9 @@ export function ChatPane({
 
       <div
         className={`flex flex-col gap-2 ${
-          variant === "welcome" || historyOpen ? "border-t border-white/8" : ""
+          variant === "welcome" || historyOpen
+            ? "border-t border-[var(--hairline)]"
+            : ""
         } p-3`}
       >
         {selection && (
@@ -313,7 +315,7 @@ export function ChatPane({
             variant="outline"
             size="sm"
             onClick={handleIncludeError}
-            className="w-full border-red-500/50 bg-red-950/20 text-red-200 hover:bg-red-950/40"
+            className="error-action w-full"
           >
             Include last error in message
           </Button>
@@ -342,7 +344,7 @@ export function ChatPane({
           </div>
         )}
 
-        <div className="flex items-end gap-2 rounded-2xl border border-white/10 bg-[#090a0d] p-2 shadow-inner focus-within:border-violet-400/40 focus-within:ring-4 focus-within:ring-violet-400/5">
+        <div className="theme-inset flex items-end gap-2 rounded-2xl border p-2 shadow-inner focus-within:border-violet-400/40 focus-within:ring-4 focus-within:ring-violet-400/5">
           {supportsVision && (
             <>
               <input
@@ -359,7 +361,7 @@ export function ChatPane({
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
-                className="size-9 shrink-0 rounded-xl text-zinc-500 hover:bg-white/8 hover:text-zinc-200"
+                className="theme-control size-9 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-200"
                 title="Attach image"
               >
                 <ImagePlus className="size-4" />
@@ -392,7 +394,7 @@ export function ChatPane({
             disabled={!input.trim() || isLoading}
             size="icon"
             title="Send request"
-            className="size-9 shrink-0 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200"
+            className="theme-primary-button size-9 shrink-0 rounded-xl"
           >
             <ArrowUp className="size-4" />
           </Button>

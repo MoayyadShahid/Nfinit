@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { ProjectSummary } from "@/lib/projects";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   ChevronDown,
   Code2,
@@ -76,24 +77,24 @@ export function CommandBar({
   }, [exportOpen]);
 
   return (
-    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/8 bg-[#0b0c10]/95 px-4 backdrop-blur-xl md:px-5">
+    <header className="theme-chrome flex h-16 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-xl md:px-5">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="flex shrink-0 items-center gap-2">
           <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-blue-500 text-white shadow-lg shadow-violet-500/20">
             <Sparkles className="size-4" />
           </span>
-          <span className="hidden text-sm font-semibold tracking-tight text-white sm:inline">
+          <span className="hidden text-sm font-semibold tracking-tight sm:inline">
             nfinit
           </span>
         </div>
-        <span className="hidden h-5 w-px bg-white/10 sm:block" />
+        <span className="hidden h-5 w-px bg-[var(--hairline)] sm:block" />
         <Select
           value={projectId ?? UNSAVED_PROJECT}
           onValueChange={onProjectChange}
         >
           <SelectTrigger
             aria-label="Current part"
-            className="h-9 min-w-0 max-w-[220px] flex-1 border-white/10 bg-white/4 text-xs text-zinc-200"
+            className="h-9 min-w-0 max-w-[220px] flex-1 border-[var(--hairline)] bg-transparent text-xs"
           >
             <SelectValue placeholder="Unsaved part" />
           </SelectTrigger>
@@ -112,7 +113,7 @@ export function CommandBar({
           type="button"
           onClick={onNewProject}
           title="New part"
-          className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-zinc-400 transition-colors hover:bg-white/8 hover:text-white"
+          className="theme-control theme-muted flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)]"
         >
           <FilePlus2 className="size-3.5" />
           <span className="hidden xl:inline">New</span>
@@ -128,7 +129,7 @@ export function CommandBar({
                 ? "Save revision"
                 : "No unsaved changes"
           }
-          className="relative flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs text-zinc-300 transition-colors hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-40"
+          className="theme-control theme-muted relative flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Save className="size-3.5" />
           <span className="hidden xl:inline">
@@ -140,6 +141,7 @@ export function CommandBar({
         </button>
       </div>
       <div className="flex min-w-0 items-center justify-end gap-2">
+        <ThemeToggle />
         <button
           type="button"
           onClick={() => onAdvancedChange(!advancedOpen)}
@@ -147,8 +149,8 @@ export function CommandBar({
           className={cn(
             "flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors",
             advancedOpen
-              ? "bg-white/10 text-white"
-              : "text-zinc-400 hover:bg-white/8 hover:text-white"
+              ? "bg-[var(--control-hover)] text-[var(--page-fg)]"
+              : "theme-muted theme-control hover:text-[var(--page-fg)]"
           )}
         >
           <Code2 className="size-3.5" />
@@ -158,7 +160,7 @@ export function CommandBar({
           <button
             type="button"
             onClick={() => setExportOpen((o) => !o)}
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-xs font-semibold text-zinc-950 shadow-sm transition-colors hover:bg-zinc-200"
+            className="theme-primary-button flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold shadow-sm transition-transform hover:scale-[1.02]"
           >
             <Download className="size-3.5" />
             Export
@@ -167,15 +169,15 @@ export function CommandBar({
             />
           </button>
           {exportOpen && (
-            <div className="absolute right-0 top-full z-50 mt-2 min-w-[240px] rounded-xl border border-white/10 bg-[#17181d] p-1.5 shadow-2xl">
+            <div className="theme-floating absolute right-0 top-full z-50 mt-2 min-w-[240px] rounded-xl border p-1.5 shadow-2xl">
               {EXPORT_FORMATS.map(({ id, label, ext, desc }) => (
                 <button
                   key={id}
                   type="button"
                   onClick={() => handleExportClick(id)}
-                  className="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2.5 text-left text-xs hover:bg-white/8"
+                  className="theme-control flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2.5 text-left text-xs"
                 >
-                  <span className="font-medium text-zinc-100">
+                  <span className="font-medium">
                     {label} {ext}
                   </span>
                   <span className="text-[10px] text-zinc-500">{desc}</span>
