@@ -315,7 +315,7 @@ export function ChatPane({
             variant="outline"
             size="sm"
             onClick={handleIncludeError}
-            className="w-full border-red-500/50 bg-red-950/20 text-red-200 hover:bg-red-950/40"
+            className="error-action w-full"
           >
             Include last error in message
           </Button>

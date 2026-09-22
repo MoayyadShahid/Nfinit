@@ -263,6 +263,26 @@ html[data-theme="porcelain"] .selection-surface {
   border-color: rgba(109, 40, 217, 0.2);
 }
 
+.error-action {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(69, 10, 10, 0.2);
+  color: #fecaca;
+}
+
+.error-action:hover {
+  background: rgba(69, 10, 10, 0.4);
+}
+
+html[data-theme="porcelain"] .error-action {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+}
+
+html[data-theme="porcelain"] .error-action:hover {
+  background: #ffe4e6;
+}
+
 html[data-theme="porcelain"] .porcelain-shadow {
   box-shadow: 0 30px 100px rgba(48, 42, 31, 0.14);
 }
