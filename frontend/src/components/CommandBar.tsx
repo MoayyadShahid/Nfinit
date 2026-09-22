@@ -15,6 +15,7 @@ import {
   Code2,
   Download,
   FilePlus2,
+  LogOut,
   Save,
   Sparkles,
 } from "lucide-react";
@@ -28,6 +29,11 @@ const EXPORT_FORMATS = [
 const UNSAVED_PROJECT = "__unsaved__";
 
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]["id"];
+export type Viewer = {
+  email: string | null;
+  name: string | null;
+  avatarUrl: string | null;
+};
 
 interface CommandBarProps {
   onExport: (format: ExportFormat) => void;
@@ -40,6 +46,7 @@ interface CommandBarProps {
   onProjectChange: (projectId: string) => void;
   onNewProject: () => void;
   onSave: () => void;
+  viewer?: Viewer | null;
 }
 
 export function CommandBar({
@@ -53,6 +60,7 @@ export function CommandBar({
   onProjectChange,
   onNewProject,
   onSave,
+  viewer = null,
 }: CommandBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -142,6 +150,24 @@ export function CommandBar({
       </div>
       <div className="flex min-w-0 items-center justify-end gap-2">
         <ThemeToggle />
+        {viewer && (
+          <form action="/auth/signout" method="post">
+            <button
+              type="submit"
+              aria-label={`Sign out${viewer.email ? ` ${viewer.email}` : ""}`}
+              title={viewer.email ? `Sign out ${viewer.email}` : "Sign out"}
+              className="theme-control theme-muted flex h-9 items-center gap-2 rounded-full px-2 text-xs hover:text-[var(--page-fg)]"
+            >
+              <span className="flex size-6 items-center justify-center rounded-full bg-violet-500/12 text-[10px] font-semibold text-violet-500">
+                {(viewer.name ?? viewer.email ?? "U").charAt(0).toUpperCase()}
+              </span>
+              <span className="hidden max-w-28 truncate xl:inline">
+                {viewer.name ?? viewer.email ?? "Account"}
+              </span>
+              <LogOut className="size-3.5" />
+            </button>
+          </form>
+        )}
         <button
           type="button"
           onClick={() => onAdvancedChange(!advancedOpen)}

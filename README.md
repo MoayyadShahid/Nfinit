@@ -57,7 +57,25 @@ npm run dev
 ```
 NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 BACKEND_URL=http://localhost:8000
+
+# Optional: activates Supabase OAuth and protects /studio
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-publishable-anon-key
 ```
+
+When the Supabase values are absent, authentication intentionally runs in
+local bypass mode: `/login` redirects directly to `/studio`. To activate OAuth,
+create Google and/or GitHub providers in Supabase and add these redirect URLs:
+
+```
+http://localhost:3000/auth/callback
+https://your-production-domain.com/auth/callback
+```
+
+The landing page login action uses `/login?next=/studio`. Configured
+deployments exchange the OAuth code in `/auth/callback`, store the Supabase
+session in secure cookies, protect `/studio`, and expose sign-out in the studio
+toolbar.
 
 **Backend:** Copy `backend/.env.example` to `backend/.env` and configure:
 
