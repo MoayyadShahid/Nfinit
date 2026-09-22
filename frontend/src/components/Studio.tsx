@@ -521,7 +521,7 @@ export default function Home() {
     hasInitialized && !projectId && messages.length === 0 && glbUrl === null;
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#090a0d] text-zinc-200">
+    <div className="theme-page flex h-dvh flex-col overflow-hidden">
       <CommandBar
         onExport={handleExport}
         projects={projects}
@@ -547,7 +547,7 @@ export default function Home() {
               <div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-300 shadow-xl shadow-violet-500/10">
                 <Sparkles className="size-5" />
               </div>
-              <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] text-white sm:text-5xl">
+              <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
                 What do you want to make?
               </h1>
               <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-500 sm:text-base">
@@ -572,7 +572,7 @@ export default function Home() {
           </div>
         </main>
       ) : (
-        <main className="relative min-h-0 flex-1 overflow-hidden bg-[#15161a] p-2">
+        <main className="theme-viewport-frame relative min-h-0 flex-1 overflow-hidden p-2">
           <div className="h-full overflow-hidden rounded-2xl border border-black/10 bg-[#e7e8eb] shadow-2xl shadow-black/30">
             <ViewportPane
               glbUrl={glbUrl}
@@ -587,9 +587,9 @@ export default function Home() {
           </div>
 
           <div className="pointer-events-none absolute left-5 top-5 z-20 hidden sm:block">
-            <div className="pointer-events-auto min-w-[230px] rounded-2xl border border-white/15 bg-[#101116]/88 p-3.5 text-zinc-200 shadow-xl shadow-black/20 backdrop-blur-xl">
+            <div className="theme-floating pointer-events-auto min-w-[230px] rounded-2xl border p-3.5 shadow-xl shadow-black/10 backdrop-blur-xl">
               <div className="flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-white/8 text-zinc-400">
+                <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--control-hover)] text-zinc-400">
                   <Ruler className="size-3.5" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -597,7 +597,7 @@ export default function Home() {
                     Overall size
                   </p>
                   {inspection?.bounding_box_mm ? (
-                    <p className="mt-0.5 text-xs font-medium text-white">
+                    <p className="mt-0.5 text-xs font-medium">
                       {inspection.bounding_box_mm.x.toFixed(1)} ×{" "}
                       {inspection.bounding_box_mm.y.toFixed(1)} ×{" "}
                       {inspection.bounding_box_mm.z.toFixed(1)} mm
@@ -610,7 +610,7 @@ export default function Home() {
                 </div>
               </div>
               {inspection && (
-                <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-2.5 text-[10px] text-zinc-500">
+                <div className="mt-3 flex items-center justify-between border-t border-[var(--hairline)] pt-2.5 text-[10px] text-zinc-500">
                   <span className="flex items-center gap-1.5">
                     <Box className="size-3" />
                     {inspection.shape_type ?? "Solid"}
@@ -623,13 +623,13 @@ export default function Home() {
 
           {selectedFace && (
             <div className="pointer-events-none absolute right-5 top-20 z-20 max-w-[260px]">
-              <div className="pointer-events-auto rounded-2xl border border-violet-300/25 bg-[#17131f]/92 p-4 text-zinc-200 shadow-2xl shadow-violet-950/20 backdrop-blur-xl">
+              <div className="selection-surface pointer-events-auto rounded-2xl border border-violet-300/25 p-4 shadow-2xl shadow-violet-950/10 backdrop-blur-xl">
                 <div className="flex items-start gap-3">
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-violet-400/12 text-violet-300">
                     <MousePointer2 className="size-4" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-violet-100">
+                    <p className="text-xs font-semibold text-violet-700 dark:text-violet-100">
                       {selectedFace.surfaceType
                         ? `${selectedFace.surfaceType[0].toUpperCase()}${selectedFace.surfaceType.slice(1)} face`
                         : "Selected face"}
@@ -649,7 +649,7 @@ export default function Home() {
 
           <div className="pointer-events-none absolute inset-x-3 bottom-4 z-30 flex flex-col items-center gap-2">
             {revisions.length > 0 && (
-              <div className="pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-[#101116]/88 p-1.5 shadow-xl backdrop-blur-xl">
+              <div className="theme-floating pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-full border p-1.5 shadow-xl backdrop-blur-xl">
                 <span className="hidden items-center gap-1.5 px-2 text-[10px] font-medium text-zinc-500 sm:flex">
                   <CheckCircle2 className="size-3 text-emerald-400" />
                   History
@@ -669,8 +669,8 @@ export default function Home() {
                         ).toLocaleString()}`}
                         className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-medium transition-colors ${
                           active
-                            ? "bg-white text-zinc-950 shadow-sm"
-                            : "text-zinc-500 hover:bg-white/8 hover:text-white"
+                            ? "theme-primary-button shadow-sm"
+                            : "theme-control text-zinc-500 hover:text-[var(--page-fg)]"
                         }`}
                       >
                         <span
@@ -720,11 +720,11 @@ export default function Home() {
             className="fixed inset-0 top-16 z-40 bg-black/55 backdrop-blur-[2px]"
             onClick={() => setAdvancedOpen(false)}
           />
-          <aside className="fixed inset-y-0 right-0 z-50 mt-16 flex w-full max-w-3xl flex-col border-l border-white/10 bg-[#0d0e12] shadow-2xl shadow-black/60">
-            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/8 px-4">
+          <aside className="theme-floating fixed inset-y-0 right-0 z-50 mt-16 flex w-full max-w-3xl flex-col border-l shadow-2xl shadow-black/30">
+            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--hairline)] px-4">
               <Code2 className="size-4 text-violet-400" />
               <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-white">Advanced editor</h2>
+                <h2 className="text-sm font-semibold">Advanced editor</h2>
                 <p className="text-[10px] text-zinc-600">Edit build123d source directly</p>
               </div>
               <Select
@@ -736,7 +736,7 @@ export default function Home() {
               >
                 <SelectTrigger
                   aria-label="Generation model"
-                  className="h-8 w-[180px] border-white/10 bg-white/5 text-xs"
+                  className="h-8 w-[180px] border-[var(--hairline)] bg-transparent text-xs"
                 >
                   <SelectValue />
                 </SelectTrigger>
@@ -752,7 +752,7 @@ export default function Home() {
                 type="button"
                 onClick={() => setAdvancedOpen(false)}
                 aria-label="Close advanced editor"
-                className="rounded-lg p-2 text-zinc-500 hover:bg-white/8 hover:text-white"
+                className="theme-control rounded-lg p-2 text-zinc-500 hover:text-[var(--page-fg)]"
               >
                 <X className="size-4" />
               </button>

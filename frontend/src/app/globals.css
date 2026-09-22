@@ -52,6 +52,20 @@
   --background: #000000;
   --foreground: #fafafa;
   --border-color: #1f1f1f;
+  --page-bg: #08090b;
+  --page-fg: #fafafa;
+  --page-muted: rgba(244, 244, 245, 0.46);
+  --page-faint: rgba(244, 244, 245, 0.24);
+  --chrome-bg: rgba(11, 12, 16, 0.95);
+  --surface-bg: rgba(16, 17, 22, 0.92);
+  --surface-solid: #101116;
+  --inset-bg: #090a0d;
+  --hairline: rgba(255, 255, 255, 0.1);
+  --control-hover: rgba(255, 255, 255, 0.08);
+  --primary-button: #ffffff;
+  --primary-button-fg: #09090b;
+  --viewport-frame: #15161a;
+  --ambient-glow: rgba(124, 58, 237, 0.16);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -83,8 +97,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark,
-html {
+html[data-theme="midnight"] {
   --background: #000000;
   --foreground: #fafafa;
   --border-color: #1f1f1f;
@@ -119,6 +132,50 @@ html {
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+html[data-theme="porcelain"] {
+  --background: #f4f1ea;
+  --foreground: #1b1a17;
+  --border-color: rgba(28, 27, 23, 0.12);
+  --page-bg: #f4f1ea;
+  --page-fg: #191815;
+  --page-muted: rgba(42, 40, 35, 0.58);
+  --page-faint: rgba(42, 40, 35, 0.34);
+  --chrome-bg: rgba(250, 248, 243, 0.93);
+  --surface-bg: rgba(255, 253, 248, 0.92);
+  --surface-solid: #fffdf8;
+  --inset-bg: #ece8df;
+  --hairline: rgba(32, 30, 26, 0.12);
+  --control-hover: rgba(40, 37, 31, 0.07);
+  --primary-button: #1b1a17;
+  --primary-button-fg: #fffdf8;
+  --viewport-frame: #d8d3c8;
+  --ambient-glow: rgba(124, 58, 237, 0.11);
+  --card: #fffdf8;
+  --card-foreground: #1b1a17;
+  --popover: #fffdf8;
+  --popover-foreground: #1b1a17;
+  --primary: #1b1a17;
+  --primary-foreground: #fffdf8;
+  --secondary: #e9e5dc;
+  --secondary-foreground: #25231f;
+  --muted: #e9e5dc;
+  --muted-foreground: #6e6960;
+  --accent: #e6e0f0;
+  --accent-foreground: #2d2140;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: rgba(32, 30, 26, 0.12);
+  --input: rgba(32, 30, 26, 0.12);
+  --ring: rgba(109, 40, 217, 0.32);
+  --sidebar: #f4f1ea;
+  --sidebar-foreground: #1b1a17;
+  --sidebar-primary: #1b1a17;
+  --sidebar-primary-foreground: #fffdf8;
+  --sidebar-accent: #e9e5dc;
+  --sidebar-accent-foreground: #25231f;
+  --sidebar-border: rgba(32, 30, 26, 0.12);
+  --sidebar-ring: rgba(109, 40, 217, 0.32);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -126,6 +183,106 @@ html {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.theme-page {
+  background: var(--page-bg);
+  color: var(--page-fg);
+}
+
+.theme-chrome {
+  background: var(--chrome-bg);
+  border-color: var(--hairline);
+  color: var(--page-fg);
+}
+
+.theme-floating {
+  background: var(--surface-bg);
+  border-color: var(--hairline);
+  color: var(--page-fg);
+}
+
+.theme-inset {
+  background: var(--inset-bg);
+  border-color: var(--hairline);
+  color: var(--page-fg);
+}
+
+.theme-muted {
+  color: var(--page-muted);
+}
+
+.theme-faint {
+  color: var(--page-faint);
+}
+
+.theme-primary-button {
+  background: var(--primary-button);
+  color: var(--primary-button-fg);
+}
+
+.theme-control:hover {
+  background: var(--control-hover);
+}
+
+.theme-viewport-frame {
+  background: var(--viewport-frame);
+}
+
+.theme-toggle {
+  border-color: var(--hairline);
+  background: color-mix(in srgb, var(--surface-solid) 78%, transparent);
+  color: var(--page-muted);
+}
+
+.theme-toggle:hover {
+  background: var(--control-hover);
+  color: var(--page-fg);
+}
+
+.theme-icon-porcelain {
+  display: none;
+}
+
+html[data-theme="porcelain"] .theme-icon-midnight {
+  display: none;
+}
+
+html[data-theme="porcelain"] .theme-icon-porcelain {
+  display: block;
+}
+
+.selection-surface {
+  background: rgba(23, 19, 31, 0.92);
+  color: #f4f4f5;
+}
+
+html[data-theme="porcelain"] .selection-surface {
+  background: rgba(248, 244, 253, 0.94);
+  color: #2d2140;
+  border-color: rgba(109, 40, 217, 0.2);
+}
+
+html[data-theme="porcelain"] .porcelain-shadow {
+  box-shadow: 0 30px 100px rgba(48, 42, 31, 0.14);
+}
+
+html[data-theme="porcelain"] .text-zinc-100,
+html[data-theme="porcelain"] .text-zinc-200,
+html[data-theme="porcelain"] .text-zinc-300 {
+  color: #292722;
+}
+
+html[data-theme="porcelain"] .text-zinc-400 {
+  color: #5f5b53;
+}
+
+html[data-theme="porcelain"] .text-zinc-500 {
+  color: #777168;
+}
+
+html[data-theme="porcelain"] .text-zinc-600 {
+  color: #999188;
 }
 
 .product-grid {

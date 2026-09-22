@@ -6,6 +6,7 @@ import {
   MousePointer2,
   Sparkles,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import Link from "next/link";
 
 function Brand() {
@@ -15,10 +16,10 @@ function Brand() {
       className="flex items-center gap-2.5"
       aria-label="nfinit home"
     >
-      <span className="flex size-8 items-center justify-center rounded-xl bg-white text-[#09090b] shadow-[0_0_30px_rgba(255,255,255,0.14)]">
+      <span className="theme-primary-button flex size-8 items-center justify-center rounded-xl shadow-[0_0_30px_rgba(124,58,237,0.12)]">
         <Sparkles className="size-3.5" strokeWidth={2.2} />
       </span>
-      <span className="text-[15px] font-semibold tracking-[-0.025em] text-white">
+      <span className="text-[15px] font-semibold tracking-[-0.025em]">
         nfinit
       </span>
     </Link>
@@ -27,7 +28,7 @@ function Brand() {
 
 function ProductShowcase() {
   return (
-    <div className="landing-window relative mx-auto w-full max-w-4xl overflow-hidden rounded-[22px] border border-white/12 bg-[#e9eaed] shadow-[0_35px_100px_rgba(0,0,0,0.5)]">
+    <div className="landing-window porcelain-shadow relative mx-auto w-full max-w-4xl overflow-hidden rounded-[22px] border border-[color:var(--hairline)] bg-[#e9eaed] shadow-[0_35px_100px_rgba(0,0,0,0.5)]">
       <div className="flex h-9 items-center justify-between border-b border-black/8 bg-[#111217] px-3">
         <div className="flex items-center gap-1.5">
           <span className="size-1.5 rounded-full bg-white/20" />
@@ -184,24 +185,31 @@ function ProductShowcase() {
 
 export default function LandingPage() {
   return (
-    <div className="relative min-h-dvh overflow-x-hidden bg-[#08090b] text-white selection:bg-violet-400/30 lg:h-dvh lg:overflow-hidden">
+    <div className="theme-page relative min-h-dvh overflow-x-hidden selection:bg-violet-400/30 lg:h-dvh lg:overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-1/2 top-[-24rem] h-[42rem] w-[62rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,0.16),rgba(37,99,235,0.06)_38%,transparent_70%)]" />
+        <div
+          className="absolute left-1/2 top-[-24rem] h-[42rem] w-[62rem] -translate-x-1/2 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, var(--ambient-glow), rgba(37,99,235,0.04) 38%, transparent 70%)",
+          }}
+        />
         <div className="absolute inset-0 opacity-[0.018] [background-image:url('data:image/svg+xml,%3Csvg_viewBox=%220_0_180_180%22_xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter_id=%22n%22%3E%3CfeTurbulence_type=%22fractalNoise%22_baseFrequency=%22.9%22_numOctaves=%224%22_stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect_width=%22100%25%22_height=%22100%25%22_filter=%22url(%23n)%22_opacity=%22.5%22/%3E%3C/svg%3E')]" />
       </div>
 
       <header className="relative z-20 mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
         <Brand />
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Link
             href="/studio"
-            className="rounded-full px-4 py-2 text-xs font-medium text-white/55 transition-colors hover:text-white"
+            className="theme-muted rounded-full px-3 py-2 text-xs font-medium transition-colors hover:text-[var(--page-fg)] sm:px-4"
           >
             Log in
           </Link>
           <Link
             href="/studio"
-            className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#09090b] transition-transform hover:scale-[1.02]"
+            className="theme-primary-button flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-transform hover:scale-[1.02]"
           >
             Open studio
             <ArrowUpRight className="size-3.5" />
@@ -211,19 +219,19 @@ export default function LandingPage() {
 
       <main className="relative z-10 mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl flex-col items-center px-5 pb-5 pt-[clamp(1.75rem,4.5vh,3rem)] sm:px-8 lg:h-[calc(100dvh-4rem)] lg:min-h-0">
         <div className="mx-auto max-w-3xl text-center">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-medium tracking-[0.12em] text-white/45">
+          <div className="theme-floating theme-muted mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-medium tracking-[0.12em]">
             <Box className="size-3 text-violet-400" />
             AI CAD
           </div>
           <h1 className="text-balance text-[clamp(2.8rem,6vw,5.2rem)] font-semibold leading-[0.94] tracking-[-0.065em]">
             Ideas become objects.
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-balance text-sm tracking-[-0.01em] text-white/42 sm:text-base">
+          <p className="theme-muted mx-auto mt-5 max-w-xl text-balance text-sm tracking-[-0.01em] sm:text-base">
             Describe it. Refine it. Export real CAD.
           </p>
           <Link
             href="/studio"
-            className="group mx-auto mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#09090b] shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-transform hover:scale-[1.02]"
+            className="theme-primary-button group mx-auto mt-7 inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold shadow-[0_12px_40px_rgba(124,58,237,0.08)] transition-transform hover:scale-[1.02]"
           >
             Start designing
             <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
