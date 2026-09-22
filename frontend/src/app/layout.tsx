@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,9 +12,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Display serif for what people say (spec §3). Never below 24px.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  axes: ["opsz", "SOFT", "WONK"],
+});
+
 export const metadata: Metadata = {
-  title: "nfinit — Make anything",
-  description: "Describe, refine, and export production-ready 3D parts.",
+  title: "nfinit",
+  description: "Describe a part, click a face to change it, print it tonight.",
 };
 
 export default function RootLayout({
@@ -32,7 +40,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} antialiased`}
       >
         {children}
       </body>
