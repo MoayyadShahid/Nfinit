@@ -26,6 +26,23 @@ const PAD_RADIUS = 1.35;
 const ARM_ANGLES = [58, 122, 238, 302]; // Degrees from +x; +y is forward.
 const HOT_PLA = "#EE4A0E";
 
+// Heights (world y) of the two plates.
+const BASE_THICKNESS = 0.4;
+const PLATE_TOP = 3.1;
+
+/*
+ * Standoff centres in plate coordinates (x right, y forward). This one list
+ * cuts the screw holes in both plates and places the standoffs, so they always
+ * line up. The camera cage supports the front, so there are no front standoffs.
+ */
+const STANDOFFS: [number, number][] = [
+  [1.75, -4.2],
+  [-1.75, -4.2],
+  [1.75, 1.0],
+  [-1.75, 1.0],
+];
+const SCREW_HOLE = 0.16;
+
 // ---------- 2D profiles (x right, y forward) ----------
 
 function circleHole(x: number, y: number, r: number) {
@@ -158,15 +175,8 @@ function unibodyShape() {
     s.holes.push(rotatedSlot(arm.t, 3.6, 7.6, 0.2));
   }
 
-  // 30.5 mm flight-controller stack and two body cut-outs.
-  for (const [x, y] of [
-    [1.525, 1.525],
-    [-1.525, 1.525],
-    [1.525, -1.525],
-    [-1.525, -1.525],
-  ]) {
-    s.holes.push(circleHole(x, y, 0.17));
-  }
+  // Standoff screw holes and two body cut-outs.
+  for (const [x, y] of STANDOFFS) s.holes.push(circleHole(x, y, SCREW_HOLE));
   s.holes.push(slotHole(-0.9, 0.9, -3.9, 0.3));
   s.holes.push(slotHole(-0.9, 0.9, 3.9, 0.3));
   return s;
@@ -182,7 +192,7 @@ function rotatedSlot(t: number, t0: number, t1: number, r: number) {
 }
 
 function topPlateShape() {
-  const s = roundedRect(3.8, 9.6, 0.7);
+  const s = roundedRect(4.2, 9.6, 0.7);
   // Four triangles removed leave an X of material over the stack.
   const half = 1.25;
   const gap = 0.26;
@@ -199,14 +209,16 @@ function topPlateShape() {
   s.holes.push(tri([[-half + k, -half], [0, -k], [half - k, -half]]));
   s.holes.push(tri([[-half, -half + k], [-half, half - k], [-k, 0]]));
   s.holes.push(tri([[half, -half + k], [k, 0], [half, half - k]]));
+  for (const [x, y] of STANDOFFS) s.holes.push(circleHole(x, y, SCREW_HOLE));
   s.holes.push(slotHole(-0.7, 0.7, 3.4, 0.28));
-  s.holes.push(circleHole(0, -3.8, 0.3));
   return s;
 }
 
 /** Camera-cage side plate, drawn in (forward, up) coordinates. */
 function cagePlateShape() {
-  const s = roundedRect(2.6, 2.9, 0.45, 0, 1.45);
+  // Exactly the gap between the base and the top plate.
+  const h = PLATE_TOP - BASE_THICKNESS;
+  const s = roundedRect(2.6, h, 0.45, 0, h / 2);
   s.holes.push(circleHole(0.1, 1.55, 0.2));
   s.holes.push(slotHole(-0.7, -0.3, 0.6, 0.16));
   return s;
@@ -313,7 +325,7 @@ function Frame({ animate }: { animate: boolean }) {
 
   const geo = useMemo(
     () => ({
-      base: extrude(unibodyShape(), 0.4),
+      base: extrude(unibodyShape(), BASE_THICKNESS),
       top: extrude(topPlateShape(), 0.2),
       cage: extrude(cagePlateShape(), 0.2),
     }),
@@ -334,27 +346,18 @@ function Frame({ animate }: { animate: boolean }) {
     ref.current.position.y = Math.sin(t * 1.2) * 0.18;
   });
 
-  const PLATE_TOP = 3.1;
-  const standoffs: [number, number][] = [
-    [1.5, -4.2],
-    [-1.5, -4.2],
-    [1.5, 0.9],
-    [-1.5, 0.9],
-    [1.5, 3.9],
-    [-1.5, 3.9],
-  ];
-
   return (
     <group ref={ref}>
       <FlatPart geometry={geo.base} y={0} map={map} />
-      {standoffs.map(([x, z]) => (
-        <Standoff key={`${x},${z}`} x={x} z={z} from={0.4} to={PLATE_TOP} />
+      {/* Plate +y is world −z (FlatPart lays shapes flat). */}
+      {STANDOFFS.map(([x, y]) => (
+        <Standoff key={`${x},${y}`} x={x} z={-y} from={BASE_THICKNESS} to={PLATE_TOP} />
       ))}
       <FlatPart geometry={geo.top} y={PLATE_TOP} map={map} />
 
       {/* Camera cage: two upright side plates at the front, with Hot PLA nuts. */}
       {[-1, 1].map((side) => (
-        <group key={side} position={[side * 1.75, 0.4, -3.9]} rotation={[0, Math.PI / 2, 0]}>
+        <group key={side} position={[side * 1.85, BASE_THICKNESS, -3.9]} rotation={[0, Math.PI / 2, 0]}>
           <mesh geometry={geo.cage} position={[0, 0, side > 0 ? 0 : -0.2]}>
             <Carbon map={map} />
           </mesh>
