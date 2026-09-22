@@ -1,775 +1,239 @@
-"use client";
-
-import { ChatPane } from "@/components/ChatPane";
-import { CommandBar, type ExportFormat } from "@/components/CommandBar";
-import { EditorPane } from "@/components/EditorPane";
-import { ViewportPane } from "@/components/ViewportPane";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { DEFAULT_MODEL, getModelConfig, MODEL_CONFIGS } from "@/lib/constants";
-import {
-  addRevision,
-  createProject,
-  getProject,
-  listProjects,
-  listRevisions,
-  type ProjectRevision,
-  type ProjectState,
-  type ProjectSummary,
-} from "@/lib/projects";
-import {
-  getTextContent,
-  type ChatMessage,
-  type ContentPart,
-  type FaceSelection,
-  type ModelInspection,
-} from "@/lib/types";
-import {
+  ArrowUp,
+  ArrowUpRight,
   Box,
-  CheckCircle2,
-  Code2,
+  Download,
   MousePointer2,
-  Ruler,
   Sparkles,
-  X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-const LAST_PROJECT_KEY = "nfinit:last-project-id";
-
-const DEFAULT_CODE = [
-  "width, depth, height = 10.0, 10.0, 10.0",
-  "",
-  "with BuildPart() as part:",
-  "    Box(width, depth, height)",
-  "",
-  "result = part.part",
-].join("\n");
-
-export default function Home() {
-  const [code, setCode] = useState(DEFAULT_CODE);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [modelId, setModelId] = useState<string>(DEFAULT_MODEL);
-  const [glbUrl, setGlbUrl] = useState<string | null>(null);
-  const [selectedFace, setSelectedFace] = useState<FaceSelection | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isProjectLoading, setIsProjectLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [revisions, setRevisions] = useState<ProjectRevision[]>([]);
-  const [currentRevision, setCurrentRevision] = useState<number | null>(null);
-  const [lastRunId, setLastRunId] = useState<string | null>(null);
-  const [isDirty, setIsDirty] = useState(true);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
-  const [inspection, setInspection] = useState<ModelInspection | null>(null);
-
-  const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
-
-  const inspectModel = useCallback(async (codeToInspect: string) => {
-    const response = await fetch(`${BACKEND_URL}/inspect-model`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: codeToInspect }),
-    });
-    const result = await response.json().catch(() => null);
-    if (response.ok && result?.valid) {
-      setInspection(result);
-      return result as ModelInspection;
-    }
-    return null;
-  }, []);
-
-  const generateMesh = useCallback(async (
-    codeToExecute: string,
-    clearSelection = true
-  ) => {
-    setError(null);
-    try {
-      const res = await fetch(`${BACKEND_URL}/generate-mesh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: codeToExecute }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || "Failed to generate mesh");
-      }
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      if (clearSelection) setSelectedFace(null);
-      setGlbUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return url;
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Mesh generation failed");
-    }
-  }, []);
-
-  const projectNameFromMessages = useCallback(
-    (items: ChatMessage[]) => {
-      const firstRequest = items.find((message) => message.role === "user");
-      const text = firstRequest ? getTextContent(firstRequest.content).trim() : "";
-      return text ? text.slice(0, 60) : "Untitled part";
-    },
-    []
-  );
-
-  const applyRevision = useCallback(
-    async (revision: ProjectRevision) => {
-      const state = revision.state;
-      setCode(state.code);
-      setMessages(state.messages);
-      setModelId(state.modelId || DEFAULT_MODEL);
-      setSelectedFace(state.selection);
-      setLastRunId(state.lastRunId);
-      setCurrentRevision(revision.revisionNumber);
-      setIsDirty(false);
-      await Promise.all([
-        generateMesh(state.code, false),
-        inspectModel(state.code),
-      ]);
-      setSelectedFace(state.selection);
-    },
-    [generateMesh, inspectModel]
-  );
-
-  const loadProject = useCallback(
-    async (nextProjectId: string) => {
-      if (
-        isDirty &&
-        !window.confirm("Discard unsaved changes and load another part?")
-      ) {
-        return;
-      }
-      setIsProjectLoading(true);
-      setError(null);
-      try {
-        const [project, history] = await Promise.all([
-          getProject(BACKEND_URL, nextProjectId),
-          listRevisions(BACKEND_URL, nextProjectId),
-        ]);
-        setProjectId(project.id);
-        window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
-        setRevisions(history);
-        if (project.latestRevision) {
-          await applyRevision(project.latestRevision);
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load project");
-      } finally {
-        setIsProjectLoading(false);
-      }
-    },
-    [applyRevision, isDirty]
-  );
-
-  const persistSnapshot = useCallback(
-    async (state: ProjectState, suggestedName?: string) => {
-      setIsSaving(true);
-      try {
-        if (projectId) {
-          const revision = await addRevision(BACKEND_URL, projectId, state);
-          setRevisions((previous) => [
-            revision,
-            ...previous.filter((item) => item.id !== revision.id),
-          ]);
-          setCurrentRevision(revision.revisionNumber);
-          setProjects((previous) =>
-            previous.map((project) =>
-              project.id === projectId
-                ? {
-                    ...project,
-                    revisionCount: revision.revisionNumber,
-                    updatedAt: revision.createdAt,
-                  }
-                : project
-            )
-          );
-          window.localStorage.setItem(LAST_PROJECT_KEY, projectId);
-        } else {
-          const project = await createProject(
-            BACKEND_URL,
-            suggestedName || projectNameFromMessages(state.messages),
-            state
-          );
-          setProjectId(project.id);
-          window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
-          setProjects((previous) => [
-            project,
-            ...previous.filter((item) => item.id !== project.id),
-          ]);
-          setRevisions(project.latestRevision ? [project.latestRevision] : []);
-          setCurrentRevision(
-            project.latestRevision?.revisionNumber ?? null
-          );
-        }
-        setIsDirty(false);
-      } finally {
-        setIsSaving(false);
-      }
-    },
-    [projectId, projectNameFromMessages]
-  );
-
-  const saveCurrentRevision = useCallback(async () => {
-    setError(null);
-    setIsSaving(true);
-    try {
-      const validationResponse = await fetch(`${BACKEND_URL}/inspect-model`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
-      const validation = await validationResponse.json().catch(() => null);
-      if (!validationResponse.ok || !validation?.valid) {
-        throw new Error(
-          validation?.error ||
-            validation?.detail ||
-            "Fix the code error before saving this revision."
-        );
-      }
-      setInspection(validation);
-      await persistSnapshot({
-        code,
-        messages,
-        modelId,
-        selection: selectedFace,
-        lastRunId,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save revision");
-    } finally {
-      setIsSaving(false);
-    }
-  }, [
-    code,
-    lastRunId,
-    messages,
-    modelId,
-    persistSnapshot,
-    selectedFace,
-  ]);
-
-  const startNewProject = useCallback(() => {
-    if (isDirty && !window.confirm("Discard unsaved changes and start a new part?")) {
-      return;
-    }
-    setGlbUrl((previous) => {
-      if (previous) URL.revokeObjectURL(previous);
-      return null;
-    });
-    setProjectId(null);
-    window.localStorage.removeItem(LAST_PROJECT_KEY);
-    setRevisions([]);
-    setCurrentRevision(null);
-    setCode(DEFAULT_CODE);
-    setMessages([]);
-    setModelId(DEFAULT_MODEL);
-    setSelectedFace(null);
-    setInspection(null);
-    setLastRunId(null);
-    setIsDirty(true);
-    setError(null);
-  }, [isDirty]);
-
-  const loadRevision = useCallback(
-    async (revisionNumber: number) => {
-      if (
-        isDirty &&
-        !window.confirm("Discard unsaved changes and load this revision?")
-      ) {
-        return;
-      }
-      const revision = revisions.find(
-        (item) => item.revisionNumber === revisionNumber
-      );
-      if (!revision) return;
-      setIsProjectLoading(true);
-      setError(null);
-      try {
-        await applyRevision(revision);
-      } finally {
-        setIsProjectLoading(false);
-      }
-    },
-    [applyRevision, isDirty, revisions]
-  );
-
-  const handleChatSend = useCallback(
-    async (text: string, imageUrls?: string[]) => {
-      if (!text.trim()) return;
-
-      setIsLoading(true);
-      setError(null);
-
-      let msgContent: string | ContentPart[];
-      if (imageUrls && imageUrls.length > 0) {
-        msgContent = [
-          { type: "text" as const, text: text.trim() },
-          ...imageUrls.map((url) => ({
-            type: "image_url" as const,
-            image_url: { url },
-          })),
-        ];
-      } else {
-        msgContent = text.trim();
-      }
-
-      const newMessages: ChatMessage[] = [
-        ...messages,
-        { role: "user", content: msgContent },
-      ];
-      setMessages(newMessages);
-
-      try {
-        const res = await fetch("/api/generate-code", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: newMessages,
-            code,
-            modelId,
-            selection: selectedFace,
-            supportsStructuredOutputs:
-              modelConfig?.supportsStructuredOutputs ?? false,
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to generate code");
-
-        const generatedCode = data.code;
-        const assistantMessage: ChatMessage = {
-          role: "assistant",
-          content: generatedCode,
-          agent: {
-            runId: data.runId,
-            plan: data.plan,
-            trace: data.trace,
-            inspection: data.inspection,
-            usage: data.usage,
-          },
-        };
-        const completedMessages = [...newMessages, assistantMessage];
-        setCode(generatedCode);
-        setMessages(completedMessages);
-        setLastRunId(data.runId ?? null);
-        setInspection(data.inspection ?? null);
-        setIsDirty(true);
-        await generateMesh(generatedCode);
-        try {
-          await persistSnapshot(
-            {
-              code: generatedCode,
-              messages: completedMessages,
-              modelId,
-              selection: null,
-              lastRunId: data.runId ?? null,
-            },
-            text.trim().slice(0, 60)
-          );
-        } catch (saveError) {
-          setError(
-            `Model generated, but revision save failed: ${
-              saveError instanceof Error ? saveError.message : "Unknown error"
-            }`
-          );
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Generation failed");
-        setMessages((prev) => prev.slice(0, -1));
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [
-      messages,
-      code,
-      modelId,
-      modelConfig,
-      selectedFace,
-      generateMesh,
-      persistSnapshot,
-    ]
-  );
-
-  const handleGenerate = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      await Promise.all([generateMesh(code), inspectModel(code)]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [code, generateMesh, inspectModel]);
-
-  const handleExport = useCallback(
-    async (format: ExportFormat) => {
-      setError(null);
-      try {
-        const res = await fetch(`${BACKEND_URL}/export-model`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, format }),
-        });
-
-        if (!res.ok) {
-          const err = await res
-            .json()
-            .catch(() => ({ detail: res.statusText }));
-          throw new Error(err.detail || "Export failed");
-        }
-
-        const blob = await res.blob();
-        const ext = { step: ".step", brep: ".brep", stl: ".stl" }[format];
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `model${ext}`;
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Export failed");
-      }
-    },
-    [code]
-  );
-
-  useEffect(() => {
-    let active = true;
-    listProjects(BACKEND_URL)
-      .then(async (items) => {
-        if (!active) return;
-        setProjects(items);
-        const storedProjectId = window.localStorage.getItem(LAST_PROJECT_KEY);
-        const latest =
-          items.find((project) => project.id === storedProjectId) ?? items[0];
-        if (!latest) return;
-        setIsProjectLoading(true);
-        const [project, history] = await Promise.all([
-          getProject(BACKEND_URL, latest.id),
-          listRevisions(BACKEND_URL, latest.id),
-        ]);
-        if (!active) return;
-        setProjectId(project.id);
-        window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
-        setRevisions(history);
-        if (project.latestRevision) {
-          await applyRevision(project.latestRevision);
-        }
-      })
-      .catch((loadError) => {
-        if (active) {
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Failed to list saved projects"
-          );
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setIsProjectLoading(false);
-          setHasInitialized(true);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [applyRevision]);
-
-  useEffect(() => {
-    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!isDirty) return;
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", warnBeforeUnload);
-    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
-  }, [isDirty]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key === "Enter") {
-        e.preventDefault();
-        handleGenerate();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleGenerate]);
-
-  useEffect(() => {
-    return () => {
-      if (glbUrl) URL.revokeObjectURL(glbUrl);
-    };
-  }, [glbUrl]);
-
-  const showWelcome =
-    hasInitialized && !projectId && messages.length === 0 && glbUrl === null;
-
+function Brand() {
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#090a0d] text-zinc-200">
-      <CommandBar
-        onExport={handleExport}
-        projects={projects}
-        projectId={projectId}
-        isDirty={isDirty}
-        isSaving={isSaving}
-        advancedOpen={advancedOpen}
-        onAdvancedChange={setAdvancedOpen}
-        onProjectChange={loadProject}
-        onNewProject={startNewProject}
-        onSave={saveCurrentRevision}
-      />
+    <Link
+      href="/"
+      className="flex items-center gap-2.5"
+      aria-label="nfinit home"
+    >
+      <span className="flex size-8 items-center justify-center rounded-xl bg-white text-[#09090b] shadow-[0_0_30px_rgba(255,255,255,0.14)]">
+        <Sparkles className="size-3.5" strokeWidth={2.2} />
+      </span>
+      <span className="text-[15px] font-semibold tracking-[-0.025em] text-white">
+        nfinit
+      </span>
+    </Link>
+  );
+}
 
-      {!hasInitialized ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          <div className="size-8 animate-spin rounded-full border-2 border-zinc-800 border-t-violet-400" />
+function ProductShowcase() {
+  return (
+    <div className="landing-window relative mx-auto w-full max-w-4xl overflow-hidden rounded-[22px] border border-white/12 bg-[#e9eaed] shadow-[0_35px_100px_rgba(0,0,0,0.5)]">
+      <div className="flex h-9 items-center justify-between border-b border-black/8 bg-[#111217] px-3">
+        <div className="flex items-center gap-1.5">
+          <span className="size-1.5 rounded-full bg-white/20" />
+          <span className="size-1.5 rounded-full bg-white/12" />
+          <span className="size-1.5 rounded-full bg-white/8" />
         </div>
-      ) : showWelcome ? (
-        <main className="relative min-h-0 flex-1 overflow-y-auto">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(124,58,237,0.16),transparent_36%),radial-gradient(circle_at_80%_80%,rgba(37,99,235,0.09),transparent_30%)]" />
-          <div className="relative mx-auto flex min-h-full max-w-5xl flex-col items-center justify-center px-4 py-10 sm:px-8">
-            <div className="mb-8 max-w-2xl text-center">
-              <div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-300 shadow-xl shadow-violet-500/10">
-                <Sparkles className="size-5" />
-              </div>
-              <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] text-white sm:text-5xl">
-                What do you want to make?
-              </h1>
-              <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-500 sm:text-base">
-                Describe a single part in plain language. Add dimensions if you have
-                them—we’ll turn it into editable, export-ready CAD.
+        <span className="text-[8px] font-medium tracking-[0.12em] text-white/35">
+          BRACKET / V4
+        </span>
+        <div className="flex items-center gap-1 text-[8px] text-white/40">
+          <Download className="size-2.5" />
+          STEP
+        </div>
+      </div>
+
+      <div className="product-grid relative aspect-[16/7] min-h-[260px] overflow-hidden sm:min-h-[320px]">
+        <div className="absolute left-3 top-3 z-10 rounded-xl border border-white/20 bg-[#121319]/90 px-3 py-2.5 text-white shadow-xl backdrop-blur sm:left-5 sm:top-5">
+          <p className="text-[7px] font-medium tracking-[0.15em] text-white/35">
+            OVERALL SIZE
+          </p>
+          <p className="mt-1 text-[10px] font-medium sm:text-xs">
+            80 × 48 × 6 mm
+          </p>
+        </div>
+
+        <div className="absolute right-3 top-3 z-10 hidden max-w-[190px] rounded-xl border border-violet-300/20 bg-[#17131f]/92 p-3 text-white shadow-xl backdrop-blur sm:right-5 sm:top-5 sm:block">
+          <div className="flex items-start gap-2.5">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violet-400/15 text-violet-300">
+              <MousePointer2 className="size-3.5" />
+            </span>
+            <div>
+              <p className="text-[10px] font-semibold text-violet-100">
+                Face selected
+              </p>
+              <p className="mt-1 text-[8px] leading-3.5 text-white/45">
+                Extend this face by 12 mm
               </p>
             </div>
-            <div className="h-[340px] w-full max-w-3xl">
-              <ChatPane
-                messages={messages}
-                onSend={handleChatSend}
-                isLoading={isLoading || isProjectLoading}
-                lastError={error}
-                supportsVision={modelConfig?.supportsVision ?? false}
-                selection={selectedFace}
-                variant="welcome"
-              />
-            </div>
-            <p className="mt-5 text-center text-[11px] text-zinc-600">
-              Valid geometry is saved automatically as an immutable revision.
-            </p>
           </div>
-        </main>
-      ) : (
-        <main className="relative min-h-0 flex-1 overflow-hidden bg-[#15161a] p-2">
-          <div className="h-full overflow-hidden rounded-2xl border border-black/10 bg-[#e7e8eb] shadow-2xl shadow-black/30">
-            <ViewportPane
-              glbUrl={glbUrl}
-              code={code}
-              isLoading={isLoading || isProjectLoading}
-              showSelectionCard={false}
-              onSelectionChange={(selection) => {
-                setSelectedFace(selection);
-                setIsDirty(true);
-              }}
-            />
-          </div>
-
-          <div className="pointer-events-none absolute left-5 top-5 z-20 hidden sm:block">
-            <div className="pointer-events-auto min-w-[230px] rounded-2xl border border-white/15 bg-[#101116]/88 p-3.5 text-zinc-200 shadow-xl shadow-black/20 backdrop-blur-xl">
-              <div className="flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-white/8 text-zinc-400">
-                  <Ruler className="size-3.5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-600">
-                    Overall size
-                  </p>
-                  {inspection?.bounding_box_mm ? (
-                    <p className="mt-0.5 text-xs font-medium text-white">
-                      {inspection.bounding_box_mm.x.toFixed(1)} ×{" "}
-                      {inspection.bounding_box_mm.y.toFixed(1)} ×{" "}
-                      {inspection.bounding_box_mm.z.toFixed(1)} mm
-                    </p>
-                  ) : (
-                    <p className="mt-0.5 text-xs text-zinc-500">
-                      Awaiting model dimensions
-                    </p>
-                  )}
-                </div>
-              </div>
-              {inspection && (
-                <div className="mt-3 flex items-center justify-between border-t border-white/8 pt-2.5 text-[10px] text-zinc-500">
-                  <span className="flex items-center gap-1.5">
-                    <Box className="size-3" />
-                    {inspection.shape_type ?? "Solid"}
-                  </span>
-                  <span>{Math.round(inspection.volume_mm3 ?? 0).toLocaleString()} mm³</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {selectedFace && (
-            <div className="pointer-events-none absolute right-5 top-20 z-20 max-w-[260px]">
-              <div className="pointer-events-auto rounded-2xl border border-violet-300/25 bg-[#17131f]/92 p-4 text-zinc-200 shadow-2xl shadow-violet-950/20 backdrop-blur-xl">
-                <div className="flex items-start gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-violet-400/12 text-violet-300">
-                    <MousePointer2 className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-violet-100">
-                      {selectedFace.surfaceType
-                        ? `${selectedFace.surfaceType[0].toUpperCase()}${selectedFace.surfaceType.slice(1)} face`
-                        : "Selected face"}
-                    </p>
-                    <p className="mt-1 font-mono text-[9px] text-violet-300/50">
-                      {selectedFace.entityId?.slice(0, 18) ??
-                        selectedFace.point.join(", ")}
-                    </p>
-                    <p className="mt-2 text-[11px] leading-4 text-zinc-400">
-                      Describe the change below. Your request will target this face.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="pointer-events-none absolute inset-x-3 bottom-4 z-30 flex flex-col items-center gap-2">
-            {revisions.length > 0 && (
-              <div className="pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-full border border-white/10 bg-[#101116]/88 p-1.5 shadow-xl backdrop-blur-xl">
-                <span className="hidden items-center gap-1.5 px-2 text-[10px] font-medium text-zinc-500 sm:flex">
-                  <CheckCircle2 className="size-3 text-emerald-400" />
-                  History
-                </span>
-                {revisions
-                  .slice()
-                  .reverse()
-                  .map((revision) => {
-                    const active = revision.revisionNumber === currentRevision;
-                    return (
-                      <button
-                        key={revision.id}
-                        type="button"
-                        onClick={() => loadRevision(revision.revisionNumber)}
-                        title={`Revision ${revision.revisionNumber} · ${new Date(
-                          revision.createdAt
-                        ).toLocaleString()}`}
-                        className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-medium transition-colors ${
-                          active
-                            ? "bg-white text-zinc-950 shadow-sm"
-                            : "text-zinc-500 hover:bg-white/8 hover:text-white"
-                        }`}
-                      >
-                        <span
-                          className={`size-1.5 rounded-full ${
-                            active ? "bg-violet-500" : "bg-zinc-700"
-                          }`}
-                        />
-                        v{revision.revisionNumber}
-                      </button>
-                    );
-                  })}
-              </div>
-            )}
-            <div className="pointer-events-auto w-full max-w-3xl">
-              <ChatPane
-                messages={messages}
-                onSend={handleChatSend}
-                isLoading={isLoading || isProjectLoading}
-                lastError={error}
-                supportsVision={modelConfig?.supportsVision ?? false}
-                selection={selectedFace}
-              />
-            </div>
-          </div>
-        </main>
-      )}
-
-      {error && (
-        <div className="fixed left-1/2 top-20 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 rounded-xl border border-red-400/20 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur">
-          <span className="min-w-0 flex-1">{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            aria-label="Dismiss error"
-            className="rounded-md p-1 text-red-300 hover:bg-white/10"
-          >
-            <X className="size-4" />
-          </button>
         </div>
-      )}
 
-      {advancedOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Close advanced tools"
-            className="fixed inset-0 top-16 z-40 bg-black/55 backdrop-blur-[2px]"
-            onClick={() => setAdvancedOpen(false)}
+        <svg
+          viewBox="0 0 600 360"
+          role="img"
+          aria-label="AI-generated mounting bracket"
+          className="absolute inset-0 m-auto h-[88%] w-[88%]"
+        >
+          <defs>
+            <linearGradient id="landing-top" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0" stopColor="#8b95a6" />
+              <stop offset="1" stopColor="#556070" />
+            </linearGradient>
+            <linearGradient id="landing-side" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0" stopColor="#303846" />
+              <stop offset="1" stopColor="#181d27" />
+            </linearGradient>
+            <linearGradient id="landing-front" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stopColor="#596474" />
+              <stop offset="1" stopColor="#313947" />
+            </linearGradient>
+            <filter id="landing-shadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="24" stdDeviation="18" floodOpacity=".25" />
+            </filter>
+          </defs>
+          <ellipse cx="300" cy="306" rx="150" ry="25" fill="#111827" opacity=".12" />
+          <g filter="url(#landing-shadow)">
+            <path
+              d="M170 235 L352 152 L441 201 L260 286 Z"
+              fill="url(#landing-top)"
+            />
+            <path
+              d="M260 286 L441 201 L441 236 L260 321 Z"
+              fill="url(#landing-side)"
+            />
+            <path
+              d="M170 235 L260 286 L260 321 L170 269 Z"
+              fill="url(#landing-front)"
+            />
+            <path
+              d="M170 235 L170 112 L260 162 L260 286 Z"
+              fill="url(#landing-front)"
+            />
+            <path
+              d="M170 112 L352 29 L441 79 L260 162 Z"
+              fill="url(#landing-top)"
+            />
+            <path
+              d="M260 162 L441 79 L441 201 L260 286 Z"
+              fill="url(#landing-side)"
+            />
+            <ellipse
+              cx="344"
+              cy="127"
+              rx="41"
+              ry="22"
+              transform="rotate(-25 344 127)"
+              fill="#e9eaed"
+              opacity=".96"
+            />
+            <ellipse
+              cx="344"
+              cy="127"
+              rx="28"
+              ry="14"
+              transform="rotate(-25 344 127)"
+              fill="#202631"
+            />
+            <ellipse
+              cx="220"
+              cy="211"
+              rx="22"
+              ry="13"
+              transform="rotate(29 220 211)"
+              fill="#1e2530"
+            />
+          </g>
+          <path
+            d="M449 196 L490 177"
+            stroke="#7c3aed"
+            strokeWidth="1.5"
+            strokeDasharray="4 4"
           />
-          <aside className="fixed inset-y-0 right-0 z-50 mt-16 flex w-full max-w-3xl flex-col border-l border-white/10 bg-[#0d0e12] shadow-2xl shadow-black/60">
-            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/8 px-4">
-              <Code2 className="size-4 text-violet-400" />
-              <div className="min-w-0 flex-1">
-                <h2 className="text-sm font-semibold text-white">Advanced editor</h2>
-                <p className="text-[10px] text-zinc-600">Edit build123d source directly</p>
-              </div>
-              <Select
-                value={modelId}
-                onValueChange={(value) => {
-                  setModelId(value);
-                  setIsDirty(true);
-                }}
-              >
-                <SelectTrigger
-                  aria-label="Generation model"
-                  className="h-8 w-[180px] border-white/10 bg-white/5 text-xs"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MODEL_CONFIGS.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <button
-                type="button"
-                onClick={() => setAdvancedOpen(false)}
-                aria-label="Close advanced editor"
-                className="rounded-lg p-2 text-zinc-500 hover:bg-white/8 hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
+          <circle cx="449" cy="196" r="4" fill="#8b5cf6" />
+          <text x="497" y="178" fill="#6d28d9" fontSize="9" fontWeight="600">
+            +12 mm
+          </text>
+        </svg>
+
+        <div className="absolute inset-x-3 bottom-3 z-10 mx-auto max-w-xl sm:bottom-5">
+          <div className="mb-2 flex justify-center">
+            <div className="flex items-center gap-1 rounded-full border border-white/12 bg-[#111217]/90 p-1 text-[8px] text-white/35 shadow-xl backdrop-blur">
+              <span className="px-2">v1</span>
+              <span className="px-2">v2</span>
+              <span className="rounded-full bg-white px-2.5 py-1 text-[#111217]">
+                v3
+              </span>
+              <span className="px-2">v4</span>
             </div>
-            <div className="min-h-0 flex-1">
-              <EditorPane
-                code={code}
-                onCodeChange={(value) => {
-                  setCode(value);
-                  setIsDirty(true);
-                }}
-                onGenerate={handleGenerate}
-              />
-            </div>
-          </aside>
-        </>
-      )}
+          </div>
+          <div className="flex items-center gap-2 rounded-2xl border border-white/12 bg-[#0e0f13]/94 p-2 pl-4 text-white shadow-2xl backdrop-blur-xl">
+            <Sparkles className="size-3 shrink-0 text-violet-400" />
+            <span className="min-w-0 flex-1 truncate text-[9px] text-white/55 sm:text-[11px]">
+              Add two countersunk mounting holes to the base
+            </span>
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-xl bg-white text-[#111217]">
+              <ArrowUp className="size-3" />
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <div className="relative min-h-dvh overflow-x-hidden bg-[#08090b] text-white selection:bg-violet-400/30 lg:h-dvh lg:overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-[-24rem] h-[42rem] w-[62rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(124,58,237,0.16),rgba(37,99,235,0.06)_38%,transparent_70%)]" />
+        <div className="absolute inset-0 opacity-[0.018] [background-image:url('data:image/svg+xml,%3Csvg_viewBox=%220_0_180_180%22_xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter_id=%22n%22%3E%3CfeTurbulence_type=%22fractalNoise%22_baseFrequency=%22.9%22_numOctaves=%224%22_stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect_width=%22100%25%22_height=%22100%25%22_filter=%22url(%23n)%22_opacity=%22.5%22/%3E%3C/svg%3E')]" />
+      </div>
+
+      <header className="relative z-20 mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
+        <Brand />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/studio"
+            className="rounded-full px-4 py-2 text-xs font-medium text-white/55 transition-colors hover:text-white"
+          >
+            Log in
+          </Link>
+          <Link
+            href="/studio"
+            className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-semibold text-[#09090b] transition-transform hover:scale-[1.02]"
+          >
+            Open studio
+            <ArrowUpRight className="size-3.5" />
+          </Link>
+        </div>
+      </header>
+
+      <main className="relative z-10 mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl flex-col items-center px-5 pb-5 pt-[clamp(1.75rem,4.5vh,3rem)] sm:px-8 lg:h-[calc(100dvh-4rem)] lg:min-h-0">
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-medium tracking-[0.12em] text-white/45">
+            <Box className="size-3 text-violet-400" />
+            AI CAD
+          </div>
+          <h1 className="text-balance text-[clamp(2.8rem,6vw,5.2rem)] font-semibold leading-[0.94] tracking-[-0.065em]">
+            Ideas become objects.
+          </h1>
+          <p className="mx-auto mt-5 max-w-xl text-balance text-sm tracking-[-0.01em] text-white/42 sm:text-base">
+            Describe it. Refine it. Export real CAD.
+          </p>
+          <Link
+            href="/studio"
+            className="group mx-auto mt-7 inline-flex h-11 items-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#09090b] shadow-[0_12px_40px_rgba(255,255,255,0.08)] transition-transform hover:scale-[1.02]"
+          >
+            Start designing
+            <ArrowUpRight className="size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+          </Link>
+        </div>
+
+        <div className="mt-[clamp(2rem,4vh,2.75rem)] w-full">
+          <ProductShowcase />
+        </div>
+      </main>
     </div>
   );
 }
