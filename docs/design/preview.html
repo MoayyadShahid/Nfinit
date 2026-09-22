@@ -1,7 +1,7 @@
 <title>nfinit Workbench</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..600,50,0;1,9..144,300..600,50,0&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
 <style>
 :root{
   --paper:#F4F1EA;--sheet:#FBF9F4;--inset:#ECE7DC;--clay:#DDD3C2;
@@ -12,14 +12,14 @@
   --part-top:#E6DECF;--part-front:#CFC4B0;--part-side:#B3A791;--part-hole:#9A8E78;
   --prompt-shadow:0 24px 60px -24px rgb(60 40 20 / .18);
   --grain:0;
-  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --serif:"Fraunces",Georgia,"Times New Roman",serif;
   --sans:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --ease-out:cubic-bezier(.2,.7,.1,1);--ease-draw:cubic-bezier(.65,0,.35,1);--spring:cubic-bezier(.34,1.56,.64,1);
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   color-scheme:dark;
-  --paper:#0E0D0B;--sheet:#171513;--inset:#090807;--clay:#2A2621;
+  --paper:#13110E;--sheet:#1C1915;--inset:#0C0A08;--clay:#2A2621;
   --ink:#EEE9DF;--ink-2:#B6B0A4;--muted:#948E83;
   --hairline:rgba(238,233,223,.10);--hairline-strong:rgba(238,233,223,.22);
   --construct:#7FA7C9;--accent:#FF5B1F;--accent-text:#FF7A45;--danger:#F2685C;
@@ -29,7 +29,7 @@
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --paper:#0E0D0B;--sheet:#171513;--inset:#090807;--clay:#2A2621;
+  --paper:#13110E;--sheet:#1C1915;--inset:#0C0A08;--clay:#2A2621;
   --ink:#EEE9DF;--ink-2:#B6B0A4;--muted:#948E83;
   --hairline:rgba(238,233,223,.10);--hairline-strong:rgba(238,233,223,.22);
   --construct:#7FA7C9;--accent:#FF5B1F;--accent-text:#FF7A45;--danger:#F2685C;
@@ -46,7 +46,7 @@ a{color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
 /* type */
-.display{font-family:var(--serif);font-variation-settings:"opsz" 72;font-weight:380;font-size:clamp(56px,9vw,112px);line-height:.92;letter-spacing:-.035em;margin:0}
+.display{font-family:var(--serif);font-variation-settings:"opsz" 144;font-weight:380;font-size:clamp(56px,9vw,112px);line-height:.92;letter-spacing:-.035em;margin:0}
 .h1{font-family:var(--serif);font-weight:400;font-size:clamp(42px,6vw,72px);line-height:.98;letter-spacing:-.03em;margin:0;text-wrap:balance}
 .h2{font-family:var(--serif);font-weight:400;font-size:clamp(34px,4.4vw,48px);line-height:1.04;letter-spacing:-.02em;margin:0;text-wrap:balance}
 .h3{font-family:var(--serif);font-weight:450;font-size:clamp(24px,2.6vw,30px);line-height:1.12;letter-spacing:-.01em;margin:0}
@@ -328,7 +328,7 @@ footer{margin-top:96px;padding-top:20px;border-top:1px solid var(--hairline);dis
       <div class="sw"><div class="pair"><i style="background:#191815"></i><i style="background:#EEE9DF"></i></div><div class="name"><b>Ink · primary</b><span class="hex">#191815 / #EEE9DF</span></div><span class="role">Text, primary buttons, solid geometry</span></div>
       <div class="sw"><div class="pair"><i style="background:#6F9BC4"></i><i style="background:#7FA7C9"></i></div><div class="name"><b>Construct · secondary</b><span class="hex">#6F9BC4 / #7FA7C9</span></div><span class="role">1px sketch and wireframe lines only. Never text, never fill</span></div>
       <div class="sw"><div class="pair"><i style="background:#EE4A0E"></i><i style="background:#FF5B1F"></i></div><div class="name"><b>Hot PLA · accent</b><span class="hex">#EE4A0E / #FF5B1F</span></div><span class="role">Dot, nozzle line, selected face, focus, prompt submit. ≤2% of a screen</span></div>
-      <div class="sw"><div class="pair"><i style="background:#F4F1EA"></i><i style="background:#0E0D0B"></i></div><div class="name"><b>Paper</b><span class="hex">#F4F1EA / #0E0D0B</span></div><span class="role">Page. Midnight moves to a warm black</span></div>
+      <div class="sw"><div class="pair"><i style="background:#F4F1EA"></i><i style="background:#13110E"></i></div><div class="name"><b>Paper</b><span class="hex">#F4F1EA / #13110E</span></div><span class="role">Page. Midnight moves to a warm black</span></div>
       <div class="sw"><div class="pair"><i style="background:#DDD3C2"></i><i style="background:#2A2621"></i></div><div class="name"><b>Clay</b><span class="hex">#DDD3C2 / #2A2621</span></div><span class="role">Unprinted part material, plate floors, stickers</span></div>
       <div class="sw"><div class="pair"><i style="background:#6B655A"></i><i style="background:#948E83"></i></div><div class="name"><b>Muted</b><span class="hex">#6B655A / #948E83</span></div><span class="role">Captions and mono labels, 5.1 : 1 / 6.0 : 1</span></div>
     </div>
@@ -337,13 +337,13 @@ footer{margin-top:96px;padding-top:20px;border-top:1px solid var(--hairline);dis
 
   <div class="rule"><span>— Type —</span></div>
   <section aria-label="Type system">
-    <div class="sec-head"><h2 class="h3">Newsreader · Geist · Geist Mono</h2></div>
+    <div class="sec-head"><h2 class="h3">Fraunces · Geist · Geist Mono</h2></div>
     <div class="specimen">
-      <div class="srow"><div class="meta"><span class="label">Display</span><span class="spec">Newsreader 112/56 · 380</span></div><div class="display" style="font-size:clamp(48px,7vw,96px)">Say it. <em>Hold it.</em></div></div>
-      <div class="srow"><div class="meta"><span class="label">H1</span><span class="spec">Newsreader 72/42 · 400</span></div><div class="h1">Your next part, <em>rev A.</em></div></div>
-      <div class="srow"><div class="meta"><span class="label">H2</span><span class="spec">Newsreader 48/34 · 400</span></div><div class="h2">Things people actually <em>print.</em></div></div>
-      <div class="srow"><div class="meta"><span class="label">H3</span><span class="spec">Newsreader 30/24 · 450</span></div><div class="h3">Click a face. <em>Change your mind.</em></div></div>
-      <div class="srow"><div class="meta"><span class="label">Prompt</span><span class="spec">Newsreader italic 32/24 · 300</span></div><p class="quote">“A hook for a 25 mm pipe. Two M4 screws.”</p></div>
+      <div class="srow"><div class="meta"><span class="label">Display</span><span class="spec">Fraunces 112/56 · 380</span></div><div class="display" style="font-size:clamp(48px,7vw,96px)">Say it. <em>Hold it.</em></div></div>
+      <div class="srow"><div class="meta"><span class="label">H1</span><span class="spec">Fraunces 72/42 · 400</span></div><div class="h1">Your next part, <em>rev A.</em></div></div>
+      <div class="srow"><div class="meta"><span class="label">H2</span><span class="spec">Fraunces 48/34 · 400</span></div><div class="h2">Things people actually <em>print.</em></div></div>
+      <div class="srow"><div class="meta"><span class="label">H3</span><span class="spec">Fraunces 30/24 · 450</span></div><div class="h3">Click a face. <em>Change your mind.</em></div></div>
+      <div class="srow"><div class="meta"><span class="label">Prompt</span><span class="spec">Fraunces italic 32/24 · 300</span></div><p class="quote">“A hook for a 25 mm pipe. Two M4 screws.”</p></div>
       <div class="srow"><div class="meta"><span class="label">H4 · Body</span><span class="spec">Geist 18 · 600 / 15 · 400</span></div><div><p class="h4">Export for your slicer</p><p style="margin:4px 0 0;color:var(--ink-2)">STL goes straight to the printer. STEP keeps the part editable in any CAD tool.</p></div></div>
       <div class="srow"><div class="meta"><span class="label">Label · Spec</span><span class="spec">Geist Mono 11 +.08em / 12 tabular</span></div><div style="display:flex;gap:20px;flex-wrap:wrap;align-items:baseline"><span class="label">Plate 04 · Lid hinge</span><span class="spec">PLA · 0.2 MM · 22 MIN · 80 × 48 × 6 MM</span></div></div>
     </div>

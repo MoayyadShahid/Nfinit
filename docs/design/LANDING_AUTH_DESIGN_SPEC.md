@@ -15,8 +15,8 @@ material, print time). The part *prints itself in*, layer by layer. The words
 are few and the object carries the page.
 
 > The audience is a hobbyist with a printer on their desk, not an industrial
-> design team. Suzanne now pitches itself as "Physical AI for industrial design
-> teams". We win by being personal, specific and print-first: *your* part, on
+> design team. Suzanne pitches itself as "your team's industrial design engine"
+> and gates everything behind "Book a demo". We win by being personal, specific and print-first: *your* part, on
 > *your* bed, tonight.
 
 ### How this spec was made
@@ -38,12 +38,34 @@ What we rejected, and why:
 - **The drawing-sheet border with A–D zone labels** (C): it's charming but busy, and it fights "clean".
 - **A live r3f scene in the hero** (D): phase 2 at most.
 
-> **Research caveat:** this session's network policy blocks suzanne3d.com,
-> moayyadshahid.com and every other reference site (the agents also tried the
-> misspelling moidshahid.com, which doesn't exist). Competitor facts come
-> from search listings only. The reference techniques (Teenage Engineering spec
-> labels, Apple sticky scroll, Linear hairlines and so on) come from general
-> knowledge. Look at Suzanne once yourself before shipping.
+### Reference sites (seen 22 Sep 2026)
+
+**suzanne3d.com, /product, suzanne3d.studio** (the last is a mirror of the home page):
+- **Layout:** a near-neutral black page (`#0D0D0D`) with a faint dot grid. The hero is a left-aligned serif H1 with a 40-word Inter paragraph under it and a white pill `Book a demo` (it has a tiny grey dot inside) next to an outlined `Log in`. The right side holds grey pencil sketches of a chair, a robot arm and a speaker, captioned `FIG. 14 - WOMB CHAIR` in spaced mono.
+- **Type:** **Newsreader 500** headlines (44–72px), with the emotional words set in *italic and tinted gold*. Inter for body, mono for labels.
+- **Copy:** long. Most sections are an H2 plus 30–60 words, the audience is "industrial designers", and "AI" appears in the first sentence.
+- **Flow:** told in text. There are four numbered cards (Generate, Refine, Validate, Build), a node diagram and a scripted chat mock. You never see a part go from sentence to object, and the only call to action is a gated demo booking.
+- **Strong:** confident serif, restrained colour, the sketch plus figure-label idea, and a clear export story (STEP, STL, 3MF).
+- **Weak:** walls of text, no way to try anything, lots of empty scroll between reveals, and a mood that is sober and corporate rather than fun.
+
+**moayyadshahid.com** (the founder):
+- **Layout:** a single 620px column on `#F7F7F4` paper, with an 18px Newsreader body and a Newsreader italic 350 name as the H1. Links are underlined in a dark red.
+- **Copy:** very short, with generous white space.
+- **Strong:** calm, personal and quiet.
+- **Weak:** no imagery, colour or motion, so nothing is memorable. It's the "too plain" end of our range.
+
+**What this changed in the spec:**
+1. **Serif: Newsreader → Fraunces** (§3). It was already our named fallback. Suzanne uses Newsreader with italic accent words, so the same face and the same device would read as a clone. Fraunces (`SOFT 50`, `WONK 0`) is warmer and friendlier, which suits hobbyists. Our italic word stays **ink**, never tinted.
+2. **Midnight warmed** (§2). `#0E0D0B` was indistinguishable from Suzanne's `#0D0D0D`, so paper, sheet and inset move a step warmer and lighter.
+3. **New don'ts** (§10): no dot-grid background, no grey pencil sketches (ours are construct blue), no `FIG.` label without a print spec next to it, no tinted italics.
+
+**What we take:** the serif-plus-mono pairing, restraint in colour, and captions on drawings. From the founder's site we take short copy and the always-underlined link.
+
+**What we beat:**
+- A prompt you can type into, above the fold, against their "Book a demo".
+- One part shown going through the flow, against four text cards.
+- Specs a maker cares about (material, layer height, minutes) instead of "physical intelligence".
+- About 95 words on the page against their 700+.
 
 ---
 
@@ -59,9 +81,9 @@ Three roles, strictly separated:
 
 | Token | Porcelain | Midnight | Role |
 |---|---|---|---|
-| `--paper` | `#F4F1EA` | `#0E0D0B` | Page background (midnight becomes a *warm* black, not `#08090b`) |
-| `--sheet` | `#FBF9F4` | `#171513` | Raised surface: auth panel, popovers, prompt bar |
-| `--inset` | `#ECE7DC` | `#090807` | Input wells, plate backdrops |
+| `--paper` | `#F4F1EA` | `#13110E` | Page background (midnight is a *warm* black, visibly apart from Suzanne's neutral `#0D0D0D`) |
+| `--sheet` | `#FBF9F4` | `#1C1915` | Raised surface: auth panel, popovers, prompt bar |
+| `--inset` | `#ECE7DC` | `#0C0A08` | Input wells, plate backdrops |
 | `--clay` | `#DDD3C2` | `#2A2621` | Part material in its "solid" state, plate floor, stickers |
 | `--ink` **(primary)** | `#191815` | `#EEE9DF` | Text, primary button fill, solid geometry |
 | `--ink-2` | `#4A463E` | `#B6B0A4` | Body copy, secondary text |
@@ -109,21 +131,21 @@ Three roles, strictly separated:
 
 | Family | Source | Role |
 |---|---|---|
-| **Newsreader** (variable `opsz` 6–72, wght 200–800, true italics) | `next/font/google`, `--font-serif` | Display, H1–H3, the prompt pull-quote, the wordmark |
+| **Fraunces** (variable `opsz` 9–144, wght 100–900, `SOFT` 50, `WONK` 0, true italics) | `next/font/google`, `--font-serif` | Display, H1–H3, the prompt pull-quote, the wordmark |
 | **Geist** (already loaded) | `--font-sans` | UI, body, buttons, H4 |
 | **Geist Mono** (already loaded) | `--font-mono` | Labels, specs, dimensions, file names |
 
-**Why Newsreader:** proposals A and C chose it, and B and D chose Fraunces. Newsreader is the cleaner, more precise choice and its italics are true italics. Instrument Serif was ruled out because it has become the default AI-startup serif. Fraunces (with `SOFT 50`) is the fallback if we want more warmth.
+**Why Fraunces:** proposals B and D chose it, and A and C chose Newsreader. The spec first picked Newsreader, but Suzanne (the direct competitor) sets every headline in Newsreader with italic accent words, so we move to Fraunces. At `SOFT 50` it keeps the precision at display sizes and adds warmth that suits hobbyists, and its italics are true italics. Instrument Serif stays ruled out because it has become the default AI-startup serif.
 
 ### Type scale
 
 | Role | Font | Desktop / Mobile | Weight | Line height | Tracking |
 |---|---|---|---|---|---|
-| Display | Newsreader, `opsz 72` | 112 / 56px | 380 | 0.92 | −0.035em |
-| H1 | Newsreader | 72 / 42px | 400 | 0.98 | −0.03em |
-| H2 | Newsreader | 48 / 34px | 400 | 1.04 | −0.02em |
-| H3 | Newsreader | 30 / 24px | 450 | 1.12 | −0.01em |
-| Prompt (pull-quote) | Newsreader *italic* | 32 / 24px | 300 | 1.15 | −0.015em |
+| Display | Fraunces, `opsz 144` | 112 / 56px | 380 | 0.92 | −0.035em |
+| H1 | Fraunces | 72 / 42px | 400 | 0.98 | −0.03em |
+| H2 | Fraunces | 48 / 34px | 400 | 1.04 | −0.02em |
+| H3 | Fraunces | 30 / 24px | 450 | 1.12 | −0.01em |
+| Prompt (pull-quote) | Fraunces *italic* | 32 / 24px | 300 | 1.15 | −0.015em |
 | H4 | Geist | 18 / 17px | 600 | 1.3 | −0.01em |
 | Body L | Geist | 18 / 17px | 400 | 1.55 | −0.005em |
 | Body | Geist | 15 / 15px | 400 | 1.55 | 0 |
@@ -137,7 +159,7 @@ Three roles, strictly separated:
 - **Serif is for what people say:** headlines and prompts.
 - **Sans is for what the interface says:** buttons, body, navigation, forms.
 - **Mono is for what the machine measures:** mm, grams, minutes, `.STL`, `V3`.
-- **Exactly one italic word per headline,** and it is the emotional one ("Say it. *Hold it.*").
+- **Exactly one italic word per headline,** and it is the emotional one ("Say it. *Hold it.*"). The italic stays `--ink`. It is never tinted gold or accent (that is Suzanne's device).
 - The serif is **never below 24px**, never in a button, input or the studio chrome.
 - Headlines are **left-aligned.** Centred text is only allowed in the closing CTA.
 - Units are uppercase mono with a thin space before them: `80 × 48 × 6 MM`, `38 MIN`, `0.2 MM`.
@@ -151,7 +173,7 @@ Three roles, strictly separated:
 missing dot: an **8px Hot PLA circle**, which is also the nozzle tip that
 turns a sentence into an object.
 
-- **Lockup:** `● nfinit`. The dot comes first, followed by `nfinit` in Newsreader *italic* 500, lowercase, tracking −0.02em. The dot sits at x-height, a sixth of an em before the `n`.
+- **Lockup:** `● nfinit`. The dot comes first, followed by `nfinit` in Fraunces *italic* 500, lowercase, tracking −0.02em. The dot sits at x-height, a sixth of an em before the `n`.
 - **Favicon:** the dot on a `--paper` (midnight) square, and nothing else.
 - **The dot also works as:**
   - the loader (breathing)
@@ -210,7 +232,7 @@ turns a sentence into an object.
 - **Frame:** radius 2, `--clay` or `--inset` background, aspect 4:5 or 1:1.
 - **Content:** one part, shot the same way every time (35° three-quarter view, one soft key light from the top left, matte, with a baked contact shadow).
 - **Corner labels** in mono: top left `PLATE 04 · LID HINGE`, bottom right `PLA · 0.2 MM · 38 MIN`.
-- **Hover:** the caption swaps to the prompt that made the part, in Newsreader italic (220ms).
+- **Hover:** the caption swaps to the prompt that made the part, in Fraunces italic (220ms).
 
 ### Spec sticker
 
@@ -361,7 +383,7 @@ product screenshot.
   - Caption "New here? Same buttons."
   - Footer `TERMS · PRIVACY` (with real links)
   - Remove "Your designs, revisions, and exports in one place." and "keep building interesting things."
-- **Carried prompt:** when `next` contains `prompt=`, show it above the buttons as a Newsreader italic pull-quote (24px, `--ink-2`, clamped to two lines). It gives sign-in a reason.
+- **Carried prompt:** when `next` contains `prompt=`, show it above the buttons as a Fraunces italic pull-quote (24px, `--ink-2`, clamped to two lines). It gives sign-in a reason.
 - **Buttons:**
   - **Google** is primary and **GitHub** is secondary, both full width.
   - The Google button uses the **real multicolour G SVG** (16px), not the letter "G". GitHub uses lucide `Github`.
@@ -424,6 +446,7 @@ No loop runs while offscreen (IntersectionObserver).
 **Visual effects:**
 - No violet, purple-to-blue gradients, radial glow blobs, or `backdrop-blur` / glass cards.
 - No `Sparkles`, wands, stars, emoji or "AI-powered" pills.
+- No dot-grid or graph-paper page background (Suzanne's), and no grey pencil sketches. Our sketch lines are construct blue.
 
 **Layouts to avoid:**
 - No fake app window with traffic-light dots. The part is the product shot.
@@ -439,7 +462,8 @@ No loop runs while offscreen (IntersectionObserver).
 
 **Type:**
 - No serif under 24px or inside a control.
-- No more than one italic word per headline.
+- No more than one italic word per headline, and never a tinted italic.
+- No `FIG. 00 - NAME` style caption without a print spec (material, layer height or minutes) beside it.
 - No landing sentence over 8 words.
 
 **Words:** never use "unleash", "supercharge", "revolutionize", "seamless" or "production-ready".
@@ -465,7 +489,7 @@ little. Make it bigger.
 
 | File | Change |
 |---|---|
-| `frontend/src/app/layout.tsx` | Add `Newsreader` (`style: ['normal','italic']`, `axes: ['opsz']`, variable `--font-serif`). Metadata title "nfinit". Theme-init script unchanged. |
+| `frontend/src/app/layout.tsx` | Add `Fraunces` (`style: ['normal','italic']`, `axes: ['opsz','SOFT','WONK']`, variable `--font-serif`). Metadata title "nfinit". Theme-init script unchanged. |
 | `frontend/src/app/globals.css` | Add the §2 tokens under both `html[data-theme]` blocks. Map the existing `--page-*`, `--primary-button`, `--ring`, `--accent` to them. Delete `--ambient-glow`. Add `--font-serif` to `@theme`. Add `.type-display … .type-spec` utilities from §3. Add motion tokens and the `@media (prefers-reduced-motion)` block. |
 | `frontend/src/components/brand/Wordmark.tsx` | New. The Missing Dot lockup (§4). Replaces `Brand()` in `page.tsx` and the inline logo in `login/page.tsx`. |
 | `frontend/src/components/landing/Plate.tsx` | New. Image, corner spec labels, prompt-on-hover, and the `LayerReveal` wrapper. |
