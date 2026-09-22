@@ -1,7 +1,8 @@
 import { Wordmark } from "@/components/brand/Wordmark";
 import { AuthPlate } from "@/components/landing/AuthPlate";
+import { ForceLightTheme } from "@/components/landing/ForceLightTheme";
+import { HeroDrone } from "@/components/landing/HeroDrone";
 import { LoginButtons } from "@/components/LoginButtons";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getAuthenticatedUser } from "@/lib/supabase/server";
 import type { Metadata } from "next";
@@ -13,21 +14,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 // Thin space before units (spec §3).
-const T = " ";
-
-// One of six parts prints in on each visit (spec §8).
-const AUTH_PLATES = [
-  { label: "Plate 02 · Cable clip", spec: `Cable clip · PETG · 4${T}min` },
-  { label: "Plate 03 · Lid hinge", spec: `Lid hinge · PLA · 22${T}min` },
-  { label: "Plate 04 · Pi 5 case", spec: `Pi 5 case · PLA · 1h 04` },
-  { label: "Plate 05 · Fan mount", spec: `40${T}mm fan mount · PETG · 26${T}min` },
-  { label: "Plate 06 · Pipe hook", spec: `Pipe hook · PETG · 38${T}min` },
-  { label: "Plate 07 · M6 knob", spec: `M6 knob · PLA · 9${T}min` },
-];
-
-function pickPlate() {
-  return AUTH_PLATES[Math.floor(Math.random() * AUTH_PLATES.length)];
-}
+const T = "\u2009";
 
 function safeNextPath(value: string | string[] | undefined): string {
   const path = Array.isArray(value) ? value[0] : value;
@@ -68,21 +55,23 @@ export default async function LoginPage({
 
   const error = Array.isArray(params.error) ? params.error[0] : params.error;
   const prompt = carriedPrompt(nextPath);
-  const plate = pickPlate();
 
   return (
-    <div className="wb wb-grain grid min-h-dvh grid-cols-1 lg:grid-cols-12">
+    <div className="wb grid min-h-dvh grid-cols-1 lg:grid-cols-12">
+      <ForceLightTheme />
       <AuthPlate
-        className="h-[180px] rounded-none lg:col-span-7 lg:h-auto"
-        label={plate.label}
-        spec={plate.spec}
+        className="h-[220px] rounded-none lg:col-span-7 lg:h-auto"
+        label="Plate 01 · 5-inch quad frame"
+        hint="Drag to spin"
+        spec={`PETG · 220${T}mm · 2h 40m`}
         halted={Boolean(error)}
-      />
+      >
+        <HeroDrone />
+      </AuthPlate>
 
       <main className="flex min-w-0 flex-col px-4 pb-6 pt-5 sm:px-8 lg:col-span-5 lg:px-12">
-        <header className="flex items-center justify-between">
+        <header className="flex h-8 items-center">
           <Wordmark />
-          <ThemeToggle variant="ghost" />
         </header>
 
         <section className="my-auto flex w-full max-w-[360px] flex-col gap-7 py-12">

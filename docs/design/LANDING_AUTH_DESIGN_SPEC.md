@@ -97,6 +97,12 @@ Three roles, strictly separated:
 | `--danger` | `#B42318` | `#F2685C` | Errors only |
 | `--success` | `#2E7D43` | `#7FD48A` | "Saved" and "Exported" only |
 
+### Theme
+
+**Porcelain (light) is the default everywhere.** The landing and auth pages are
+always porcelain and have no theme toggle (founder decision). Visitors choose
+midnight inside the studio, and that choice is kept for the studio only.
+
 ### Colour rules
 
 1. **The accent covers ≤2% of any viewport.** It may appear only as:
@@ -123,7 +129,7 @@ Three roles, strictly separated:
    - bone `#E6DECF`
 
    One filament colour per plate, and at most one orange part per screen.
-6. **Midnight grain.** A 3% monochrome SVG noise overlay (`mix-blend-mode: overlay`) is used in midnight only. Porcelain is clean paper.
+6. **Midnight grain.** A 3% monochrome SVG noise overlay (`mix-blend-mode: overlay`) is used in midnight only. Porcelain is clean paper. (The landing and auth pages are always porcelain, so this applies to future midnight surfaces only.)
 
 ---
 
@@ -246,7 +252,7 @@ turns a sentence into an object.
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ ● nfinit                                     Log in  [Start a part →]  ◐│  64px nav, transparent
+│ ● nfinit                                     Log in  [Start a part →]   │  64px nav, no theme toggle
 ├────────────────────────────────────────────────────────────────────┤
 │ DESCRIBE → REFINE → PRINT                                          │  label, muted
 │                                              ┌──────────────────┐  │
@@ -299,7 +305,7 @@ turns a sentence into an object.
     - "a snap-fit lid for a Raspberry Pi 5 case"
     - "a cable clip for a 6 mm desk edge"
   - Chips: `fan mount`, `cable clip`, `pi case`
-  - Plate captions: `PLATE 01 · SHELF BRACKET` / `PETG · 80 × 48 × 6 MM · 1H 12M`
+  - Plate captions: `PLATE 01 · 5-INCH QUAD FRAME` / `PETG · 220 MM · 2H 40M`, plus `DRAG TO SPIN` bottom left
 - **01 Describe:** the pull-quote "A hook for a 25 mm pipe. Two M4 screws."
 - **02 Refine:** "Click a face. *Change your mind.*" with the tag `FACE 7 · 6.0 → 9.0 MM` and chips `v1 v2 v3`
 - **03 Print:** "Print it tonight." with chips `.STL` `.STEP` and `hook_v3.stl · 184 KB · 38 MIN`
@@ -325,32 +331,36 @@ The word "AI" appears **zero times above the fold.**
 
 ### Visual assets
 
-**Phase 1 (ship now): placeholders, not fake product.**
+**Phase 1 (ship now): one real 3D part, placeholders for the rest.**
 
-Until real renders exist, every plate (hero, gallery, auth) is a **demo
-slot**, a deliberate empty frame:
-- Same size and position as the final plate (4:5 hero, 1:1 gallery, full-height auth panel).
-- `--inset` fill, 1px dashed `--hairline-strong` border, radius 2.
-- One centred mono label: `DEMO · COMING SOON` (hero), or the part name and specs for gallery slots (`CABLE CLIP · 4 MIN`).
-- The corner spec labels stay, so the layout reads as finished.
-- No drawn product UI, no fake app window, no hand-made SVG part standing in for a render. The old `ProductShowcase` is deleted, not restyled.
+- **Hero and auth plates: an interactive drone.** A simple 5-inch quad frame
+  built from primitives in r3f (`DroneScene.tsx`). It's graphite, with a
+  single Hot PLA part (the printed camera mount) and bone props. It hovers
+  gently, auto-rotates and spins when dragged. Zoom and pan are off, and on
+  touch only a sideways drag spins it, so the page still scrolls. The founder
+  chose this over an empty demo slot: it makes the product feel tangible.
+- **Gallery plates stay demo slots:**
+  - `--inset` fill, 1px dashed `--hairline-strong` border, radius 2
+  - one centred mono label with the part name and time (`CABLE CLIP · 4 MIN`)
+  - the corner spec labels stay, so the layout reads as finished
+- **Never:** drawn product UI, a fake app window, or a flat SVG part pretending to be a render. The old `ProductShowcase` is deleted, not restyled.
 
-The layer-print reveal still runs on the empty slot (the nozzle line sweeps
-it once), so the motion language ships now and simply gets a real image later.
+The layer-print reveal runs on every plate, the drone included: the nozzle
+line sweeps it once and the part prints in.
 
 The **flow section** stays a simple SVG diagram of the pipe hook (sketch,
 face selected, layered). It explains the flow, and isn't pretending to be a
 product screenshot.
 
 **Phase 2 (when real renders exist):**
-- **Seven renders** exported from the real nfinit viewer, dropped into the existing slots: the hero bracket plus six gallery parts, each in two backgrounds (paper and midnight). They're AVIF, about 40KB each.
+- **Six renders** exported from the real nfinit viewer for the gallery slots (or small r3f meshes like the drone). They're AVIF, about 40KB each.
 - **One real photograph** of a printed part on a PEI bed, for the Print step. It earns more trust than any render.
 - **A lazy r3f scene** for the flow (proposal D's matcap plus clipping-plane approach). It uses `frameloop="demand"` and loads only when within 400px of the viewport.
 
 **Performance budget:**
-- LCP under 1.8s on 4G (the headline is the LCP element while the hero is a placeholder; later, the hero still image)
-- Initial JS under 90KB gzipped
-- No WebGL above the fold
+- LCP under 1.8s on 4G. The headline is the LCP element.
+- Initial JS under 90KB gzipped. three.js is **not** in the initial bundle: the drone is a `next/dynamic` import with `ssr: false`, so it loads after the headline paints.
+- WebGL above the fold is allowed for the drone only (founder decision). It renders only while on screen (`frameloop` switches to `never` offscreen), and under reduced motion it stays still but can still be dragged.
 
 ---
 
@@ -358,10 +368,10 @@ product screenshot.
 
 ```
 ┌─────────────────────────────────────┬──────────────────────────────┐
-│                                     │ ● nfinit                   ◐ │
+│                                     │ ● nfinit                     │
 │   PLATE 04                          │                              │
 │                                     │ Come make                    │  H1 serif 56/40, left
-│   [lid hinge prints in on clay,     │ *something.*                 │
+│   [the drone prints in on clay,     │ *something.*                 │
 │    nozzle line ══●══]               │                              │
 │                                     │ “a wall mount for a 40 mm    │  only if ?next carries a
 │                                     │  fan, M3 screws”             │  prompt: italic pull-quote
@@ -375,7 +385,7 @@ product screenshot.
 ```
 
 - **Layout:**
-  - **Desktop** splits 7/5. The left side is a full-height plate on `--clay` with one part printing in; it changes on each visit (one of six).
+  - **Desktop** splits 7/5. The left side is a full-height plate on `--clay` with the same interactive drone as the hero printing in.
   - **The right side** is `--paper`, with content left-aligned, vertically centred and max 360 wide.
   - **Mobile:** the plate becomes a 180px band on top.
 - **Copy:**
@@ -398,7 +408,7 @@ product screenshot.
   - The raw provider message goes in a `<details>` labelled `Details` (mono, muted).
   - Use `role="alert"` and move focus to the block.
   - On the left, the part **stops half-printed**: a quiet failed-print joke, with no red flash.
-- **Theme toggle:** keep it in the top right, restyled as a ghost 32px icon button.
+- **Theme toggle:** none. The auth page is always porcelain (see §2, Theme).
 
 ---
 
@@ -500,7 +510,8 @@ little. Make it bigger.
 | `frontend/src/app/page.tsx` | Rebuild to §7. Delete `ProductShowcase`, the glow and the noise div. |
 | `frontend/src/app/login/page.tsx` | Rebuild to §8, parsing `prompt` out of `next` for the pull-quote. |
 | `frontend/src/components/LoginButtons.tsx` | Buttons per §6 and states per §8. Google G SVG. Replace `Loader2` with the dot. The error block gets a `<details>`. |
-| `frontend/src/app/studio/page.tsx` (follow-up) | Read the `?prompt=` param and prefill the chat (small, separate PR). |
+| `frontend/src/app/studio/page.tsx` | Read the `?prompt=` param, keep it through the sign-in redirect, and prefill the welcome chat input (not auto-sent). |
+| `frontend/src/components/landing/DroneScene.tsx` | New, client only. The interactive quad frame for the hero and auth plates (§7). |
 
 **Build order:**
 1. Tokens and fonts, plus the wordmark

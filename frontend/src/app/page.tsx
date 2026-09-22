@@ -1,9 +1,10 @@
 import { Wordmark } from "@/components/brand/Wordmark";
 import { DimensionRule } from "@/components/landing/DimensionRule";
 import { FlowHook } from "@/components/landing/FlowHook";
+import { ForceLightTheme } from "@/components/landing/ForceLightTheme";
+import { HeroDrone } from "@/components/landing/HeroDrone";
 import { Plate } from "@/components/landing/Plate";
 import { PromptBar } from "@/components/landing/PromptBar";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
@@ -57,7 +58,8 @@ function riseDelay(ms: number) {
 
 export default function LandingPage() {
   return (
-    <div className="wb wb-grain min-h-dvh overflow-x-clip">
+    <div className="wb min-h-dvh overflow-x-clip">
+      <ForceLightTheme />
       <header className="mx-auto flex h-16 max-w-[1264px] items-center justify-between gap-3 px-4 sm:px-8">
         <Wordmark />
         <nav className="flex items-center gap-1 sm:gap-2" aria-label="Main">
@@ -70,7 +72,6 @@ export default function LandingPage() {
               →
             </span>
           </Link>
-          <ThemeToggle variant="ghost" />
         </nav>
       </header>
 
@@ -93,16 +94,18 @@ export default function LandingPage() {
 
           <Plate
             className="aspect-square w-full lg:col-span-5 lg:row-span-2 lg:row-start-1 lg:aspect-[4/5]"
-            label="Plate 01 · Shelf bracket"
+            label="Plate 01 · 5-inch quad frame"
+            hint="Drag to spin"
             spec={
               <>
-                PETG · 80 × 48 × 6{T}mm
+                PETG · 220{T}mm
                 <br />
-                1h 12m
+                2h 40m
               </>
             }
-            prompt="a shelf bracket, 80 mm deep, two screw holes"
-          />
+          >
+            <HeroDrone />
+          </Plate>
 
           <PromptBar className="lg:col-span-7 lg:row-start-2 lg:self-end" />
         </section>

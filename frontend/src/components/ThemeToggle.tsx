@@ -15,18 +15,7 @@ function applyTheme(theme: AppTheme) {
   window.dispatchEvent(new CustomEvent("nfinit-theme-change", { detail: theme }));
 }
 
-export function ThemeToggle({
-  className = "",
-  variant = "default",
-}: {
-  className?: string;
-  variant?: "default" | "ghost";
-}) {
-  const look =
-    variant === "ghost"
-      ? "wb-icon-btn"
-      : "theme-toggle flex size-9 items-center justify-center rounded-full border transition-all hover:scale-[1.03]";
-
+export function ThemeToggle({ className = "" }: { className?: string }) {
   return (
     <button
       type="button"
@@ -40,7 +29,7 @@ export function ThemeToggle({
       }}
       aria-label="Toggle color theme"
       title="Toggle color theme"
-      className={`${look} ${className}`}
+      className={`theme-toggle flex size-9 items-center justify-center rounded-full border transition-all hover:scale-[1.03] ${className}`}
     >
       <Moon className="theme-icon-midnight size-3.5" />
       <Sun className="theme-icon-porcelain size-3.5" />

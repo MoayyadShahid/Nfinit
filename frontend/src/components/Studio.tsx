@@ -57,7 +57,13 @@ const DEFAULT_CODE = [
   "result = part.part",
 ].join("\n");
 
-export default function Studio({ viewer }: { viewer?: Viewer | null }) {
+export default function Studio({
+  viewer,
+  initialPrompt,
+}: {
+  viewer?: Viewer | null;
+  initialPrompt?: string;
+}) {
   const [code, setCode] = useState(DEFAULT_CODE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL);
@@ -569,6 +575,7 @@ export default function Studio({ viewer }: { viewer?: Viewer | null }) {
                 supportsVision={modelConfig?.supportsVision ?? false}
                 selection={selectedFace}
                 variant="welcome"
+                initialInput={initialPrompt}
               />
             </div>
             <p className="mt-5 text-center text-[11px] text-zinc-600">

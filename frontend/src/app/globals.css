@@ -726,6 +726,21 @@ html[data-theme="midnight"] .wb-submit:hover {
   color: var(--ink-2);
 }
 
+.wb-plate-corner,
+.wb-plate-prompt {
+  pointer-events: none;
+}
+
+.wb-plate-bl {
+  bottom: 14px;
+  left: 14px;
+  color: var(--muted);
+}
+
+.wb-plate[data-has-prompt="true"]:hover .wb-plate-bl {
+  opacity: 0;
+}
+
 .wb-plate-tl {
   top: 14px;
   left: 14px;
