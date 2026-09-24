@@ -10,6 +10,14 @@ type RouteContext = {
   params: Promise<{ path?: string[] }>;
 };
 
+function localAuthBypassEnabled() {
+  const explicit = process.env.NFNIT_ALLOW_LOCAL_AUTH_BYPASS;
+  if (explicit !== undefined) {
+    return ["1", "true", "yes", "on"].includes(explicit.trim().toLowerCase());
+  }
+  return process.env.NODE_ENV !== "production";
+}
+
 async function proxy(request: Request, context: RouteContext) {
   const { path = [] } = await context.params;
   const backendPath = ["projects", ...path.map(encodeURIComponent)].join("/");
@@ -19,6 +27,13 @@ async function proxy(request: Request, context: RouteContext) {
   const headers = new Headers();
   const contentType = request.headers.get("content-type");
   if (contentType) headers.set("Content-Type", contentType);
+
+  if (!isSupabaseConfigured() && !localAuthBypassEnabled()) {
+    return Response.json(
+      { detail: "Production project authentication is not configured." },
+      { status: 503 }
+    );
+  }
 
   if (isSupabaseConfigured()) {
     const supabase = await createSupabaseServerClient();

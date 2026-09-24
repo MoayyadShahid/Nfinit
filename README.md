@@ -91,7 +91,10 @@ SUPABASE_URL=https://your-project.supabase.co
 Apply `supabase/migrations/20260924184500_project_storage.sql` to the Supabase
 project before enabling `NFNIT_DATABASE_URL`. The backend validates Supabase
 access tokens using the project's JWKS endpoint. Set `SUPABASE_JWT_SECRET` only
-for projects that still issue legacy HS256 tokens.
+for projects that still issue legacy HS256 tokens. Railway is detected as a
+production environment automatically; other hosts should set
+`NFNIT_ENV=production`. Production startup fails when Supabase authentication or
+Postgres storage is missing instead of falling back to shared local state.
 
 ## Agent workflow
 
@@ -254,7 +257,10 @@ Local development stores projects in SQLite at `backend/data/nfinit.db` by
 default. Set `NFNIT_DATABASE_PATH` to place that file elsewhere. Production uses
 Supabase Postgres when `NFNIT_DATABASE_URL` is present. Projects are owned by the
 authenticated Supabase user, and row-level security isolates both projects and
-their revisions.
+their revisions. The migration creates a non-login `nfinit_backend` database
+role for the Railway connection to assume per transaction. Browser Supabase
+roles receive no table privileges, so revision history cannot be rewritten by
+bypassing FastAPI.
 
 Each project begins with revision 1, and every save appends an immutable JSONB
 snapshot containing code, chat messages, model selection, selected-face

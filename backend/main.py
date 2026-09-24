@@ -29,6 +29,7 @@ from execution import (
     inspect_code as sandbox_inspect_code,
 )
 from projects import router as projects_router
+from projects.config import validate_project_configuration
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,6 +39,7 @@ load_dotenv(Path(__file__).with_name(".env"))
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    validate_project_configuration()
     yield
     flush_tracing()
 

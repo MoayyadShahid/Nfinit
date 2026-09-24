@@ -8,6 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 from jwt.exceptions import PyJWTError
 
+from .config import local_auth_bypass_enabled
 from .store import LEGACY_LOCAL_USER_ID
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -18,6 +19,13 @@ def _unauthorized(detail: str = "Authentication required.") -> HTTPException:
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=detail,
         headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _unavailable() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Production project authentication is not configured.",
     )
 
 
@@ -66,7 +74,9 @@ def get_current_user_id(
         or os.getenv("SUPABASE_JWT_SECRET", "").strip()
     )
     if not auth_configured:
-        return LEGACY_LOCAL_USER_ID
+        if local_auth_bypass_enabled():
+            return LEGACY_LOCAL_USER_ID
+        raise _unavailable()
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise _unauthorized()
 

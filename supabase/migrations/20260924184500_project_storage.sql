@@ -24,30 +24,38 @@ create index if not exists idx_project_revisions_project
 alter table public.projects enable row level security;
 alter table public.project_revisions enable row level security;
 
+do $$
+begin
+  create role nfinit_backend nologin noinherit;
+exception
+  when duplicate_object then null;
+end
+$$;
+
 create policy "Users can read their projects"
   on public.projects for select
-  to authenticated
+  to nfinit_backend
   using ((select auth.uid()) = user_id);
 
 create policy "Users can create their projects"
   on public.projects for insert
-  to authenticated
+  to nfinit_backend
   with check ((select auth.uid()) = user_id);
 
 create policy "Users can update their projects"
   on public.projects for update
-  to authenticated
+  to nfinit_backend
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
 
 create policy "Users can delete their projects"
   on public.projects for delete
-  to authenticated
+  to nfinit_backend
   using ((select auth.uid()) = user_id);
 
 create policy "Users can read revisions for their projects"
   on public.project_revisions for select
-  to authenticated
+  to nfinit_backend
   using (
     exists (
       select 1
@@ -59,7 +67,7 @@ create policy "Users can read revisions for their projects"
 
 create policy "Users can create revisions for their projects"
   on public.project_revisions for insert
-  to authenticated
+  to nfinit_backend
   with check (
     exists (
       select 1
@@ -69,19 +77,7 @@ create policy "Users can create revisions for their projects"
     )
   );
 
-create policy "Users can delete revisions for their projects"
-  on public.project_revisions for delete
-  to authenticated
-  using (
-    exists (
-      select 1
-      from public.projects
-      where projects.id = project_revisions.project_id
-        and projects.user_id = (select auth.uid())
-    )
-  );
-
-grant select, insert, update, delete on public.projects to authenticated;
-grant select, insert, delete on public.project_revisions to authenticated;
-revoke all on public.projects, public.project_revisions from anon;
-revoke update on public.project_revisions from authenticated;
+revoke all on public.projects, public.project_revisions from anon, authenticated;
+grant usage on schema public to nfinit_backend;
+grant select, insert, update, delete on public.projects to nfinit_backend;
+grant select, insert on public.project_revisions to nfinit_backend;

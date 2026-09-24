@@ -29,7 +29,7 @@ class PostgresProjectStore:
                 "SELECT set_config('request.jwt.claim.sub', %s, true)",
                 (user_id,),
             )
-            connection.execute("SET LOCAL ROLE authenticated")
+            connection.execute("SET LOCAL ROLE nfinit_backend")
             yield connection
 
     @staticmethod
