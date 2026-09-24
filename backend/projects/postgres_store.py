@@ -1,6 +1,6 @@
 import json
 from contextlib import contextmanager
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import psycopg
 from psycopg.rows import dict_row
@@ -35,6 +35,13 @@ class PostgresProjectStore:
     @staticmethod
     def _state_value(state: ProjectState) -> dict:
         return state.model_dump(mode="json", by_alias=True)
+
+    @staticmethod
+    def _project_uuid(project_id: str) -> str:
+        try:
+            return str(UUID(project_id))
+        except (ValueError, AttributeError) as error:
+            raise ProjectNotFoundError(project_id) from error
 
     @staticmethod
     def _revision(row: dict) -> ProjectRevision:
@@ -135,12 +142,14 @@ class PostgresProjectStore:
         return [self._summary(row) for row in rows]
 
     def get_project(self, project_id: str, *, user_id: str) -> ProjectDetail:
+        project_id = self._project_uuid(project_id)
         with self._connect(user_id) as connection:
             return self._get_project(connection, project_id, user_id)
 
     def rename_project(
         self, project_id: str, name: str, *, user_id: str
     ) -> ProjectDetail:
+        project_id = self._project_uuid(project_id)
         with self._connect(user_id) as connection:
             updated = connection.execute(
                 """
@@ -158,6 +167,7 @@ class PostgresProjectStore:
     def add_revision(
         self, project_id: str, state: ProjectState, *, user_id: str
     ) -> ProjectRevision:
+        project_id = self._project_uuid(project_id)
         revision_id = str(uuid4())
         with self._connect(user_id) as connection:
             project = connection.execute(
@@ -209,6 +219,7 @@ class PostgresProjectStore:
         limit: int = 100,
         offset: int = 0,
     ) -> list[ProjectRevision]:
+        project_id = self._project_uuid(project_id)
         with self._connect(user_id) as connection:
             project = connection.execute(
                 """
@@ -233,6 +244,7 @@ class PostgresProjectStore:
     def get_revision(
         self, project_id: str, revision_number: int, *, user_id: str
     ) -> ProjectRevision:
+        project_id = self._project_uuid(project_id)
         with self._connect(user_id) as connection:
             project = connection.execute(
                 """
@@ -257,6 +269,7 @@ class PostgresProjectStore:
         return self._revision(row)
 
     def delete_project(self, project_id: str, *, user_id: str) -> None:
+        project_id = self._project_uuid(project_id)
         with self._connect(user_id) as connection:
             deleted = connection.execute(
                 """
