@@ -9,8 +9,15 @@ Thumbs.db
 # IDE files
 .vscode/
 .idea/
+.cursor/mcp.json
 *.swp
 *.swo
+
+# Local agent skills and tooling
+.agents/
+.claude/
+agent/
+skills-lock.json
 
 # Logs
 *.log
