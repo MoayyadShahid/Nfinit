@@ -5,18 +5,8 @@ def _enabled(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def is_production_environment() -> bool:
-    return bool(
-        os.getenv("RAILWAY_ENVIRONMENT", "").strip()
-        or os.getenv("NFNIT_ENV", "").strip().lower() == "production"
-    )
-
-
 def local_auth_bypass_enabled() -> bool:
-    explicit = os.getenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS")
-    if explicit is not None:
-        return _enabled(explicit)
-    return not is_production_environment()
+    return _enabled(os.getenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS"))
 
 
 def validate_project_configuration() -> None:

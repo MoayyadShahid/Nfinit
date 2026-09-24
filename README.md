@@ -91,10 +91,11 @@ SUPABASE_URL=https://your-project.supabase.co
 Apply `supabase/migrations/20260924184500_project_storage.sql` to the Supabase
 project before enabling `NFNIT_DATABASE_URL`. The backend validates Supabase
 access tokens using the project's JWKS endpoint. Set `SUPABASE_JWT_SECRET` only
-for projects that still issue legacy HS256 tokens. Railway is detected as a
-production environment automatically; other hosts should set
-`NFNIT_ENV=production`. Production startup fails when Supabase authentication or
-Postgres storage is missing instead of falling back to shared local state.
+for projects that still issue legacy HS256 tokens. Production startup fails when
+Supabase authentication or Postgres storage is missing instead of falling back
+to shared local state. The copied backend `.env.example` explicitly enables the
+shared identity for local development; never set
+`NFNIT_ALLOW_LOCAL_AUTH_BYPASS=true` on a public deployment.
 
 ## Agent workflow
 

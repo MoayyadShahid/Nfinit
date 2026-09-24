@@ -17,7 +17,6 @@ USER_ID = "00000000-0000-4000-8000-000000000010"
 @pytest.fixture(autouse=True)
 def clean_project_environment(monkeypatch):
     for name in (
-        "NFNIT_ALLOW_LOCAL_AUTH_BYPASS",
         "NFNIT_DATABASE_URL",
         "NFNIT_ENV",
         "RAILWAY_ENVIRONMENT",
@@ -76,7 +75,7 @@ def test_project_auth_rejects_invalid_subject(monkeypatch):
 
 
 def test_production_configuration_fails_closed(monkeypatch):
-    monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+    monkeypatch.delenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", raising=False)
 
     with pytest.raises(RuntimeError, match="NFNIT_DATABASE_URL, SUPABASE_URL"):
         validate_project_configuration()

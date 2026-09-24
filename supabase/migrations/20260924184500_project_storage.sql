@@ -32,6 +32,8 @@ exception
 end
 $$;
 
+grant nfinit_backend to postgres;
+
 create policy "Users can read their projects"
   on public.projects for select
   to nfinit_backend
