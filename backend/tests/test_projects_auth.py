@@ -1,0 +1,61 @@
+from datetime import datetime, timedelta, timezone
+
+import jwt
+import pytest
+from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
+
+from projects.auth import get_current_user_id
+from projects.store import LEGACY_LOCAL_USER_ID
+
+SUPABASE_URL = "https://example.supabase.co"
+JWT_SECRET = "a-test-secret-that-is-long-enough-for-hs256"
+USER_ID = "00000000-0000-4000-8000-000000000010"
+
+
+def _credentials(subject: str = USER_ID) -> HTTPAuthorizationCredentials:
+    token = jwt.encode(
+        {
+            "sub": subject,
+            "aud": "authenticated",
+            "iss": f"{SUPABASE_URL}/auth/v1",
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+        },
+        JWT_SECRET,
+        algorithm="HS256",
+    )
+    return HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+
+def test_project_auth_uses_local_identity_without_supabase(monkeypatch):
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    monkeypatch.delenv("SUPABASE_JWT_SECRET", raising=False)
+
+    assert get_current_user_id(None) == LEGACY_LOCAL_USER_ID
+
+
+def test_project_auth_requires_token_when_supabase_is_configured(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", SUPABASE_URL)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
+
+    with pytest.raises(HTTPException) as error:
+        get_current_user_id(None)
+
+    assert error.value.status_code == 401
+
+
+def test_project_auth_accepts_valid_supabase_token(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", SUPABASE_URL)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
+
+    assert get_current_user_id(_credentials()) == USER_ID
+
+
+def test_project_auth_rejects_invalid_subject(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", SUPABASE_URL)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
+
+    with pytest.raises(HTTPException) as error:
+        get_current_user_id(_credentials("not-a-uuid"))
+
+    assert error.value.status_code == 401

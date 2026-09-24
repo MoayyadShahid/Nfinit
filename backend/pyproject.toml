@@ -16,6 +16,8 @@ openai = ">=3.14.0"
 python-dotenv = ">=1.2.3"
 langfuse = ">=4.15.3"
 pinecone = "^10.0.0"
+psycopg = {extras = ["binary"], version = "^3.3.6"}
+pyjwt = {extras = ["crypto"], version = "^2.15.0"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=9.1.1"

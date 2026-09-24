@@ -46,7 +46,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
-const LAST_PROJECT_KEY = "nfinit:last-project-id";
 
 const DEFAULT_CODE = [
   "width, depth, height = 10.0, 10.0, 10.0",
@@ -84,6 +83,9 @@ export default function Studio({
   const [inspection, setInspection] = useState<ModelInspection | null>(null);
 
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
+  const lastProjectKey = viewer?.id
+    ? `nfinit:${viewer.id}:last-project-id`
+    : "nfinit:last-project-id";
 
   const inspectModel = useCallback(async (codeToInspect: string) => {
     const response = await fetch(`${BACKEND_URL}/inspect-model`, {
@@ -168,11 +170,11 @@ export default function Studio({
       setError(null);
       try {
         const [project, history] = await Promise.all([
-          getProject(BACKEND_URL, nextProjectId),
-          listRevisions(BACKEND_URL, nextProjectId),
+          getProject(nextProjectId),
+          listRevisions(nextProjectId),
         ]);
         setProjectId(project.id);
-        window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
+        window.localStorage.setItem(lastProjectKey, project.id);
         setRevisions(history);
         if (project.latestRevision) {
           await applyRevision(project.latestRevision);
@@ -183,7 +185,7 @@ export default function Studio({
         setIsProjectLoading(false);
       }
     },
-    [applyRevision, isDirty]
+    [applyRevision, isDirty, lastProjectKey]
   );
 
   const persistSnapshot = useCallback(
@@ -191,7 +193,7 @@ export default function Studio({
       setIsSaving(true);
       try {
         if (projectId) {
-          const revision = await addRevision(BACKEND_URL, projectId, state);
+          const revision = await addRevision(projectId, state);
           setRevisions((previous) => [
             revision,
             ...previous.filter((item) => item.id !== revision.id),
@@ -208,15 +210,14 @@ export default function Studio({
                 : project
             )
           );
-          window.localStorage.setItem(LAST_PROJECT_KEY, projectId);
+          window.localStorage.setItem(lastProjectKey, projectId);
         } else {
           const project = await createProject(
-            BACKEND_URL,
             suggestedName || projectNameFromMessages(state.messages),
             state
           );
           setProjectId(project.id);
-          window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
+          window.localStorage.setItem(lastProjectKey, project.id);
           setProjects((previous) => [
             project,
             ...previous.filter((item) => item.id !== project.id),
@@ -231,7 +232,7 @@ export default function Studio({
         setIsSaving(false);
       }
     },
-    [projectId, projectNameFromMessages]
+    [lastProjectKey, projectId, projectNameFromMessages]
   );
 
   const saveCurrentRevision = useCallback(async () => {
@@ -282,7 +283,7 @@ export default function Studio({
       return null;
     });
     setProjectId(null);
-    window.localStorage.removeItem(LAST_PROJECT_KEY);
+    window.localStorage.removeItem(lastProjectKey);
     setRevisions([]);
     setCurrentRevision(null);
     setCode(DEFAULT_CODE);
@@ -293,7 +294,7 @@ export default function Studio({
     setLastRunId(null);
     setIsDirty(true);
     setError(null);
-  }, [isDirty]);
+  }, [isDirty, lastProjectKey]);
 
   const loadRevision = useCallback(
     async (revisionNumber: number) => {
@@ -460,22 +461,22 @@ export default function Studio({
 
   useEffect(() => {
     let active = true;
-    listProjects(BACKEND_URL)
+    listProjects()
       .then(async (items) => {
         if (!active) return;
         setProjects(items);
-        const storedProjectId = window.localStorage.getItem(LAST_PROJECT_KEY);
+        const storedProjectId = window.localStorage.getItem(lastProjectKey);
         const latest =
           items.find((project) => project.id === storedProjectId) ?? items[0];
         if (!latest) return;
         setIsProjectLoading(true);
         const [project, history] = await Promise.all([
-          getProject(BACKEND_URL, latest.id),
-          listRevisions(BACKEND_URL, latest.id),
+          getProject(latest.id),
+          listRevisions(latest.id),
         ]);
         if (!active) return;
         setProjectId(project.id);
-        window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
+        window.localStorage.setItem(lastProjectKey, project.id);
         setRevisions(history);
         if (project.latestRevision) {
           await applyRevision(project.latestRevision);
@@ -499,7 +500,7 @@ export default function Studio({
     return () => {
       active = false;
     };
-  }, [applyRevision]);
+  }, [applyRevision, lastProjectKey]);
 
   useEffect(() => {
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {

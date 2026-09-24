@@ -2,13 +2,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
+from projects.auth import get_current_user_id
 from projects.store import ProjectStore, get_project_store
+
+USER_ID = "00000000-0000-4000-8000-000000000010"
 
 
 @pytest.fixture
 def client(tmp_path):
     store = ProjectStore(tmp_path / "projects.db")
     main.app.dependency_overrides[get_project_store] = lambda: store
+    main.app.dependency_overrides[get_current_user_id] = lambda: USER_ID
     with TestClient(main.app) as test_client:
         yield test_client
     main.app.dependency_overrides.clear()
