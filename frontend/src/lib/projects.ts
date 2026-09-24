@@ -41,11 +41,13 @@ function errorMessage(payload: unknown, fallback: string): string {
 }
 
 async function requestJson<T>(
-  backendUrl: string,
   path: string,
   init?: RequestInit
 ): Promise<T> {
-  const response = await fetch(`${backendUrl}${path}`, init);
+  const response = await fetch(`/api${path}`, {
+    ...init,
+    cache: "no-store",
+  });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(errorMessage(payload, `Request failed (${response.status})`));
@@ -61,43 +63,33 @@ function jsonRequest(method: "POST" | "PATCH", body: unknown): RequestInit {
   };
 }
 
-export function listProjects(backendUrl: string): Promise<ProjectSummary[]> {
-  return requestJson(backendUrl, "/projects");
+export function listProjects(): Promise<ProjectSummary[]> {
+  return requestJson("/projects");
 }
 
-export function getProject(
-  backendUrl: string,
-  projectId: string
-): Promise<ProjectDetail> {
-  return requestJson(backendUrl, `/projects/${projectId}`);
+export function getProject(projectId: string): Promise<ProjectDetail> {
+  return requestJson(`/projects/${projectId}`);
 }
 
-export function listRevisions(
-  backendUrl: string,
-  projectId: string
-): Promise<ProjectRevision[]> {
-  return requestJson(backendUrl, `/projects/${projectId}/revisions`);
+export function listRevisions(projectId: string): Promise<ProjectRevision[]> {
+  return requestJson(`/projects/${projectId}/revisions`);
 }
 
 export function createProject(
-  backendUrl: string,
   name: string,
   state: ProjectState
 ): Promise<ProjectDetail> {
   return requestJson(
-    backendUrl,
     "/projects",
     jsonRequest("POST", { name, state })
   );
 }
 
 export function addRevision(
-  backendUrl: string,
   projectId: string,
   state: ProjectState
 ): Promise<ProjectRevision> {
   return requestJson(
-    backendUrl,
     `/projects/${projectId}/revisions`,
     jsonRequest("POST", { state })
   );

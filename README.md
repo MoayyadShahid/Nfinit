@@ -75,13 +75,27 @@ https://your-production-domain.com/auth/callback
 The landing page login action uses `/login?next=/studio`. Configured
 deployments exchange the OAuth code in `/auth/callback`, store the Supabase
 session in secure cookies, protect `/studio`, and expose sign-out in the studio
-toolbar.
+toolbar. Project requests pass through a same-origin Next.js route that forwards
+the verified Supabase access token to FastAPI.
 
 **Backend:** Copy `backend/.env.example` to `backend/.env` and configure:
 
 ```
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
+
+# Production persistence and authentication
+NFNIT_DATABASE_URL=postgresql://...
+SUPABASE_URL=https://your-project.supabase.co
 ```
+
+Apply `supabase/migrations/20260924184500_project_storage.sql` to the Supabase
+project before enabling `NFNIT_DATABASE_URL`. The backend validates Supabase
+access tokens using the project's JWKS endpoint. Set `SUPABASE_JWT_SECRET` only
+for projects that still issue legacy HS256 tokens. Production startup fails when
+Supabase authentication or Postgres storage is missing instead of falling back
+to shared local state. The copied backend `.env.example` explicitly enables the
+shared identity for local development; never set
+`NFNIT_ALLOW_LOCAL_AUTH_BYPASS=true` on a public deployment.
 
 ## Agent workflow
 
@@ -240,12 +254,19 @@ geometry results, timing, model identifiers, and token usage.
 
 ## Project persistence
 
-The backend stores projects in SQLite at `backend/data/nfinit.db` by default.
-Set `NFNIT_DATABASE_PATH` to place the database elsewhere. Each project begins
-with revision 1, and every save appends an immutable snapshot containing code,
-chat messages, model selection, selected-face context, and the latest agent run
-ID. Loading an older revision never overwrites history; save it again to create
-a new revision.
+Local development stores projects in SQLite at `backend/data/nfinit.db` by
+default. Set `NFNIT_DATABASE_PATH` to place that file elsewhere. Production uses
+Supabase Postgres when `NFNIT_DATABASE_URL` is present. Projects are owned by the
+authenticated Supabase user, and row-level security isolates both projects and
+their revisions. The migration creates a non-login `nfinit_backend` database
+role for the Railway connection to assume per transaction. Browser Supabase
+roles receive no table privileges, so revision history cannot be rewritten by
+bypassing FastAPI.
+
+Each project begins with revision 1, and every save appends an immutable JSONB
+snapshot containing code, chat messages, model selection, selected-face
+context, and the latest agent run ID. Loading an older revision never overwrites
+history; save it again to create a new revision.
 
 Project APIs:
 
@@ -255,8 +276,8 @@ Project APIs:
 - `GET /projects/{project_id}/revisions/{revision_number}`
 - `GET /projects/{project_id}/compare?previousRevision=1&currentRevision=2`
 
-SQLite WAL mode and transactional revision numbering keep concurrent saves
-consistent. Database files are excluded from Git.
+SQLite WAL mode keeps local saves consistent. In Supabase, project-row locking
+serializes revision numbering. Database files are excluded from Git.
 
 ## Evaluations
 

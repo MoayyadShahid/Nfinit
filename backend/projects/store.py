@@ -4,6 +4,7 @@ import sqlite3
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
+from typing import Protocol
 from uuid import uuid4
 
 from .models import (
@@ -21,6 +22,44 @@ class ProjectNotFoundError(LookupError):
 
 class RevisionNotFoundError(LookupError):
     pass
+
+
+LEGACY_LOCAL_USER_ID = "00000000-0000-4000-8000-000000000001"
+
+
+class ProjectStoreProtocol(Protocol):
+    def create_project(
+        self, request: ProjectCreate, *, user_id: str
+    ) -> ProjectDetail: ...
+
+    def list_projects(
+        self, *, user_id: str, limit: int = 50, offset: int = 0
+    ) -> list[ProjectSummary]: ...
+
+    def get_project(self, project_id: str, *, user_id: str) -> ProjectDetail: ...
+
+    def rename_project(
+        self, project_id: str, name: str, *, user_id: str
+    ) -> ProjectDetail: ...
+
+    def add_revision(
+        self, project_id: str, state: ProjectState, *, user_id: str
+    ) -> ProjectRevision: ...
+
+    def list_revisions(
+        self,
+        project_id: str,
+        *,
+        user_id: str,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[ProjectRevision]: ...
+
+    def get_revision(
+        self, project_id: str, revision_number: int, *, user_id: str
+    ) -> ProjectRevision: ...
+
+    def delete_project(self, project_id: str, *, user_id: str) -> None: ...
 
 
 def _timestamp() -> str:
@@ -57,6 +96,7 @@ class ProjectStore:
                 PRAGMA journal_mode = WAL;
                 CREATE TABLE IF NOT EXISTS projects (
                     id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
                     name TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
@@ -71,9 +111,24 @@ class ProjectStore:
                         ON DELETE CASCADE,
                     UNIQUE (project_id, revision_number)
                 );
+                """
+            )
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(projects)").fetchall()
+            }
+            if "user_id" not in columns:
+                connection.execute(
+                    "ALTER TABLE projects ADD COLUMN user_id TEXT NOT NULL "
+                    f"DEFAULT '{LEGACY_LOCAL_USER_ID}'"
+                )
+            connection.executescript(
+                """
+                CREATE INDEX IF NOT EXISTS idx_projects_user_updated
+                    ON projects(user_id, updated_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_project_revisions_project
                     ON project_revisions(project_id, revision_number DESC);
-                PRAGMA user_version = 1;
+                PRAGMA user_version = 2;
                 """
             )
 
@@ -104,7 +159,9 @@ class ProjectStore:
             updated_at=row["updated_at"],
         )
 
-    def create_project(self, request: ProjectCreate) -> ProjectDetail:
+    def create_project(
+        self, request: ProjectCreate, *, user_id: str
+    ) -> ProjectDetail:
         project_id = str(uuid4())
         revision_id = str(uuid4())
         now = _timestamp()
@@ -112,10 +169,10 @@ class ProjectStore:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
-                INSERT INTO projects (id, name, created_at, updated_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO projects (id, user_id, name, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (project_id, request.name, now, now),
+                (project_id, user_id, request.name, now, now),
             )
             connection.execute(
                 """
@@ -125,34 +182,37 @@ class ProjectStore:
                 """,
                 (revision_id, project_id, self._state_json(request.state), now),
             )
-        return self.get_project(project_id)
+        return self.get_project(project_id, user_id=user_id)
 
-    def list_projects(self, *, limit: int = 50, offset: int = 0) -> list[ProjectSummary]:
+    def list_projects(
+        self, *, user_id: str, limit: int = 50, offset: int = 0
+    ) -> list[ProjectSummary]:
         with self._connect() as connection:
             rows = connection.execute(
                 """
                 SELECT p.*, COUNT(r.id) AS revision_count
                 FROM projects p
                 LEFT JOIN project_revisions r ON r.project_id = p.id
+                WHERE p.user_id = ?
                 GROUP BY p.id
                 ORDER BY p.updated_at DESC, p.id
                 LIMIT ? OFFSET ?
                 """,
-                (limit, offset),
+                (user_id, limit, offset),
             ).fetchall()
         return [self._summary(row) for row in rows]
 
-    def get_project(self, project_id: str) -> ProjectDetail:
+    def get_project(self, project_id: str, *, user_id: str) -> ProjectDetail:
         with self._connect() as connection:
             project = connection.execute(
                 """
                 SELECT p.*, COUNT(r.id) AS revision_count
                 FROM projects p
                 LEFT JOIN project_revisions r ON r.project_id = p.id
-                WHERE p.id = ?
+                WHERE p.id = ? AND p.user_id = ?
                 GROUP BY p.id
                 """,
-                (project_id,),
+                (project_id, user_id),
             ).fetchone()
             if project is None:
                 raise ProjectNotFoundError(project_id)
@@ -176,25 +236,31 @@ class ProjectStore:
             latest_revision=self._revision(revision) if revision else None,
         )
 
-    def rename_project(self, project_id: str, name: str) -> ProjectDetail:
+    def rename_project(
+        self, project_id: str, name: str, *, user_id: str
+    ) -> ProjectDetail:
         with self._connect() as connection:
             cursor = connection.execute(
-                "UPDATE projects SET name = ?, updated_at = ? WHERE id = ?",
-                (name, _timestamp(), project_id),
+                """
+                UPDATE projects SET name = ?, updated_at = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (name, _timestamp(), project_id, user_id),
             )
             if cursor.rowcount == 0:
                 raise ProjectNotFoundError(project_id)
-        return self.get_project(project_id)
+        return self.get_project(project_id, user_id=user_id)
 
     def add_revision(
-        self, project_id: str, state: ProjectState
+        self, project_id: str, state: ProjectState, *, user_id: str
     ) -> ProjectRevision:
         revision_id = str(uuid4())
         now = _timestamp()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             project = connection.execute(
-                "SELECT id FROM projects WHERE id = ?", (project_id,)
+                "SELECT id FROM projects WHERE id = ? AND user_id = ?",
+                (project_id, user_id),
             ).fetchone()
             if project is None:
                 raise ProjectNotFoundError(project_id)
@@ -231,12 +297,18 @@ class ProjectStore:
         return self._revision(row)
 
     def list_revisions(
-        self, project_id: str, *, limit: int = 100, offset: int = 0
+        self,
+        project_id: str,
+        *,
+        user_id: str,
+        limit: int = 100,
+        offset: int = 0,
     ) -> list[ProjectRevision]:
         with self._connect() as connection:
             if (
                 connection.execute(
-                    "SELECT 1 FROM projects WHERE id = ?", (project_id,)
+                    "SELECT 1 FROM projects WHERE id = ? AND user_id = ?",
+                    (project_id, user_id),
                 ).fetchone()
                 is None
             ):
@@ -253,11 +325,12 @@ class ProjectStore:
         return [self._revision(row) for row in rows]
 
     def get_revision(
-        self, project_id: str, revision_number: int
+        self, project_id: str, revision_number: int, *, user_id: str
     ) -> ProjectRevision:
         with self._connect() as connection:
             project_exists = connection.execute(
-                "SELECT 1 FROM projects WHERE id = ?", (project_id,)
+                "SELECT 1 FROM projects WHERE id = ? AND user_id = ?",
+                (project_id, user_id),
             ).fetchone()
             if project_exists is None:
                 raise ProjectNotFoundError(project_id)
@@ -274,17 +347,24 @@ class ProjectStore:
                 )
         return self._revision(row)
 
-    def delete_project(self, project_id: str):
+    def delete_project(self, project_id: str, *, user_id: str):
         with self._connect() as connection:
             cursor = connection.execute(
-                "DELETE FROM projects WHERE id = ?", (project_id,)
+                "DELETE FROM projects WHERE id = ? AND user_id = ?",
+                (project_id, user_id),
             )
             if cursor.rowcount == 0:
                 raise ProjectNotFoundError(project_id)
 
 
 @lru_cache(maxsize=1)
-def get_project_store() -> ProjectStore:
+def get_project_store() -> ProjectStoreProtocol:
+    database_url = os.getenv("NFNIT_DATABASE_URL", "").strip()
+    if database_url:
+        from .postgres_store import PostgresProjectStore
+
+        return PostgresProjectStore(database_url)
+
     default_path = Path(__file__).parents[1] / "data" / "nfinit.db"
     configured_path = Path(os.getenv("NFNIT_DATABASE_PATH", default_path))
     return ProjectStore(configured_path.expanduser())

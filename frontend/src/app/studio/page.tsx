@@ -32,6 +32,7 @@ export default async function StudioPage({
       viewer={
         user
           ? {
+              id: user.id,
               email: user.email ?? null,
               name:
                 user.user_metadata.full_name ??

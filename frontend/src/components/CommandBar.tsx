@@ -30,6 +30,7 @@ const UNSAVED_PROJECT = "__unsaved__";
 
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]["id"];
 export type Viewer = {
+  id: string;
   email: string | null;
   name: string | null;
   avatarUrl: string | null;
