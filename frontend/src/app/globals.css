@@ -602,6 +602,31 @@ html[data-theme="porcelain"] .text-zinc-600 {
   transition: border-color 160ms;
 }
 
+.wb-hero-line {
+  font-size: clamp(40px, 6.2vw, 80px);
+  white-space: nowrap;
+}
+
+.wb-prompt,
+.wb-prompt input,
+.wb-submit,
+.wb-chip {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wb-prompt:focus,
+.wb-prompt:focus-visible,
+.wb-prompt:focus-within,
+.wb-prompt input:focus,
+.wb-prompt input:focus-visible,
+.wb-submit:focus,
+.wb-submit:focus-visible,
+.wb-chip:focus,
+.wb-chip:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .wb-prompt:focus-within {
   border-color: var(--hairline-strong);
 }
@@ -859,12 +884,11 @@ html[data-theme="midnight"] .wb-submit:hover {
   white-space: nowrap;
 }
 
-/* Headline rise (§9.2). Each line rises inside its own mask. */
+/* Headline rise (§9.2). Mask needs room for Fraunces descenders (y). */
 .wb-rise-line {
   display: block;
   overflow: hidden;
-  padding-bottom: 0.1em;
-  margin-bottom: -0.1em;
+  padding-bottom: 0.28em;
 }
 
 .wb-rise-line > span {
