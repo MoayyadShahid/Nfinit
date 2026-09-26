@@ -147,9 +147,9 @@ export function ChatPane({
             type="button"
             onClick={() => setHistoryOpen((open) => !open)}
             aria-expanded={historyOpen}
-            className="theme-control flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:text-[var(--page-fg)]"
+            className="theme-control flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-[var(--ink-2)] transition-colors hover:text-[var(--page-fg)]"
           >
-            <MessagesSquare className="size-3.5 text-violet-400" />
+            <MessagesSquare className="size-3.5 text-[var(--ink-2)]" />
             History
             <span className="text-zinc-600">{messages.length}</span>
             <ChevronDown
@@ -195,7 +195,7 @@ export function ChatPane({
                     key={suggestion}
                     type="button"
                     onClick={() => setInput(suggestion)}
-                    className="theme-inset rounded-xl border p-3 text-left text-[11px] leading-4 text-zinc-400 transition-colors hover:border-violet-400/30 hover:text-zinc-200"
+                    className="theme-inset rounded-xl border p-3 text-left text-[11px] leading-4 text-[var(--ink-2)] transition-colors hover:border-[var(--hairline-strong)] hover:text-[var(--ink)]"
                   >
                     {suggestion}
                   </button>
@@ -214,7 +214,7 @@ export function ChatPane({
 
           return msg.role === "user" ? (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[88%] rounded-2xl rounded-br-md bg-violet-500/15 px-3.5 py-2.5 text-sm leading-5 text-zinc-200">
+              <div className="max-w-[88%] rounded-2xl rounded-br-md bg-[var(--clay)] px-3.5 py-2.5 text-sm leading-5 text-[var(--ink)]">
                 {text}
                 {imgs.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -233,8 +233,8 @@ export function ChatPane({
           ) : (
             <div key={i} className="flex justify-start">
               <div className="theme-inset max-w-[94%] rounded-2xl rounded-bl-md border px-3.5 py-3">
-                <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-zinc-300">
-                  <Sparkles className="size-3 text-violet-400" />
+                <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--ink)]">
+                  <Sparkles className="size-3 text-[var(--accent)]" />
                   Model updated
                 </div>
                 {msg.agent ? (
@@ -305,7 +305,7 @@ export function ChatPane({
         } p-3`}
       >
         {selection && (
-          <div className="flex items-center gap-2 rounded-xl border border-violet-400/20 bg-violet-400/8 px-3 py-2 text-[11px] text-violet-200">
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--hairline-strong)] bg-[var(--clay)] px-3 py-2 text-[11px] text-[var(--ink-2)]">
             <MapPin className="size-3.5" />
             Prompt will target{" "}
             {selection.entityId
@@ -331,7 +331,7 @@ export function ChatPane({
                 <img
                   src={url}
                   alt=""
-                  className="h-14 w-14 rounded-md border border-zinc-700 object-cover"
+                  className="h-14 w-14 rounded-md border border-[var(--hairline)] object-cover"
                 />
                 <button
                   type="button"
@@ -347,7 +347,7 @@ export function ChatPane({
           </div>
         )}
 
-        <div className="theme-inset flex items-end gap-2 rounded-2xl border p-2 shadow-inner focus-within:border-violet-400/40 focus-within:ring-4 focus-within:ring-violet-400/5">
+        <div className="theme-inset flex items-end gap-2 rounded-2xl border p-2 shadow-inner focus-within:border-[var(--hairline-strong)]">
           {supportsVision && (
             <>
               <input
@@ -364,7 +364,7 @@ export function ChatPane({
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
-                className="theme-control size-9 shrink-0 rounded-xl text-zinc-500 hover:text-zinc-200"
+                className="theme-control size-9 shrink-0 rounded-xl text-[var(--muted)] hover:text-[var(--ink)]"
                 title="Attach image"
               >
                 <ImagePlus className="size-4" />
@@ -389,18 +389,19 @@ export function ChatPane({
             }
             rows={variant === "welcome" ? 3 : 1}
             disabled={isLoading}
-            className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-zinc-200 outline-none placeholder:text-zinc-600 disabled:opacity-50"
+            className="min-h-[44px] flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-5 text-[var(--ink)] outline-none placeholder:text-[var(--muted)] disabled:opacity-50"
           />
 
-          <Button
+          <button
+            type="button"
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            size="icon"
             title="Send request"
-            className="theme-primary-button size-9 shrink-0 rounded-xl"
+            className="wb-submit"
+            aria-label="Send request"
           >
-            <ArrowUp className="size-4" />
-          </Button>
+            <ArrowUp className="size-4" strokeWidth={2.4} />
+          </button>
         </div>
 
         {variant === "welcome" && (

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { ProjectSummary } from "@/lib/projects";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   ChevronDown,
@@ -17,7 +18,6 @@ import {
   FilePlus2,
   LogOut,
   Save,
-  Sparkles,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -87,14 +87,7 @@ export function CommandBar({
   return (
     <header className="theme-chrome flex h-16 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-xl md:px-5">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400 to-blue-500 text-white shadow-lg shadow-violet-500/20">
-            <Sparkles className="size-4" />
-          </span>
-          <span className="hidden text-sm font-semibold tracking-tight sm:inline">
-            nfinit
-          </span>
-        </div>
+        <Wordmark href="/" size={20} />
         <span className="hidden h-5 w-px bg-[var(--hairline)] sm:block" />
         <Select
           value={projectId ?? UNSAVED_PROJECT}
@@ -144,7 +137,7 @@ export function CommandBar({
             {isSaving ? "Saving…" : "Save"}
           </span>
           {isDirty && (
-            <span className="absolute -right-1 -top-1 size-2 rounded-full bg-blue-400" />
+            <span className="absolute -right-1 -top-1 size-2 rounded-full bg-[var(--accent)]" />
           )}
         </button>
       </div>
@@ -158,7 +151,7 @@ export function CommandBar({
               title={viewer.email ? `Sign out ${viewer.email}` : "Sign out"}
               className="theme-control theme-muted flex h-9 items-center gap-2 rounded-full px-2 text-xs hover:text-[var(--page-fg)]"
             >
-              <span className="flex size-6 items-center justify-center rounded-full bg-violet-500/12 text-[10px] font-semibold text-violet-500">
+              <span className="flex size-6 items-center justify-center rounded-full bg-[var(--clay)] text-[10px] font-semibold text-[var(--ink)]">
                 {(viewer.name ?? viewer.email ?? "U").charAt(0).toUpperCase()}
               </span>
               <span className="hidden max-w-28 truncate xl:inline">

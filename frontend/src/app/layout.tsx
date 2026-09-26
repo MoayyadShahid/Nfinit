@@ -33,11 +33,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Light (porcelain) is the default. The landing and login pages are
-            always light; the theme is only chosen inside the studio. */}
+        {/* Porcelain is the default. Midnight is restored from localStorage on
+            every page so landing, login, and studio share one theme. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var r=document.documentElement,t="porcelain";try{var p=location.pathname;if(p!=="/"&&p!=="/login"){var s=localStorage.getItem("nfinit:theme");if(s==="midnight")t=s}}catch(e){}r.dataset.theme=t;r.classList.toggle("dark",t==="midnight");r.style.colorScheme=t==="midnight"?"dark":"light"})();`,
+            __html: `(function(){var r=document.documentElement,t="porcelain";try{var s=localStorage.getItem("nfinit:theme");if(s==="midnight")t=s}catch(e){}r.dataset.theme=t;r.classList.toggle("dark",t==="midnight");r.style.colorScheme=t==="midnight"?"dark":"light"})();`,
           }}
         />
       </head>

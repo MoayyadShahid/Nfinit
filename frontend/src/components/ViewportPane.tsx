@@ -7,7 +7,6 @@ import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
-const PHOTO_BOOTH_GRAY = "#e7e8eb";
 const NORMAL_TOLERANCE = 0.01;
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -203,7 +202,20 @@ function ViewportContent({
   const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
   const [resolvedFace, setResolvedFace] = useState<FaceSelection | null>(null);
   const [showGrid, setShowGrid] = useState(true);
+  const [boothColor, setBoothColor] = useState("#ddd3c2");
   const resolutionRequest = useRef(0);
+
+  useEffect(() => {
+    const readBooth = () => {
+      const value = getComputedStyle(document.documentElement)
+        .getPropertyValue("--clay")
+        .trim();
+      if (value) setBoothColor(value);
+    };
+    readBooth();
+    window.addEventListener("nfinit-theme-change", readBooth);
+    return () => window.removeEventListener("nfinit-theme-change", readBooth);
+  }, []);
 
   const clearSelection = useCallback(() => {
     resolutionRequest.current += 1;
@@ -280,16 +292,16 @@ function ViewportContent({
   }, [clearSelection]);
 
   return (
-    <div className="relative h-full w-full bg-[#e7e8eb]">
+    <div className="relative h-full w-full bg-[var(--clay)]">
       <div className="absolute right-3 top-3 z-20">
         <button
           type="button"
           onClick={() => setShowGrid((v) => !v)}
           title={showGrid ? "Hide face grid" : "Show face grid"}
-          className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium shadow-sm backdrop-blur transition-colors ${
+          className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium shadow-sm transition-colors ${
             showGrid
-              ? "border-zinc-700/20 bg-zinc-900/85 text-zinc-100"
-              : "border-zinc-700/10 bg-white/70 text-zinc-500"
+              ? "border-[var(--hairline-strong)] bg-[var(--ink)] text-[var(--paper)]"
+              : "border-[var(--hairline)] bg-[var(--sheet)] text-[var(--ink-2)]"
           }`}
         >
           <LayoutGrid className="size-3.5" />
@@ -297,9 +309,9 @@ function ViewportContent({
         </button>
       </div>
       {faceSelection && showSelectionCard && (
-        <div className="absolute bottom-3 left-3 z-20 rounded-xl border border-violet-300/20 bg-zinc-950/90 px-3.5 py-2.5 text-xs text-zinc-200 shadow-xl backdrop-blur">
-          <div className="font-medium text-violet-300">Face selected</div>
-          <div className="mt-0.5 text-[10px] text-zinc-400">
+        <div className="absolute bottom-3 left-3 z-20 rounded-xl border border-[var(--hairline-strong)] bg-[var(--sheet)] px-3.5 py-2.5 text-xs text-[var(--ink)] shadow-xl">
+          <div className="font-medium">Face selected</div>
+          <div className="mt-0.5 text-[10px] text-[var(--muted)]">
             {resolvedFace?.entityId
               ? `${resolvedFace.surfaceType ?? "surface"} · ${resolvedFace.entityId.slice(0, 13)}`
               : glbUrl
@@ -309,10 +321,10 @@ function ViewportContent({
         </div>
       )}
       {isLoading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#e7e8eb]/90">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--clay)]/90">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-zinc-300 border-t-violet-500" />
-            <span className="text-sm text-zinc-600">Building your model…</span>
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--hairline-strong)] border-t-[var(--accent)]" />
+            <span className="text-sm text-[var(--ink-2)]">Building your model…</span>
           </div>
         </div>
       )}
@@ -321,7 +333,7 @@ function ViewportContent({
         gl={{ antialias: true }}
         className="h-full w-full"
       >
-        <color attach="background" args={[PHOTO_BOOTH_GRAY]} />
+        <color attach="background" args={[boothColor]} />
         <ClearSelectionOnMiss onMiss={clearSelection} />
         <OrbitControls makeDefault />
         <GizmoHelper alignment="bottom-right" margin={[80, 80]}>

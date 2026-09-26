@@ -1,6 +1,6 @@
 import { Wordmark } from "@/components/brand/Wordmark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { FlowHook } from "@/components/landing/FlowHook";
-import { ForceLightTheme } from "@/components/landing/ForceLightTheme";
 import { HeroDrone } from "@/components/landing/HeroDrone";
 import { Plate } from "@/components/landing/Plate";
 import { PromptBar } from "@/components/landing/PromptBar";
@@ -17,10 +17,10 @@ function riseDelay(ms: number) {
 export default function LandingPage() {
   return (
     <div className="wb min-h-dvh overflow-x-clip">
-      <ForceLightTheme />
       <header className="mx-auto flex h-16 max-w-[1264px] items-center justify-between gap-3 px-4 sm:px-8">
         <Wordmark />
         <nav className="flex items-center gap-1 sm:gap-2" aria-label="Main">
+          <ThemeToggle />
           <Link href="/login?next=/studio" className="wb-btn wb-btn-ghost wb-btn-sm">
             Log in
           </Link>

@@ -39,7 +39,6 @@ import {
   Code2,
   MousePointer2,
   Ruler,
-  Sparkles,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -168,8 +167,8 @@ export default function Studio({
       setError(null);
       try {
         const [project, history] = await Promise.all([
-          getProject(BACKEND_URL, nextProjectId),
-          listRevisions(BACKEND_URL, nextProjectId),
+          getProject(nextProjectId),
+          listRevisions(nextProjectId),
         ]);
         setProjectId(project.id);
         window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
@@ -191,7 +190,7 @@ export default function Studio({
       setIsSaving(true);
       try {
         if (projectId) {
-          const revision = await addRevision(BACKEND_URL, projectId, state);
+          const revision = await addRevision(projectId, state);
           setRevisions((previous) => [
             revision,
             ...previous.filter((item) => item.id !== revision.id),
@@ -211,7 +210,6 @@ export default function Studio({
           window.localStorage.setItem(LAST_PROJECT_KEY, projectId);
         } else {
           const project = await createProject(
-            BACKEND_URL,
             suggestedName || projectNameFromMessages(state.messages),
             state
           );
@@ -460,7 +458,7 @@ export default function Studio({
 
   useEffect(() => {
     let active = true;
-    listProjects(BACKEND_URL)
+    listProjects()
       .then(async (items) => {
         if (!active) return;
         setProjects(items);
@@ -470,8 +468,8 @@ export default function Studio({
         if (!latest) return;
         setIsProjectLoading(true);
         const [project, history] = await Promise.all([
-          getProject(BACKEND_URL, latest.id),
-          listRevisions(BACKEND_URL, latest.id),
+          getProject(latest.id),
+          listRevisions(latest.id),
         ]);
         if (!active) return;
         setProjectId(project.id);
@@ -531,7 +529,7 @@ export default function Studio({
     hasInitialized && !projectId && messages.length === 0 && glbUrl === null;
 
   return (
-    <div className="theme-page flex h-dvh flex-col overflow-hidden">
+    <div className="wb theme-page flex h-dvh flex-col overflow-hidden">
       <CommandBar
         viewer={viewer}
         onExport={handleExport}
@@ -548,20 +546,17 @@ export default function Studio({
 
       {!hasInitialized ? (
         <div className="flex min-h-0 flex-1 items-center justify-center">
-          <div className="size-8 animate-spin rounded-full border-2 border-zinc-800 border-t-violet-400" />
+          <div className="size-8 animate-spin rounded-full border-2 border-[var(--hairline-strong)] border-t-[var(--accent)]" />
         </div>
       ) : showWelcome ? (
         <main className="relative min-h-0 flex-1 overflow-y-auto">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(124,58,237,0.16),transparent_36%),radial-gradient(circle_at_80%_80%,rgba(37,99,235,0.09),transparent_30%)]" />
           <div className="relative mx-auto flex min-h-full max-w-5xl flex-col items-center justify-center px-4 py-10 sm:px-8">
             <div className="mb-8 max-w-2xl text-center">
-              <div className="mx-auto mb-5 flex size-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-400/10 text-violet-300 shadow-xl shadow-violet-500/10">
-                <Sparkles className="size-5" />
-              </div>
-              <h1 className="text-balance text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">
-                What do you want to make?
+              <p className="type-label mb-4">Describe → Refine → Print</p>
+              <h1 className="type-h1">
+                What do you want to <em>make?</em>
               </h1>
-              <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-zinc-500 sm:text-base">
+              <p className="mx-auto mt-4 max-w-xl type-body-l">
                 Describe a single part in plain language. Add dimensions if you have
                 them—we’ll turn it into editable, export-ready CAD.
               </p>
@@ -585,7 +580,7 @@ export default function Studio({
         </main>
       ) : (
         <main className="theme-viewport-frame relative min-h-0 flex-1 overflow-hidden p-2">
-          <div className="h-full overflow-hidden rounded-2xl border border-black/10 bg-[#e7e8eb] shadow-2xl shadow-black/30">
+          <div className="h-full overflow-hidden rounded-2xl border border-[var(--hairline)] bg-[var(--clay)]">
             <ViewportPane
               glbUrl={glbUrl}
               code={code}
@@ -635,22 +630,22 @@ export default function Studio({
 
           {selectedFace && (
             <div className="pointer-events-none absolute right-5 top-20 z-20 max-w-[260px]">
-              <div className="selection-surface pointer-events-auto rounded-2xl border border-violet-300/25 p-4 shadow-2xl shadow-violet-950/10 backdrop-blur-xl">
+              <div className="selection-surface pointer-events-auto rounded-2xl border border-[var(--hairline-strong)] p-4 shadow-xl">
                 <div className="flex items-start gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-violet-400/12 text-violet-300">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--clay)] text-[var(--accent)]">
                     <MousePointer2 className="size-4" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-violet-700 dark:text-violet-100">
+                    <p className="text-xs font-semibold text-[var(--ink)]">
                       {selectedFace.surfaceType
                         ? `${selectedFace.surfaceType[0].toUpperCase()}${selectedFace.surfaceType.slice(1)} face`
                         : "Selected face"}
                     </p>
-                    <p className="mt-1 font-mono text-[9px] text-violet-300/50">
+                    <p className="mt-1 font-mono text-[9px] text-[var(--muted)]">
                       {selectedFace.entityId?.slice(0, 18) ??
                         selectedFace.point.join(", ")}
                     </p>
-                    <p className="mt-2 text-[11px] leading-4 text-zinc-400">
+                    <p className="mt-2 text-[11px] leading-4 text-[var(--ink-2)]">
                       Describe the change below. Your request will target this face.
                     </p>
                   </div>
@@ -687,7 +682,7 @@ export default function Studio({
                       >
                         <span
                           className={`size-1.5 rounded-full ${
-                            active ? "bg-violet-500" : "bg-zinc-700"
+                            active ? "bg-[var(--accent)]" : "bg-[var(--hairline-strong)]"
                           }`}
                         />
                         v{revision.revisionNumber}
@@ -711,13 +706,13 @@ export default function Studio({
       )}
 
       {error && (
-        <div className="fixed left-1/2 top-20 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 rounded-xl border border-red-400/20 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-2xl backdrop-blur">
+        <div className="fixed left-1/2 top-20 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 rounded-xl border border-[var(--danger)]/30 bg-[var(--sheet)] px-4 py-3 text-sm text-[var(--danger)] shadow-xl">
           <span className="min-w-0 flex-1">{error}</span>
           <button
             type="button"
             onClick={() => setError(null)}
             aria-label="Dismiss error"
-            className="rounded-md p-1 text-red-300 hover:bg-white/10"
+            className="rounded-md p-1 text-[var(--danger)] hover:bg-[var(--control-hover)]"
           >
             <X className="size-4" />
           </button>
@@ -734,7 +729,7 @@ export default function Studio({
           />
           <aside className="theme-floating fixed inset-y-0 right-0 z-50 mt-16 flex w-full max-w-3xl flex-col border-l shadow-2xl shadow-black/30">
             <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--hairline)] px-4">
-              <Code2 className="size-4 text-violet-400" />
+              <Code2 className="size-4 text-[var(--ink-2)]" />
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-semibold">Advanced editor</h2>
                 <p className="text-[10px] text-zinc-600">Edit build123d source directly</p>

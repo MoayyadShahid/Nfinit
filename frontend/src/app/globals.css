@@ -704,6 +704,11 @@ html[data-theme="midnight"] .wb-submit:hover {
   transition-duration: 60ms;
 }
 
+.wb-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .wb-chip {
   padding: 6px 12px;
   border: 1px solid var(--hairline);

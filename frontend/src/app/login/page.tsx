@@ -1,6 +1,6 @@
 import { Wordmark } from "@/components/brand/Wordmark";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthPlate } from "@/components/landing/AuthPlate";
-import { ForceLightTheme } from "@/components/landing/ForceLightTheme";
 import { HeroDrone } from "@/components/landing/HeroDrone";
 import { LoginButtons } from "@/components/LoginButtons";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -58,7 +58,6 @@ export default async function LoginPage({
 
   return (
     <div className="wb grid min-h-dvh grid-cols-1 lg:grid-cols-12">
-      <ForceLightTheme />
       <AuthPlate
         className="h-[220px] rounded-none lg:col-span-7 lg:h-auto"
         label="Plate 01 · 5-inch FPV frame"
@@ -70,8 +69,9 @@ export default async function LoginPage({
       </AuthPlate>
 
       <main className="flex min-w-0 flex-col px-4 pb-6 pt-5 sm:px-8 lg:col-span-5 lg:px-12">
-        <header className="flex h-8 items-center">
+        <header className="flex h-8 items-center justify-between">
           <Wordmark />
+          <ThemeToggle />
         </header>
 
         <section className="my-auto flex w-full max-w-[360px] flex-col gap-7 py-12">

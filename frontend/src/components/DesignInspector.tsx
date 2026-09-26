@@ -93,16 +93,16 @@ export function DesignInspector({
             Edit target
           </div>
           {selection ? (
-            <div className="rounded-xl border border-violet-400/20 bg-violet-400/8 p-3">
-              <div className="text-xs font-medium text-violet-200">
+            <div className="rounded-xl border border-[var(--hairline-strong)] bg-[var(--clay)] p-3">
+              <div className="text-xs font-medium text-[var(--ink)]">
                 {selection.surfaceType
                   ? `${selection.surfaceType[0].toUpperCase()}${selection.surfaceType.slice(1)} face`
                   : "Selected face"}
               </div>
-              <p className="mt-1 font-mono text-[10px] text-violet-300/60">
+              <p className="mt-1 font-mono text-[10px] text-[var(--muted)]">
                 {selection.entityId?.slice(0, 18) ?? selection.point.join(", ")}
               </p>
-              <p className="mt-2 text-[11px] leading-4 text-zinc-400">
+              <p className="mt-2 text-[11px] leading-4 text-[var(--ink-2)]">
                 Your next request will edit this face.
               </p>
             </div>
@@ -135,13 +135,13 @@ export function DesignInspector({
                     onClick={() => onRevisionChange(revision.revisionNumber)}
                     className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
                       active
-                        ? "bg-white/8 text-white"
-                        : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+                        ? "bg-[var(--clay)] text-[var(--ink)]"
+                        : "text-[var(--muted)] hover:bg-[var(--control-hover)] hover:text-[var(--ink)]"
                     }`}
                   >
                     <span
                       className={`size-2 rounded-full ${
-                        active ? "bg-violet-400 ring-4 ring-violet-400/10" : "bg-zinc-700"
+                        active ? "bg-[var(--accent)]" : "bg-[var(--hairline-strong)]"
                       }`}
                     />
                     <span className="min-w-0 flex-1">
