@@ -29,6 +29,7 @@ from execution import (
     inspect_code as sandbox_inspect_code,
 )
 from projects import router as projects_router
+from projects.config import validate_project_configuration
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,8 +37,36 @@ logger = logging.getLogger(__name__)
 load_dotenv(Path(__file__).with_name(".env"))
 
 
+def _optional_service_status() -> dict[str, str]:
+    langfuse = (
+        "enabled"
+        if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY")
+        else "disabled (optional)"
+    )
+    pinecone = (
+        "enabled"
+        if os.getenv("PINECONE_API_KEY")
+        and (os.getenv("PINECONE_INDEX_HOST") or os.getenv("PINECONE_INDEX_NAME"))
+        else "local corpus (optional cloud RAG unset)"
+    )
+    supabase = (
+        "configured"
+        if os.getenv("SUPABASE_URL") or os.getenv("NFNIT_DATABASE_URL")
+        else "unset (SQLite + local auth bypass)"
+    )
+    return {
+        "openrouter": "configured" if os.getenv("OPENROUTER_API_KEY") else "MISSING",
+        "langfuse": langfuse,
+        "pinecone": pinecone,
+        "supabase": supabase,
+    }
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    validate_project_configuration()
+    for name, status in _optional_service_status().items():
+        logger.info("Service %s: %s", name, status)
     yield
     flush_tracing()
 
@@ -53,6 +82,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(projects_router)
+
+
+@app.get("/")
+@app.get("/health")
+def health():
+    return {"status": "ok", "services": _optional_service_status()}
 
 
 class GenerateMeshRequest(BaseModel):

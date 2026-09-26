@@ -23,6 +23,7 @@ env:
   PYTHON_VERSION: "3.12"
   POETRY_VERSION: "2.4.3"
   POETRY_VIRTUALENVS_IN_PROJECT: "true"
+  NFNIT_ALLOW_LOCAL_AUTH_BYPASS: "true"
 
 jobs:
   backend-tests:

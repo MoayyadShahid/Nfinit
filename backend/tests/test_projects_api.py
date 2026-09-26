@@ -1,7 +1,14 @@
+from importlib import import_module
+
 import pytest
 from fastapi.testclient import TestClient
 
 import main
+from execution.topology import (
+    FaceRevisionMatch,
+    RevisionComparison,
+    SelectionRemap,
+)
 from projects.auth import get_current_user_id
 from projects.store import ProjectStore, get_project_store
 
@@ -18,7 +25,34 @@ def client(tmp_path):
     main.app.dependency_overrides.clear()
 
 
-def test_project_api_manages_snapshots_and_history(client):
+def test_project_api_manages_snapshots_and_history(client, monkeypatch):
+    def fake_compare(previous_code, current_code, previous_face_id=None):
+        assert previous_code == "result = Box(10, 20, 30)"
+        assert current_code == "result = Box(20, 20, 30)"
+        assert previous_face_id == "face-stale"
+        return RevisionComparison(
+            valid=True,
+            previous_topology_version="before",
+            current_topology_version="after",
+            face_matches=[
+                FaceRevisionMatch(
+                    previous_face_id="face-a",
+                    current_face_id="face-b",
+                    status="modified",
+                    confidence=1,
+                    reason="legacy_geometry",
+                )
+            ],
+            selection_remap=SelectionRemap(
+                previous_face_id="face-stale",
+                status="stale",
+                confidence=0,
+            ),
+        )
+
+    monkeypatch.setattr(
+        import_module("projects.router"), "compare_code", fake_compare
+    )
     created_response = client.post(
         "/projects",
         json={

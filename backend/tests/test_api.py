@@ -5,6 +5,18 @@ from execution import RevisionComparison, SandboxArtifact, TopologyAnalysis
 from execution.topology import ResolvedFaceSelection
 
 
+def test_health_reports_optional_services():
+    client = TestClient(main.app)
+    for path in ("/", "/health"):
+        response = client.get(path)
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "ok"
+        assert {"openrouter", "langfuse", "pinecone", "supabase"} <= set(
+            payload["services"]
+        )
+
+
 def test_cad_run_exposes_agent_response(monkeypatch):
     async def fake_run_cad_agent(_request, _api_key, _inspect_code, run_id=None):
         return {

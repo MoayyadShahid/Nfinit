@@ -41,10 +41,19 @@ def _credentials(subject: str = USER_ID) -> HTTPAuthorizationCredentials:
 
 
 def test_project_auth_uses_local_identity_without_supabase(monkeypatch):
+    monkeypatch.setenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", "true")
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     monkeypatch.delenv("SUPABASE_JWT_SECRET", raising=False)
 
     assert get_current_user_id(None) == LEGACY_LOCAL_USER_ID
+
+
+def test_local_bypass_allows_sqlite_configuration(monkeypatch):
+    monkeypatch.setenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", "true")
+    monkeypatch.delenv("NFNIT_DATABASE_URL", raising=False)
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+
+    validate_project_configuration()
 
 
 def test_project_auth_requires_token_when_supabase_is_configured(monkeypatch):
