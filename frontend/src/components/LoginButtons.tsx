@@ -69,12 +69,15 @@ export function LoginButtons({
 
     setPendingProvider(provider);
     setError(null);
-    const redirectTo = new URL("/auth/callback", window.location.origin);
-    redirectTo.searchParams.set("next", safeNextPath(nextPath));
+    const next = safeNextPath(nextPath);
+    document.cookie = `nfinit-auth-next=${encodeURIComponent(next)}; Path=/; Max-Age=600; SameSite=Lax`;
+    // Keep this URL query-free so it matches the Supabase allow list exactly.
+    // A ?next= query that is not listed gets replaced with the Site URL (Vercel).
+    const redirectTo = new URL("/auth/callback", window.location.origin).toString();
 
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: redirectTo.toString() },
+      options: { redirectTo },
     });
 
     if (signInError) {
