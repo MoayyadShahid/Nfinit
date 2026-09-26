@@ -2,7 +2,6 @@
 
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { Provider } from "@supabase/supabase-js";
-import { Github } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export const AUTH_ERROR_EVENT = "nfinit:auth-error";
@@ -41,12 +40,6 @@ const PROVIDERS: {
   icon: React.ReactNode;
 }[] = [
   { id: "google", name: "Google", variant: "primary", icon: <GoogleIcon /> },
-  {
-    id: "github",
-    name: "GitHub",
-    variant: "secondary",
-    icon: <Github className="size-4 flex-none" />,
-  },
 ];
 
 export function LoginButtons({
@@ -101,7 +94,7 @@ export function LoginButtons({
         >
           <p>
             <strong className="font-semibold">That didn&apos;t go through.</strong>{" "}
-            Try again, or use the other button.
+            Try again.
           </p>
           <details>
             <summary>Details</summary>

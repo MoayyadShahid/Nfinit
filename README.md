@@ -65,7 +65,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-publishable-anon-key
 
 When the Supabase values are absent, authentication intentionally runs in
 local bypass mode: `/login` redirects directly to `/studio`. To activate OAuth,
-create Google and/or GitHub providers in Supabase and add these redirect URLs:
+create a Google provider in Supabase and add these redirect URLs:
 
 ```
 http://localhost:3000/auth/callback

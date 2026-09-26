@@ -90,7 +90,7 @@ export default async function LoginPage({
 
           <LoginButtons nextPath={nextPath} initialError={error ?? null} />
 
-          <p className="type-caption">New here? Same buttons.</p>
+          <p className="type-caption">New here? Same button.</p>
         </section>
 
         <footer>
