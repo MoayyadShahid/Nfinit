@@ -111,7 +111,7 @@ def _run_worker(
 ) -> dict:
     worker = worker_path or Path(__file__).with_name("worker.py")
     timeout = timeout_seconds or float(
-        os.environ.get("CAD_SANDBOX_TIMEOUT_SECONDS", "20")
+        os.environ.get("CAD_SANDBOX_TIMEOUT_SECONDS", "90")
     )
     payload = {"code": code, "operation": operation}
     if output_name:

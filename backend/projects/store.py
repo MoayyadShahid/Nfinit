@@ -118,10 +118,14 @@ class ProjectStore:
                 for row in connection.execute("PRAGMA table_info(projects)").fetchall()
             }
             if "user_id" not in columns:
-                connection.execute(
-                    "ALTER TABLE projects ADD COLUMN user_id TEXT NOT NULL "
-                    f"DEFAULT '{LEGACY_LOCAL_USER_ID}'"
-                )
+                try:
+                    connection.execute(
+                        "ALTER TABLE projects ADD COLUMN user_id TEXT NOT NULL "
+                        f"DEFAULT '{LEGACY_LOCAL_USER_ID}'"
+                    )
+                except sqlite3.OperationalError as error:
+                    if "duplicate column name" not in str(error).lower():
+                        raise
             connection.executescript(
                 """
                 CREATE INDEX IF NOT EXISTS idx_projects_user_updated
