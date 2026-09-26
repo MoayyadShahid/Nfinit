@@ -1,0 +1,12 @@
+# Backend CAD API. If Railway created a Node "frontend" service, delete it
+# and add a new service with Root Directory = backend (uses backend/Dockerfile).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+watchPatterns = ["backend/**"]
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
