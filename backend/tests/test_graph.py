@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from agent.graph import create_cad_graph
+from agent.graph import _message_text, create_cad_graph
 from agent.models import ModelInspection
 from agent.retrieval import RetrievedPattern
 
@@ -16,14 +16,14 @@ class FakeCompletions:
     async def create(self, **kwargs):
         self.requests.append(kwargs)
         content = self.responses.pop(0)
-        message = SimpleNamespace(content=content)
+        message = SimpleNamespace(content=content, refusal=None, parsed=None)
         usage = SimpleNamespace(
             prompt_tokens=100,
             completion_tokens=25,
             total_tokens=125,
         )
         return SimpleNamespace(
-            choices=[SimpleNamespace(message=message)],
+            choices=[SimpleNamespace(message=message, finish_reason="stop")],
             usage=usage,
         )
 
@@ -123,3 +123,60 @@ async def test_graph_repairs_failed_geometry_and_reinspects():
         )
         for request in client.chat.completions.requests
     )
+
+
+def test_message_text_reads_parsed_code_when_content_is_empty():
+    message = SimpleNamespace(
+        content="",
+        refusal=None,
+        parsed=SimpleNamespace(code="result = Box(10, 10, 10)"),
+    )
+    assert _message_text(message) == '{"code": "result = Box(10, 10, 10)"}'
+
+
+@pytest.mark.asyncio
+async def test_generate_retries_when_structured_response_is_empty():
+    client = FakeClient(
+        [
+            "Make a parameterized 10 mm cube.",
+            "",
+            '{"code":"result = Box(10, 10, 10)"}',
+        ]
+    )
+    graph = create_cad_graph(
+        client,
+        lambda _code: ModelInspection(
+            valid=True,
+            shape_type="Solid",
+            solid_count=1,
+            volume_mm3=1000,
+            bounding_box_mm={"x": 10, "y": 10, "z": 10},
+        ),
+        pattern_retriever=FakeRetriever(),
+    )
+
+    result = await graph.ainvoke(
+        {
+            "run_id": "empty-then-retry",
+            "messages": [{"role": "user", "content": "Make a 10 mm cube"}],
+            "current_code": "",
+            "model_id": "anthropic/claude-opus-5",
+            "supports_structured_outputs": True,
+            "selection": None,
+            "patterns": [],
+            "plan": "",
+            "code": "",
+            "inspection": None,
+            "validation_error": None,
+            "repair_attempts": 0,
+            "trace": [],
+            "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        }
+    )
+
+    assert result["code"] == "result = Box(10, 10, 10)"
+    assert result["validation_error"] is None
+    generate_requests = client.chat.completions.requests[1:]
+    assert generate_requests[0]["response_format"]["json_schema"]["name"] == "cad_code"
+    assert "response_format" not in generate_requests[1]
+    assert generate_requests[1]["extra_body"]["reasoning"]["effort"] == "medium"

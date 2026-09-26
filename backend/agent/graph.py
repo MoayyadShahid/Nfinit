@@ -1,4 +1,6 @@
 import asyncio
+import json
+import logging
 from collections.abc import Callable
 from time import perf_counter
 from typing import Any, Literal, TypedDict
@@ -20,6 +22,7 @@ from .tracing import RunTracer, summarize_messages, summarize_text
 from .validation import extract_code, validate_code
 
 MAX_REPAIR_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 
 CAD_CODE_RESPONSE_FORMAT = {
     "type": "json_schema",
@@ -165,6 +168,58 @@ def _add_usage(state: AgentState, usage: dict[str, int]) -> dict[str, int]:
     }
 
 
+def _message_text(message: Any) -> str:
+    """Collect visible text from an OpenRouter/OpenAI chat message.
+
+    Reasoning models often leave ``content`` empty while filling ``parsed``,
+    ``refusal``, or list-shaped content parts.
+    """
+    parts: list[str] = []
+    content = getattr(message, "content", None)
+    if isinstance(content, str) and content.strip():
+        parts.append(content.strip())
+    elif isinstance(content, list):
+        text = _text_of(content).strip()
+        if text:
+            parts.append(text)
+
+    parsed = getattr(message, "parsed", None)
+    if parsed is not None:
+        code = getattr(parsed, "code", None)
+        if isinstance(code, str) and code.strip():
+            parts.append(json.dumps({"code": code.strip()}))
+        elif isinstance(parsed, dict) and isinstance(parsed.get("code"), str):
+            parts.append(json.dumps({"code": parsed["code"].strip()}))
+
+    refusal = getattr(message, "refusal", None)
+    if isinstance(refusal, str) and refusal.strip():
+        parts.append(refusal.strip())
+
+    return "\n".join(parts)
+
+
+def _usage_of(completion: Any) -> dict[str, int]:
+    completion_usage = getattr(completion, "usage", None)
+    return {
+        "input_tokens": getattr(completion_usage, "prompt_tokens", 0) or 0,
+        "output_tokens": getattr(completion_usage, "completion_tokens", 0) or 0,
+        "total_tokens": getattr(completion_usage, "total_tokens", 0) or 0,
+    }
+
+
+def _completion_attempts(structured: bool) -> list[dict[str, Any]]:
+    """First try the quality-first path, then drop structured JSON / high reasoning."""
+    attempts: list[dict[str, Any]] = [
+        {"structured": structured, "reasoning": "high", "max_tokens": 8192},
+    ]
+    if structured:
+        attempts.append(
+            {"structured": False, "reasoning": "medium", "max_tokens": 16384}
+        )
+    attempts.append({"structured": False, "reasoning": None, "max_tokens": 16384})
+    return attempts
+
+
 async def _complete(
     client: AsyncOpenAI,
     state: AgentState,
@@ -173,14 +228,8 @@ async def _complete(
     operation: str,
     structured: bool = False,
 ) -> CompletionResult:
-    params: dict[str, Any] = {
-        "model": state["model_id"],
-        "messages": messages,
-        "max_tokens": 8192,
-        "extra_body": {"reasoning": {"effort": "high"}},
-    }
-    if structured and state["supports_structured_outputs"]:
-        params["response_format"] = CAD_CODE_RESPONSE_FORMAT
+    last_finish = None
+    last_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
 
     with tracer.observation(
         f"llm.{operation}",
@@ -189,23 +238,67 @@ async def _complete(
         metadata={"structured_output": structured},
         model=state["model_id"],
     ) as generation:
-        completion = await client.chat.completions.create(**params)
-        content = (completion.choices[0].message.content or "").strip()
-        completion_usage = completion.usage
-        usage = {
-            "input_tokens": getattr(completion_usage, "prompt_tokens", 0) or 0,
-            "output_tokens": getattr(completion_usage, "completion_tokens", 0) or 0,
-            "total_tokens": getattr(completion_usage, "total_tokens", 0) or 0,
-        }
+        for attempt in _completion_attempts(structured):
+            params: dict[str, Any] = {
+                "model": state["model_id"],
+                "messages": messages,
+                "max_tokens": attempt["max_tokens"],
+            }
+            extra_body: dict[str, Any] = {}
+            if attempt["reasoning"]:
+                extra_body["reasoning"] = {"effort": attempt["reasoning"]}
+            if extra_body:
+                params["extra_body"] = extra_body
+            if (
+                attempt["structured"]
+                and state["supports_structured_outputs"]
+            ):
+                params["response_format"] = CAD_CODE_RESPONSE_FORMAT
+
+            completion = await client.chat.completions.create(**params)
+            choice = completion.choices[0]
+            content = _message_text(choice.message)
+            last_finish = getattr(choice, "finish_reason", None)
+            last_usage = _add_usage(
+                {"usage": last_usage},
+                _usage_of(completion),
+            )
+            if content:
+                generation.update(
+                    output=summarize_text(content),
+                    usage_details={
+                        "input": last_usage["input_tokens"],
+                        "output": last_usage["output_tokens"],
+                        "total": last_usage["total_tokens"],
+                    },
+                    metadata={
+                        "finish_reason": last_finish,
+                        "attempt": attempt,
+                    },
+                )
+                return {"content": content, "usage": last_usage}
+
+            logger.warning(
+                "Empty %s completion from %s (finish_reason=%s); retrying without %s.",
+                operation,
+                state["model_id"],
+                last_finish,
+                "structured output"
+                if attempt["structured"]
+                else "high reasoning",
+            )
+
         generation.update(
-            output=summarize_text(content),
-            usage_details={
-                "input": usage["input_tokens"],
-                "output": usage["output_tokens"],
-                "total": usage["total_tokens"],
-            },
+            output=summarize_text(""),
+            level="WARNING",
+            status_message="Model returned empty content after retries.",
+            metadata={"finish_reason": last_finish},
         )
-        return {"content": content, "usage": usage}
+
+    raise ValueError(
+        f"The {operation} model returned an empty response "
+        f"(finish_reason={last_finish!r})."
+    )
 
 
 def create_cad_graph(

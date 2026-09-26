@@ -131,14 +131,34 @@ MAX_SEMANTIC_FEATURES = 64
 MAX_SEMANTIC_CONSTRAINTS = 128
 
 
+def _set_limit(resource_id: int, soft: int, hard: int | None = None) -> None:
+    """Apply a rlimit when the host allows it.
+
+    Docker, CI, and some macOS sandboxes reject raising a hard ceiling.
+    Skip that limit instead of crashing the worker or clamping it so
+    tightly that OpenCASCADE hangs.
+    """
+    hard = soft if hard is None else hard
+    try:
+        _current_soft, current_hard = resource.getrlimit(resource_id)
+    except (OSError, ValueError):
+        return
+    if current_hard != resource.RLIM_INFINITY and hard > current_hard:
+        return
+    try:
+        resource.setrlimit(resource_id, (min(soft, hard), hard))
+    except (OSError, ValueError, PermissionError):
+        return
+
+
 def _apply_resource_limits():
     cpu_seconds = int(os.environ.get("CAD_SANDBOX_CPU_SECONDS", "10"))
     memory_bytes = int(os.environ.get("CAD_SANDBOX_MEMORY_BYTES", str(2 * 1024**3)))
     file_bytes = int(os.environ.get("CAD_SANDBOX_FILE_BYTES", str(256 * 1024**2)))
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + 1))
-    resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (file_bytes, file_bytes))
-    resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
+    _set_limit(resource.RLIMIT_CPU, cpu_seconds, cpu_seconds + 1)
+    _set_limit(resource.RLIMIT_AS, memory_bytes)
+    _set_limit(resource.RLIMIT_FSIZE, file_bytes)
+    _set_limit(resource.RLIMIT_NOFILE, 128)
 
 
 def _disable_network():
