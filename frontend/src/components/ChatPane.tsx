@@ -347,7 +347,7 @@ export function ChatPane({
           </div>
         )}
 
-        <div className="theme-inset flex items-end gap-2 rounded-2xl border p-2 shadow-inner focus-within:border-[var(--hairline-strong)]">
+        <div className="wb-composer theme-inset flex items-end gap-2 rounded-2xl border p-2 shadow-inner">
           {supportsVision && (
             <>
               <input

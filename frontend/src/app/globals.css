@@ -631,6 +631,13 @@ html[data-theme="porcelain"] .text-zinc-600 {
   border-color: var(--hairline-strong);
 }
 
+.wb-composer:focus-within,
+.wb-composer textarea:focus,
+.wb-composer textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .wb-prompt-field {
   position: relative;
   flex: 1;
