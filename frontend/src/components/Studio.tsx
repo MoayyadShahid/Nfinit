@@ -1,5 +1,6 @@
 "use client";
 
+import { PUBLIC_BACKEND_URL } from "@/lib/backend";
 import { ChatPane } from "@/components/ChatPane";
 import {
   CommandBar,
@@ -43,8 +44,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = PUBLIC_BACKEND_URL;
 const LAST_PROJECT_KEY = "nfinit:last-project-id";
 
 const DEFAULT_CODE = [

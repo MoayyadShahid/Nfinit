@@ -1,10 +1,8 @@
+import { serverBackendUrl } from "@/lib/backend";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const BACKEND_URL =
-  process.env.BACKEND_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://localhost:8000";
+const BACKEND_URL = serverBackendUrl();
 
 type RouteContext = {
   params: Promise<{ path?: string[] }>;
@@ -21,7 +19,7 @@ function localAuthBypassEnabled() {
 async function proxy(request: Request, context: RouteContext) {
   const { path = [] } = await context.params;
   const backendPath = ["projects", ...path.map(encodeURIComponent)].join("/");
-  const target = new URL(backendPath, `${BACKEND_URL.replace(/\/$/, "")}/`);
+  const target = new URL(backendPath, `${BACKEND_URL}/`);
   target.search = new URL(request.url).search;
 
   const headers = new Headers();

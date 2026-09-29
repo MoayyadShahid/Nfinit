@@ -13,12 +13,18 @@ RUN apt-get update \
         curl \
         libgl1 \
         libglib2.0-0 \
+        libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir poetry==2.1.1
 
 COPY backend/pyproject.toml backend/poetry.lock ./
 RUN poetry install --no-interaction --no-ansi --only main
+
+# PYTHONDONTWRITEBYTECODE stops runtime .pyc writes, so precompile once here.
+# Otherwise every sandbox worker recompiles build123d, which roughly doubles
+# the CPU cost of each CAD run.
+RUN python -m compileall -q -j 0 "$(python -c 'import site; print(site.getsitepackages()[0])')"
 
 COPY backend/ .
 
