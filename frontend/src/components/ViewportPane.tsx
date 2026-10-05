@@ -48,12 +48,98 @@ function FaceGrid({ selection }: { selection: ThreeFaceSelection }) {
   );
 }
 
+const THUMBNAIL_WIDTH = 480;
+const THUMBNAIL_HEIGHT = 360;
+
+/**
+ * Captures the part from a fixed three-quarter view once it has loaded, so
+ * the parts dashboard thumbnail does not depend on where the user orbited.
+ * The frame is drawn and copied within one callback, then the user's view is
+ * redrawn, so nothing flashes on screen.
+ */
+function ThumbnailCapture({
+  model,
+  onCapture,
+}: {
+  model: THREE.Object3D;
+  onCapture: (image: Blob) => void;
+}) {
+  const { gl, scene, camera } = useThree();
+
+  useEffect(() => {
+    let frame = requestAnimationFrame(() => {
+      // Second frame: <Center> has positioned the model by now.
+      frame = requestAnimationFrame(() => {
+        const box = new THREE.Box3().setFromObject(model);
+        if (box.isEmpty()) return;
+        const sphere = box.getBoundingSphere(new THREE.Sphere());
+        const canvas = gl.domElement;
+        const shot = new THREE.PerspectiveCamera(
+          35,
+          canvas.width / canvas.height,
+          sphere.radius / 100,
+          sphere.radius * 100
+        );
+        const verticalHalf = THREE.MathUtils.degToRad(shot.fov / 2);
+        const horizontalHalf = Math.atan(Math.tan(verticalHalf) * shot.aspect);
+        const distance =
+          (sphere.radius * 1.15) / Math.sin(Math.min(verticalHalf, horizontalHalf));
+        shot.position
+          .copy(sphere.center)
+          .add(new THREE.Vector3(1, 0.85, 1).normalize().multiplyScalar(distance));
+        shot.lookAt(sphere.center);
+
+        gl.render(scene, shot);
+        const output = document.createElement("canvas");
+        output.width = THUMBNAIL_WIDTH;
+        output.height = THUMBNAIL_HEIGHT;
+        const context = output.getContext("2d");
+        if (context) {
+          // Centre-crop the canvas to the thumbnail's 4:3 frame.
+          const scale = Math.min(
+            canvas.width / THUMBNAIL_WIDTH,
+            canvas.height / THUMBNAIL_HEIGHT
+          );
+          const cropWidth = THUMBNAIL_WIDTH * scale;
+          const cropHeight = THUMBNAIL_HEIGHT * scale;
+          context.drawImage(
+            canvas,
+            (canvas.width - cropWidth) / 2,
+            (canvas.height - cropHeight) / 2,
+            cropWidth,
+            cropHeight,
+            0,
+            0,
+            THUMBNAIL_WIDTH,
+            THUMBNAIL_HEIGHT
+          );
+        }
+        gl.render(scene, camera);
+        if (!context) return;
+        // Safari cannot encode WebP and falls back to PNG; both are accepted.
+        output.toBlob(
+          (image) => {
+            if (image) onCapture(image);
+          },
+          "image/webp",
+          0.82
+        );
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [gl, scene, camera, model, onCapture]);
+
+  return null;
+}
+
 function ClickableModel({
   url,
   onFaceClick,
+  onThumbnail,
 }: {
   url: string;
   onFaceClick: (sel: ThreeFaceSelection) => void;
+  onThumbnail?: (image: Blob) => void;
 }) {
   const { scene } = useGLTF(url);
 
@@ -104,9 +190,12 @@ function ClickableModel({
   );
 
   return (
-    <Center>
-      <primitive object={scene} scale={100} onClick={handleClick} />
-    </Center>
+    <>
+      <Center>
+        <primitive object={scene} scale={100} onClick={handleClick} />
+      </Center>
+      {onThumbnail && <ThumbnailCapture model={scene} onCapture={onThumbnail} />}
+    </>
   );
 }
 
@@ -141,9 +230,11 @@ function ClickablePlaceholder({
 function Scene({
   glbUrl,
   onFaceClick,
+  onThumbnail,
 }: {
   glbUrl: string | null;
   onFaceClick: (sel: ThreeFaceSelection) => void;
+  onThumbnail?: (image: Blob) => void;
 }) {
   if (!glbUrl) {
     return <ClickablePlaceholder onFaceClick={onFaceClick} />;
@@ -151,7 +242,12 @@ function Scene({
 
   return (
     <Suspense fallback={null}>
-      <ClickableModel key={glbUrl} url={glbUrl} onFaceClick={onFaceClick} />
+      <ClickableModel
+        key={glbUrl}
+        url={glbUrl}
+        onFaceClick={onFaceClick}
+        onThumbnail={onThumbnail}
+      />
     </Suspense>
   );
 }
@@ -191,6 +287,8 @@ interface ViewportPaneProps {
   isLoading: boolean;
   showSelectionCard?: boolean;
   onSelectionChange?: (selection: FaceSelection | null) => void;
+  /** Called once per loaded model with a 480×360 preview image. */
+  onThumbnail?: (image: Blob) => void;
 }
 
 function ViewportContent({
@@ -199,6 +297,7 @@ function ViewportContent({
   isLoading,
   showSelectionCard = true,
   onSelectionChange,
+  onThumbnail,
 }: ViewportPaneProps) {
   const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
   const [resolvedFace, setResolvedFace] = useState<FaceSelection | null>(null);
@@ -351,7 +450,11 @@ function ViewportContent({
         <directionalLight position={[0, -5, 5]} intensity={0.4} />
         {faceSelection && showGrid && <FaceGrid selection={faceSelection} />}
         <Suspense fallback={null}>
-          <Scene glbUrl={glbUrl} onFaceClick={selectFace} />
+          <Scene
+            glbUrl={glbUrl}
+            onFaceClick={selectFace}
+            onThumbnail={onThumbnail}
+          />
         </Suspense>
       </Canvas>
     </div>

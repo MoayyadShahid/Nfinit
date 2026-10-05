@@ -10,12 +10,14 @@ import {
 import { cn } from "@/lib/utils";
 import type { ProjectSummary } from "@/lib/projects";
 import { Wordmark } from "@/components/brand/Wordmark";
+import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   ChevronDown,
   Code2,
   Download,
   FilePlus2,
+  LayoutGrid,
   LogOut,
   Save,
 } from "lucide-react";
@@ -89,6 +91,15 @@ export function CommandBar({
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Wordmark href="/" size={20} />
         <span className="hidden h-5 w-px bg-[var(--hairline)] sm:block" />
+        <Link
+          href="/parts"
+          title="All parts"
+          aria-label="All parts"
+          className="theme-control theme-muted flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)]"
+        >
+          <LayoutGrid className="size-3.5" />
+          <span className="hidden lg:inline">Parts</span>
+        </Link>
         <Select
           value={projectId ?? UNSAVED_PROJECT}
           onValueChange={onProjectChange}

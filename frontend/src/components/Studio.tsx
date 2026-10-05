@@ -22,10 +22,17 @@ import {
   getProject,
   listProjects,
   listRevisions,
+  uploadThumbnail,
   type ProjectRevision,
   type ProjectState,
   type ProjectSummary,
 } from "@/lib/projects";
+import {
+  RunStillWorkingError,
+  startRun,
+  waitForRun,
+  type CadRun,
+} from "@/lib/runs";
 import {
   getTextContent,
   type ChatMessage,
@@ -41,12 +48,37 @@ import {
   Ruler,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const BACKEND_URL = (
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
 ).replace(/\/$/, "");
 const LAST_PROJECT_KEY = "nfinit:last-project-id";
+// A run in flight survives a reload: the studio resumes polling it.
+const PENDING_RUN_KEY = "nfinit:pending-run";
+
+type PendingRun = { runId: string; projectId: string | null; prompt: string };
+
+function readPendingRun(): PendingRun | null {
+  try {
+    const raw = window.localStorage.getItem(PENDING_RUN_KEY);
+    return raw ? (JSON.parse(raw) as PendingRun) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingRun(pending: PendingRun | null) {
+  try {
+    if (pending) {
+      window.localStorage.setItem(PENDING_RUN_KEY, JSON.stringify(pending));
+    } else {
+      window.localStorage.removeItem(PENDING_RUN_KEY);
+    }
+  } catch {
+    // Storage can be unavailable (private mode); resuming is a convenience.
+  }
+}
 
 const DEFAULT_CODE = [
   "width, depth, height = 10.0, 10.0, 10.0",
@@ -60,9 +92,13 @@ const DEFAULT_CODE = [
 export default function Studio({
   viewer,
   initialPrompt,
+  initialProjectId,
+  startNew = false,
 }: {
   viewer?: Viewer | null;
   initialPrompt?: string;
+  initialProjectId?: string;
+  startNew?: boolean;
 }) {
   const [code, setCode] = useState(DEFAULT_CODE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -82,6 +118,16 @@ export default function Studio({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [inspection, setInspection] = useState<ModelInspection | null>(null);
+  // Code from a failed run, offered so the tokens spent on it are not lost.
+  const [recoverableCode, setRecoverableCode] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+  const lastThumbnailRef = useRef<Blob | null>(null);
+  const thumbnailContextRef = useRef({
+    projectId: null as string | null,
+    isDirty: true,
+    isLatestRevision: false,
+    needsThumbnail: false,
+  });
 
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
 
@@ -186,11 +232,52 @@ export default function Studio({
     [applyRevision, isDirty]
   );
 
+  const sendThumbnail = useCallback(
+    async (targetProjectId: string, image: Blob) => {
+      try {
+        await uploadThumbnail(targetProjectId, image);
+        const now = new Date().toISOString();
+        setProjects((previous) =>
+          previous.map((project) =>
+            project.id === targetProjectId
+              ? { ...project, thumbnailUpdatedAt: now }
+              : project
+          )
+        );
+      } catch (thumbnailError) {
+        // A missing preview is cosmetic; never interrupt the user for it.
+        console.warn("Thumbnail upload failed", thumbnailError);
+      }
+    },
+    []
+  );
+
+  // Stable for the viewport (a changing callback would re-capture); reads the
+  // latest studio state through a ref instead.
+  const handleThumbnail = useCallback(
+    (image: Blob) => {
+      lastThumbnailRef.current = image;
+      const context = thumbnailContextRef.current;
+      if (
+        context.projectId &&
+        !context.isDirty &&
+        context.isLatestRevision &&
+        context.needsThumbnail
+      ) {
+        context.needsThumbnail = false;
+        void sendThumbnail(context.projectId, image);
+      }
+    },
+    [sendThumbnail]
+  );
+
   const persistSnapshot = useCallback(
     async (state: ProjectState, suggestedName?: string) => {
       setIsSaving(true);
       try {
+        let savedProjectId: string;
         if (projectId) {
+          savedProjectId = projectId;
           const revision = await addRevision(projectId, state);
           setRevisions((previous) => [
             revision,
@@ -214,6 +301,7 @@ export default function Studio({
             suggestedName || projectNameFromMessages(state.messages),
             state
           );
+          savedProjectId = project.id;
           setProjectId(project.id);
           window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
           setProjects((previous) => [
@@ -226,11 +314,14 @@ export default function Studio({
           );
         }
         setIsDirty(false);
+        if (lastThumbnailRef.current) {
+          void sendThumbnail(savedProjectId, lastThumbnailRef.current);
+        }
       } finally {
         setIsSaving(false);
       }
     },
-    [projectId, projectNameFromMessages]
+    [projectId, projectNameFromMessages, sendThumbnail]
   );
 
   const saveCurrentRevision = useCallback(async () => {
@@ -317,12 +408,67 @@ export default function Studio({
     [applyRevision, isDirty, revisions]
   );
 
+  // Load what a finished run produced. The backend has already saved a
+  // successful run into the project, so this only has to display it.
+  const completeRun = useCallback(
+    async (run: CadRun) => {
+      writePendingRun(null);
+      if (run.status === "succeeded" && run.projectId) {
+        const [project, history, items] = await Promise.all([
+          getProject(run.projectId),
+          listRevisions(run.projectId),
+          listProjects(),
+        ]);
+        if (!mountedRef.current) return;
+        setProjects(items);
+        setProjectId(project.id);
+        window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
+        setRevisions(history);
+        setLastRunId(run.runId);
+        if (project.latestRevision) {
+          await applyRevision(project.latestRevision);
+        }
+        return;
+      }
+      setMessages((previous) =>
+        previous.length > 0 && previous[previous.length - 1].role === "user"
+          ? previous.slice(0, -1)
+          : previous
+      );
+      setRecoverableCode(run.result?.code || null);
+      setError(run.error || "Generation failed");
+    },
+    [applyRevision]
+  );
+
+  const followRun = useCallback(
+    async (runId: string) => {
+      setIsLoading(true);
+      try {
+        const run = await waitForRun(runId, () => !mountedRef.current);
+        if (mountedRef.current) await completeRun(run);
+      } catch (e) {
+        if (!mountedRef.current) return;
+        if (e instanceof RunStillWorkingError) {
+          // Keep the pending marker: a reload will pick the run back up.
+          setError(e.message);
+        } else {
+          setError(e instanceof Error ? e.message : "Lost track of the run");
+        }
+      } finally {
+        if (mountedRef.current) setIsLoading(false);
+      }
+    },
+    [completeRun]
+  );
+
   const handleChatSend = useCallback(
     async (text: string, imageUrls?: string[]) => {
       if (!text.trim()) return;
 
       setIsLoading(true);
       setError(null);
+      setRecoverableCode(null);
 
       let msgContent: string | ContentPart[];
       if (imageUrls && imageUrls.length > 0) {
@@ -343,77 +489,37 @@ export default function Studio({
       ];
       setMessages(newMessages);
 
+      let run: CadRun;
       try {
-        const res = await fetch("/api/generate-code", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: newMessages,
-            code,
-            modelId,
-            selection: selectedFace,
-            supportsStructuredOutputs:
-              modelConfig?.supportsStructuredOutputs ?? false,
-          }),
+        run = await startRun({
+          messages: newMessages,
+          code,
+          modelId,
+          selection: selectedFace,
+          supportsStructuredOutputs:
+            modelConfig?.supportsStructuredOutputs ?? false,
+          projectId,
         });
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to generate code");
-
-        const generatedCode = data.code;
-        const assistantMessage: ChatMessage = {
-          role: "assistant",
-          content: generatedCode,
-          agent: {
-            runId: data.runId,
-            plan: data.plan,
-            trace: data.trace,
-            inspection: data.inspection,
-            usage: data.usage,
-          },
-        };
-        const completedMessages = [...newMessages, assistantMessage];
-        setCode(generatedCode);
-        setMessages(completedMessages);
-        setLastRunId(data.runId ?? null);
-        setInspection(data.inspection ?? null);
-        setIsDirty(true);
-        await generateMesh(generatedCode);
-        try {
-          await persistSnapshot(
-            {
-              code: generatedCode,
-              messages: completedMessages,
-              modelId,
-              selection: null,
-              lastRunId: data.runId ?? null,
-            },
-            text.trim().slice(0, 60)
-          );
-        } catch (saveError) {
-          setError(
-            `Model generated, but revision save failed: ${
-              saveError instanceof Error ? saveError.message : "Unknown error"
-            }`
-          );
-        }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Generation failed");
+        setError(e instanceof Error ? e.message : "Could not start generation");
         setMessages((prev) => prev.slice(0, -1));
-      } finally {
         setIsLoading(false);
+        return;
       }
+      writePendingRun({ runId: run.runId, projectId, prompt: text.trim() });
+      await followRun(run.runId);
     },
-    [
-      messages,
-      code,
-      modelId,
-      modelConfig,
-      selectedFace,
-      generateMesh,
-      persistSnapshot,
-    ]
+    [messages, code, modelId, modelConfig, selectedFace, projectId, followRun]
   );
+
+  const recoverLastAttempt = useCallback(() => {
+    if (!recoverableCode) return;
+    setCode(recoverableCode);
+    setIsDirty(true);
+    setAdvancedOpen(true);
+    setRecoverableCode(null);
+    setError(null);
+  }, [recoverableCode]);
 
   const handleGenerate = useCallback(async () => {
     setIsLoading(true);
@@ -458,26 +564,62 @@ export default function Studio({
   );
 
   useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     let active = true;
+    let pending = readPendingRun();
+    if (
+      pending &&
+      initialProjectId &&
+      pending.projectId !== initialProjectId
+    ) {
+      // Opening a different part: the run still lands in its own project.
+      writePendingRun(null);
+      pending = null;
+    }
     listProjects()
       .then(async (items) => {
         if (!active) return;
         setProjects(items);
         const storedProjectId = window.localStorage.getItem(LAST_PROJECT_KEY);
-        const latest =
-          items.find((project) => project.id === storedProjectId) ?? items[0];
-        if (!latest) return;
-        setIsProjectLoading(true);
-        const [project, history] = await Promise.all([
-          getProject(latest.id),
-          listRevisions(latest.id),
-        ]);
-        if (!active) return;
-        setProjectId(project.id);
-        window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
-        setRevisions(history);
-        if (project.latestRevision) {
-          await applyRevision(project.latestRevision);
+        const wantedProjectId = pending
+          ? pending.projectId
+          : initialProjectId ?? storedProjectId;
+        const target = pending
+          ? items.find((project) => project.id === pending.projectId)
+          : startNew
+            ? undefined
+            : items.find((project) => project.id === wantedProjectId) ??
+              (initialProjectId ? undefined : items[0]);
+        if (initialProjectId && !pending && !target) {
+          setError("That part could not be found.");
+        }
+        if (target) {
+          setIsProjectLoading(true);
+          const [project, history] = await Promise.all([
+            getProject(target.id),
+            listRevisions(target.id),
+          ]);
+          if (!active) return;
+          setProjectId(project.id);
+          window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
+          setRevisions(history);
+          if (project.latestRevision) {
+            await applyRevision(project.latestRevision);
+          }
+        }
+        if (pending && active) {
+          const resumed = pending;
+          setMessages((previous) => [
+            ...previous,
+            { role: "user", content: resumed.prompt },
+          ]);
+          void followRun(resumed.runId);
         }
       })
       .catch((loadError) => {
@@ -498,7 +640,24 @@ export default function Studio({
     return () => {
       active = false;
     };
-  }, [applyRevision]);
+  }, [applyRevision, followRun, initialProjectId, startNew]);
+
+  useEffect(() => {
+    const latestRevision = revisions[0] ?? null;
+    const currentProject = projects.find((project) => project.id === projectId);
+    thumbnailContextRef.current = {
+      projectId,
+      isDirty,
+      isLatestRevision:
+        latestRevision !== null &&
+        currentRevision === latestRevision.revisionNumber,
+      needsThumbnail:
+        latestRevision !== null &&
+        (!currentProject?.thumbnailUpdatedAt ||
+          Date.parse(currentProject.thumbnailUpdatedAt) <
+            Date.parse(latestRevision.createdAt)),
+    };
+  }, [projectId, isDirty, revisions, currentRevision, projects]);
 
   useEffect(() => {
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -587,6 +746,7 @@ export default function Studio({
               code={code}
               isLoading={isLoading || isProjectLoading}
               showSelectionCard={false}
+              onThumbnail={handleThumbnail}
               onSelectionChange={(selection) => {
                 setSelectedFace(selection);
                 setIsDirty(true);
@@ -708,10 +868,24 @@ export default function Studio({
 
       {error && (
         <div className="fixed left-1/2 top-20 z-[70] flex w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 items-start gap-3 rounded-xl border border-[var(--danger)]/30 bg-[var(--sheet)] px-4 py-3 text-sm text-[var(--danger)] shadow-xl">
-          <span className="min-w-0 flex-1">{error}</span>
+          <span className="min-w-0 flex-1">
+            {error}
+            {recoverableCode && (
+              <button
+                type="button"
+                onClick={recoverLastAttempt}
+                className="mt-2 block text-xs font-medium text-[var(--ink)] underline underline-offset-2"
+              >
+                Open the last attempt in the editor
+              </button>
+            )}
+          </span>
           <button
             type="button"
-            onClick={() => setError(null)}
+            onClick={() => {
+              setError(null);
+              setRecoverableCode(null);
+            }}
             aria-label="Dismiss error"
             className="rounded-md p-1 text-[var(--danger)] hover:bg-[var(--control-hover)]"
           >

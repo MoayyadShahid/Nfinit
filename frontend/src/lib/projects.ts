@@ -22,6 +22,7 @@ export type ProjectSummary = {
   revisionCount: number;
   createdAt: string;
   updatedAt: string;
+  thumbnailUpdatedAt: string | null;
 };
 
 export type ProjectDetail = ProjectSummary & {
@@ -40,7 +41,7 @@ function errorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-async function requestJson<T>(
+export async function requestJson<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
@@ -55,7 +56,18 @@ async function requestJson<T>(
   return payload as T;
 }
 
-function jsonRequest(method: "POST" | "PATCH", body: unknown): RequestInit {
+async function requestEmpty(path: string, init: RequestInit): Promise<void> {
+  const response = await fetch(`/api${path}`, { ...init, cache: "no-store" });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(errorMessage(payload, `Request failed (${response.status})`));
+  }
+}
+
+export function jsonRequest(
+  method: "POST" | "PATCH",
+  body: unknown
+): RequestInit {
   return {
     method,
     headers: { "Content-Type": "application/json" },
@@ -93,4 +105,32 @@ export function addRevision(
     `/projects/${projectId}/revisions`,
     jsonRequest("POST", { state })
   );
+}
+
+export function renameProject(
+  projectId: string,
+  name: string
+): Promise<ProjectDetail> {
+  return requestJson(`/projects/${projectId}`, jsonRequest("PATCH", { name }));
+}
+
+export function deleteProject(projectId: string): Promise<void> {
+  return requestEmpty(`/projects/${projectId}`, { method: "DELETE" });
+}
+
+export function uploadThumbnail(projectId: string, image: Blob): Promise<void> {
+  return requestEmpty(`/projects/${projectId}/thumbnail`, {
+    method: "PUT",
+    headers: { "Content-Type": image.type },
+    body: image,
+  });
+}
+
+/** Versioned so a new capture busts the browser's immutable cache entry. */
+export function thumbnailUrl(project: ProjectSummary): string | null {
+  return project.thumbnailUpdatedAt
+    ? `/api/projects/${project.id}/thumbnail?v=${encodeURIComponent(
+        project.thumbnailUpdatedAt
+      )}`
+    : null;
 }
