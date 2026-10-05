@@ -34,26 +34,41 @@ $$;
 
 grant nfinit_backend to postgres;
 
+-- The backend verifies the Supabase JWT itself and sets the user per request.
+-- auth.uid() reads the same setting, but nfinit_backend has no USAGE on the
+-- auth schema (and postgres cannot grant it), so policies read it here.
+create or replace function public.nfinit_request_user_id()
+returns uuid
+language sql
+stable
+set search_path = ''
+as $$
+  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+$$;
+
+revoke all on function public.nfinit_request_user_id() from public, anon, authenticated;
+grant execute on function public.nfinit_request_user_id() to nfinit_backend;
+
 create policy "Users can read their projects"
   on public.projects for select
   to nfinit_backend
-  using ((select auth.uid()) = user_id);
+  using ((select public.nfinit_request_user_id()) = user_id);
 
 create policy "Users can create their projects"
   on public.projects for insert
   to nfinit_backend
-  with check ((select auth.uid()) = user_id);
+  with check ((select public.nfinit_request_user_id()) = user_id);
 
 create policy "Users can update their projects"
   on public.projects for update
   to nfinit_backend
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using ((select public.nfinit_request_user_id()) = user_id)
+  with check ((select public.nfinit_request_user_id()) = user_id);
 
 create policy "Users can delete their projects"
   on public.projects for delete
   to nfinit_backend
-  using ((select auth.uid()) = user_id);
+  using ((select public.nfinit_request_user_id()) = user_id);
 
 create policy "Users can read revisions for their projects"
   on public.project_revisions for select
@@ -63,7 +78,7 @@ create policy "Users can read revisions for their projects"
       select 1
       from public.projects
       where projects.id = project_revisions.project_id
-        and projects.user_id = (select auth.uid())
+        and projects.user_id = (select public.nfinit_request_user_id())
     )
   );
 
@@ -75,7 +90,7 @@ create policy "Users can create revisions for their projects"
       select 1
       from public.projects
       where projects.id = project_revisions.project_id
-        and projects.user_id = (select auth.uid())
+        and projects.user_id = (select public.nfinit_request_user_id())
     )
   );
 
