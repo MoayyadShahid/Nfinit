@@ -13,6 +13,10 @@ RUN apt-get update \
         curl \
         libgl1 \
         libglib2.0-0 \
+        libsm6 \
+        libx11-6 \
+        libxext6 \
+        libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir poetry==2.1.1
