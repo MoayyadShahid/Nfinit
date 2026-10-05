@@ -195,7 +195,7 @@ export function ChatPane({
                     key={suggestion}
                     type="button"
                     onClick={() => setInput(suggestion)}
-                    className="theme-inset rounded-xl border p-3 text-left text-[11px] leading-4 text-[var(--ink-2)] transition-colors hover:border-[var(--hairline-strong)] hover:text-[var(--ink)]"
+                    className="theme-inset rounded-xl border p-4 text-left text-[15px] leading-[1.45] text-[var(--ink-2)] transition-colors hover:border-[var(--hairline-strong)] hover:text-[var(--ink)]"
                   >
                     {suggestion}
                   </button>
