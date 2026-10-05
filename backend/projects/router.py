@@ -1,6 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Path,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from execution import RevisionComparison, compare_code
 
 from .auth import get_current_user_id
@@ -16,8 +25,12 @@ from .store import (
     ProjectNotFoundError,
     ProjectStoreProtocol,
     RevisionNotFoundError,
+    ThumbnailNotFoundError,
     get_project_store,
 )
+
+MAX_THUMBNAIL_BYTES = 512 * 1024
+THUMBNAIL_TYPES = {"image/webp", "image/png", "image/jpeg"}
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 Store = Annotated[ProjectStoreProtocol, Depends(get_project_store)]
@@ -69,6 +82,42 @@ def delete_project(project_id: str, store: Store, user_id: UserId):
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/{project_id}/thumbnail", status_code=status.HTTP_204_NO_CONTENT)
+async def put_thumbnail(
+    project_id: str, request: Request, store: Store, user_id: UserId
+):
+    content_type = request.headers.get("content-type", "").split(";")[0].strip()
+    if content_type not in THUMBNAIL_TYPES:
+        raise HTTPException(
+            status_code=415, detail="Thumbnail must be a WebP, PNG or JPEG image."
+        )
+    data = await request.body()
+    if not data or len(data) > MAX_THUMBNAIL_BYTES:
+        raise HTTPException(
+            status_code=413, detail="Thumbnail must be between 1 byte and 512 KB."
+        )
+    try:
+        store.set_thumbnail(project_id, data, content_type, user_id=user_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{project_id}/thumbnail")
+def get_thumbnail(project_id: str, store: Store, user_id: UserId):
+    try:
+        data, content_type = store.get_thumbnail(project_id, user_id=user_id)
+    except ThumbnailNotFoundError as error:
+        raise HTTPException(status_code=404, detail="No thumbnail yet.") from error
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
+    )
 
 
 @router.post(

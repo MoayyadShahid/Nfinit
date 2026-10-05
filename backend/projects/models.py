@@ -1,10 +1,10 @@
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from agent.models import FaceSelection
+from agent.models import FaceSelection, ModelInspection, ModelUsage, TraceStep
 
 MAX_PROJECT_STATE_BYTES = 20_000_000
 
@@ -80,9 +80,43 @@ class ProjectSummary(BaseModel):
     revision_count: int = Field(serialization_alias="revisionCount")
     created_at: datetime = Field(serialization_alias="createdAt")
     updated_at: datetime = Field(serialization_alias="updatedAt")
+    thumbnail_updated_at: datetime | None = Field(
+        default=None, serialization_alias="thumbnailUpdatedAt"
+    )
 
 
 class ProjectDetail(ProjectSummary):
     latest_revision: ProjectRevision | None = Field(
         serialization_alias="latestRevision"
     )
+
+
+RunStatus = Literal["running", "succeeded", "failed"]
+
+
+class CadRunResult(BaseModel):
+    """What a run produced. On failure this is the last attempt, kept so the
+    tokens spent on it are not thrown away."""
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    code: str = ""
+    plan: str = ""
+    inspection: ModelInspection | None = None
+    trace: list[TraceStep] = Field(default_factory=list)
+    usage: ModelUsage = Field(default_factory=ModelUsage)
+    revision_number: int | None = Field(default=None, alias="revisionNumber")
+
+
+class CadRunRecord(BaseModel):
+    model_config = ConfigDict(serialize_by_alias=True)
+
+    id: str = Field(serialization_alias="runId")
+    project_id: str | None = Field(serialization_alias="projectId")
+    status: RunStatus
+    prompt: str
+    model_id: str = Field(serialization_alias="modelId")
+    result: CadRunResult | None = None
+    error: str | None = None
+    created_at: datetime = Field(serialization_alias="createdAt")
+    completed_at: datetime | None = Field(serialization_alias="completedAt")

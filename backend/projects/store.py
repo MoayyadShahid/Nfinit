@@ -8,6 +8,8 @@ from typing import Protocol
 from uuid import uuid4
 
 from .models import (
+    CadRunRecord,
+    CadRunResult,
     ProjectCreate,
     ProjectDetail,
     ProjectRevision,
@@ -22,6 +24,18 @@ class ProjectNotFoundError(LookupError):
 
 class RevisionNotFoundError(LookupError):
     pass
+
+
+class RunNotFoundError(LookupError):
+    pass
+
+
+class ThumbnailNotFoundError(LookupError):
+    pass
+
+
+# Thumbnail bytes stay out of list/detail queries; only the timestamp is read.
+PROJECT_COLUMNS = "p.id, p.name, p.created_at, p.updated_at, p.thumbnail_updated_at"
 
 
 LEGACY_LOCAL_USER_ID = "00000000-0000-4000-8000-000000000001"
@@ -60,6 +74,37 @@ class ProjectStoreProtocol(Protocol):
     ) -> ProjectRevision: ...
 
     def delete_project(self, project_id: str, *, user_id: str) -> None: ...
+
+    def set_thumbnail(
+        self, project_id: str, data: bytes, content_type: str, *, user_id: str
+    ) -> None: ...
+
+    def get_thumbnail(
+        self, project_id: str, *, user_id: str
+    ) -> tuple[bytes, str]: ...
+
+    def create_run(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        project_id: str | None,
+        prompt: str,
+        model_id: str,
+    ) -> CadRunRecord: ...
+
+    def finish_run(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        status: str,
+        result: CadRunResult | None,
+        error: str | None,
+        project_id: str | None,
+    ) -> CadRunRecord: ...
+
+    def get_run(self, run_id: str, *, user_id: str) -> CadRunRecord: ...
 
 
 def _timestamp() -> str:
@@ -126,13 +171,37 @@ class ProjectStore:
                 except sqlite3.OperationalError as error:
                     if "duplicate column name" not in str(error).lower():
                         raise
+            for column, definition in (
+                ("thumbnail", "BLOB"),
+                ("thumbnail_content_type", "TEXT"),
+                ("thumbnail_updated_at", "TEXT"),
+            ):
+                if column not in columns:
+                    connection.execute(
+                        f"ALTER TABLE projects ADD COLUMN {column} {definition}"
+                    )
             connection.executescript(
                 """
                 CREATE INDEX IF NOT EXISTS idx_projects_user_updated
                     ON projects(user_id, updated_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_project_revisions_project
                     ON project_revisions(project_id, revision_number DESC);
-                PRAGMA user_version = 2;
+                CREATE TABLE IF NOT EXISTS cad_runs (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+                    status TEXT NOT NULL
+                        CHECK (status IN ('running', 'succeeded', 'failed')),
+                    prompt TEXT NOT NULL DEFAULT '',
+                    model_id TEXT NOT NULL DEFAULT '',
+                    result_json TEXT,
+                    error TEXT,
+                    created_at TEXT NOT NULL,
+                    completed_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_cad_runs_user_created
+                    ON cad_runs(user_id, created_at DESC);
+                PRAGMA user_version = 3;
                 """
             )
 
@@ -161,6 +230,25 @@ class ProjectStore:
             revision_count=row["revision_count"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            thumbnail_updated_at=row["thumbnail_updated_at"],
+        )
+
+    @staticmethod
+    def _run(row: sqlite3.Row) -> CadRunRecord:
+        return CadRunRecord(
+            id=row["id"],
+            project_id=row["project_id"],
+            status=row["status"],
+            prompt=row["prompt"],
+            model_id=row["model_id"],
+            result=(
+                CadRunResult.model_validate_json(row["result_json"])
+                if row["result_json"]
+                else None
+            ),
+            error=row["error"],
+            created_at=row["created_at"],
+            completed_at=row["completed_at"],
         )
 
     def create_project(
@@ -193,8 +281,8 @@ class ProjectStore:
     ) -> list[ProjectSummary]:
         with self._connect() as connection:
             rows = connection.execute(
-                """
-                SELECT p.*, COUNT(r.id) AS revision_count
+                f"""
+                SELECT {PROJECT_COLUMNS}, COUNT(r.id) AS revision_count
                 FROM projects p
                 LEFT JOIN project_revisions r ON r.project_id = p.id
                 WHERE p.user_id = ?
@@ -209,8 +297,8 @@ class ProjectStore:
     def get_project(self, project_id: str, *, user_id: str) -> ProjectDetail:
         with self._connect() as connection:
             project = connection.execute(
-                """
-                SELECT p.*, COUNT(r.id) AS revision_count
+                f"""
+                SELECT {PROJECT_COLUMNS}, COUNT(r.id) AS revision_count
                 FROM projects p
                 LEFT JOIN project_revisions r ON r.project_id = p.id
                 WHERE p.id = ? AND p.user_id = ?
@@ -237,6 +325,7 @@ class ProjectStore:
             revision_count=summary.revision_count,
             created_at=summary.created_at,
             updated_at=summary.updated_at,
+            thumbnail_updated_at=summary.thumbnail_updated_at,
             latest_revision=self._revision(revision) if revision else None,
         )
 
@@ -359,6 +448,101 @@ class ProjectStore:
             )
             if cursor.rowcount == 0:
                 raise ProjectNotFoundError(project_id)
+
+    def set_thumbnail(
+        self, project_id: str, data: bytes, content_type: str, *, user_id: str
+    ) -> None:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE projects
+                SET thumbnail = ?, thumbnail_content_type = ?,
+                    thumbnail_updated_at = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (data, content_type, _timestamp(), project_id, user_id),
+            )
+            if cursor.rowcount == 0:
+                raise ProjectNotFoundError(project_id)
+
+    def get_thumbnail(
+        self, project_id: str, *, user_id: str
+    ) -> tuple[bytes, str]:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT thumbnail, thumbnail_content_type FROM projects
+                WHERE id = ? AND user_id = ?
+                """,
+                (project_id, user_id),
+            ).fetchone()
+        if row is None:
+            raise ProjectNotFoundError(project_id)
+        if row["thumbnail"] is None:
+            raise ThumbnailNotFoundError(project_id)
+        return bytes(row["thumbnail"]), row["thumbnail_content_type"]
+
+    def create_run(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        project_id: str | None,
+        prompt: str,
+        model_id: str,
+    ) -> CadRunRecord:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO cad_runs (
+                    id, user_id, project_id, status, prompt, model_id, created_at
+                ) VALUES (?, ?, ?, 'running', ?, ?, ?)
+                """,
+                (run_id, user_id, project_id, prompt, model_id, _timestamp()),
+            )
+        return self.get_run(run_id, user_id=user_id)
+
+    def finish_run(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        status: str,
+        result: CadRunResult | None,
+        error: str | None,
+        project_id: str | None,
+    ) -> CadRunRecord:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE cad_runs
+                SET status = ?, result_json = ?, error = ?,
+                    project_id = COALESCE(?, project_id), completed_at = ?
+                WHERE id = ? AND user_id = ? AND status = 'running'
+                """,
+                (
+                    status,
+                    result.model_dump_json(by_alias=True) if result else None,
+                    error,
+                    project_id,
+                    _timestamp(),
+                    run_id,
+                    user_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise RunNotFoundError(run_id)
+        return self.get_run(run_id, user_id=user_id)
+
+    def get_run(self, run_id: str, *, user_id: str) -> CadRunRecord:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM cad_runs WHERE id = ? AND user_id = ?",
+                (run_id, user_id),
+            ).fetchone()
+        if row is None:
+            raise RunNotFoundError(run_id)
+        return self._run(row)
 
 
 @lru_cache(maxsize=1)

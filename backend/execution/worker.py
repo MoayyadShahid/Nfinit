@@ -152,7 +152,9 @@ def _set_limit(resource_id: int, soft: int, hard: int | None = None) -> None:
 
 
 def _apply_resource_limits():
-    cpu_seconds = int(os.environ.get("CAD_SANDBOX_CPU_SECONDS", "10"))
+    # Fillets and booleans on detailed parts can need well over 10 CPU-seconds;
+    # a legitimate model killed here would be "repaired" at the model's expense.
+    cpu_seconds = int(os.environ.get("CAD_SANDBOX_CPU_SECONDS", "45"))
     memory_bytes = int(os.environ.get("CAD_SANDBOX_MEMORY_BYTES", str(2 * 1024**3)))
     file_bytes = int(os.environ.get("CAD_SANDBOX_FILE_BYTES", str(256 * 1024**2)))
     _set_limit(resource.RLIMIT_CPU, cpu_seconds, cpu_seconds + 1)

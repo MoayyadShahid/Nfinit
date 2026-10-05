@@ -51,14 +51,3 @@ class ModelUsage(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
-
-
-class CadRunResponse(BaseModel):
-    model_config = ConfigDict(serialize_by_alias=True)
-
-    run_id: str = Field(serialization_alias="runId")
-    code: str
-    plan: str
-    inspection: ModelInspection
-    trace: list[TraceStep]
-    usage: ModelUsage

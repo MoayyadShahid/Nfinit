@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 from collections.abc import Callable
 from time import perf_counter
 from typing import Any, Literal, TypedDict
@@ -22,7 +23,26 @@ from .tracing import RunTracer, summarize_messages, summarize_text
 from .validation import extract_code, validate_code
 
 MAX_REPAIR_ATTEMPTS = 3
+# Plan + generate + up to three repairs is at most five model calls; the run
+# deadline bounds all of them together, and each call has its own ceiling so
+# one stalled request cannot eat the whole budget.
+DEFAULT_RUN_TIMEOUT_SECONDS = 300.0
+DEFAULT_LLM_TIMEOUT_SECONDS = 120.0
 logger = logging.getLogger(__name__)
+
+
+def run_timeout_seconds() -> float:
+    return float(
+        os.getenv("CAD_RUN_TIMEOUT_SECONDS", str(DEFAULT_RUN_TIMEOUT_SECONDS))
+    )
+
+
+class CadRunTimeoutError(TimeoutError):
+    """The run hit its deadline; `state` is the last step that finished."""
+
+    def __init__(self, seconds: float, state: "AgentState"):
+        super().__init__(f"The CAD agent did not finish within {seconds:g} seconds.")
+        self.state = state
 
 CAD_CODE_RESPONSE_FORMAT = {
     "type": "json_schema",
@@ -561,12 +581,18 @@ async def run_cad_agent(
     api_key: str,
     inspect_code: InspectCode,
     run_id: str | None = None,
+    timeout_seconds: float | None = None,
 ) -> AgentState:
     run_id = run_id or str(uuid4())
+    timeout_seconds = timeout_seconds or run_timeout_seconds()
     tracer = RunTracer(run_id)
     client = AsyncOpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=api_key,
+        timeout=float(
+            os.getenv("CAD_LLM_TIMEOUT_SECONDS", str(DEFAULT_LLM_TIMEOUT_SECONDS))
+        ),
+        max_retries=1,
     )
     graph = create_cad_graph(client, inspect_code, tracer)
     initial_state: AgentState = {
@@ -596,7 +622,20 @@ async def run_cad_agent(
         metadata={"model": request.model_id},
         root=True,
     ) as root:
-        result = await graph.ainvoke(initial_state)
+        result = initial_state
+        try:
+            async with asyncio.timeout(timeout_seconds):
+                async for result in graph.astream(
+                    initial_state, stream_mode="values"
+                ):
+                    pass
+        except TimeoutError as error:
+            root.update(
+                level="ERROR",
+                status_message=f"Run exceeded {timeout_seconds:g}s.",
+                metadata={"usage": result["usage"]},
+            )
+            raise CadRunTimeoutError(timeout_seconds, result) from error
         root.update(
             output={
                 "valid": not bool(result["validation_error"]),

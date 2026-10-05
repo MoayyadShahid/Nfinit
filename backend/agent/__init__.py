@@ -1,10 +1,10 @@
-from .graph import MAX_REPAIR_ATTEMPTS, run_cad_agent
-from .models import CadRunRequest, CadRunResponse, FaceSelection, ModelInspection
+from .graph import MAX_REPAIR_ATTEMPTS, CadRunTimeoutError, run_cad_agent
+from .models import CadRunRequest, FaceSelection, ModelInspection
 from .tracing import flush_tracing
 
 __all__ = [
     "CadRunRequest",
-    "CadRunResponse",
+    "CadRunTimeoutError",
     "FaceSelection",
     "MAX_REPAIR_ATTEMPTS",
     "ModelInspection",

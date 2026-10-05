@@ -1,10 +1,16 @@
+import asyncio
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
-from agent.graph import _message_text, create_cad_graph
-from agent.models import ModelInspection
+from agent.graph import (
+    CadRunTimeoutError,
+    _message_text,
+    create_cad_graph,
+    run_cad_agent,
+)
+from agent.models import CadRunRequest, ModelInspection
 from agent.retrieval import RetrievedPattern
 
 
@@ -180,3 +186,35 @@ async def test_generate_retries_when_structured_response_is_empty():
     assert generate_requests[0]["response_format"]["json_schema"]["name"] == "cad_code"
     assert "response_format" not in generate_requests[1]
     assert generate_requests[1]["extra_body"]["reasoning"]["effort"] == "medium"
+
+
+class SlowAfterPlanCompletions(FakeCompletions):
+    async def create(self, **kwargs):
+        if self.requests:
+            await asyncio.sleep(30)
+        return await super().create(**kwargs)
+
+
+@pytest.mark.asyncio
+async def test_run_deadline_keeps_the_last_finished_step(monkeypatch):
+    client = FakeClient(["Make a parameterized 10 mm cube."])
+    client.chat.completions = SlowAfterPlanCompletions(
+        ["Make a parameterized 10 mm cube."]
+    )
+    monkeypatch.setattr("agent.graph.AsyncOpenAI", lambda **_kwargs: client)
+    request = CadRunRequest(
+        messages=[{"role": "user", "content": "Make a 10 mm cube"}],
+        modelId="anthropic/claude-opus-5",
+    )
+
+    with pytest.raises(CadRunTimeoutError) as raised:
+        await run_cad_agent(
+            request,
+            "test-key",
+            lambda _code: ModelInspection(valid=True),
+            run_id="deadline-run",
+            timeout_seconds=0.5,
+        )
+
+    assert raised.value.state["plan"] == "Make a parameterized 10 mm cube."
+    assert raised.value.state["usage"]["total_tokens"] == 125

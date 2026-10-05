@@ -7,13 +7,21 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from .models import (
+    CadRunRecord,
+    CadRunResult,
     ProjectCreate,
     ProjectDetail,
     ProjectRevision,
     ProjectState,
     ProjectSummary,
 )
-from .store import ProjectNotFoundError, RevisionNotFoundError
+from .store import (
+    PROJECT_COLUMNS,
+    ProjectNotFoundError,
+    RevisionNotFoundError,
+    RunNotFoundError,
+    ThumbnailNotFoundError,
+)
 
 
 class PostgresProjectStore:
@@ -64,14 +72,40 @@ class PostgresProjectStore:
             revision_count=row["revision_count"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            thumbnail_updated_at=row["thumbnail_updated_at"],
         )
+
+    @staticmethod
+    def _run(row: dict) -> CadRunRecord:
+        return CadRunRecord(
+            id=str(row["id"]),
+            project_id=str(row["project_id"]) if row["project_id"] else None,
+            status=row["status"],
+            prompt=row["prompt"],
+            model_id=row["model_id"],
+            result=(
+                CadRunResult.model_validate(row["result_json"])
+                if row["result_json"] is not None
+                else None
+            ),
+            error=row["error"],
+            created_at=row["created_at"],
+            completed_at=row["completed_at"],
+        )
+
+    @staticmethod
+    def _run_uuid(run_id: str) -> str:
+        try:
+            return str(UUID(run_id))
+        except (ValueError, AttributeError) as error:
+            raise RunNotFoundError(run_id) from error
 
     def _get_project(
         self, connection: psycopg.Connection, project_id: str, user_id: str
     ) -> ProjectDetail:
         project = connection.execute(
-            """
-            SELECT p.*, COUNT(r.id) AS revision_count
+            f"""
+            SELECT {PROJECT_COLUMNS}, COUNT(r.id) AS revision_count
             FROM public.projects p
             LEFT JOIN public.project_revisions r ON r.project_id = p.id
             WHERE p.id = %s AND p.user_id = %s
@@ -97,6 +131,7 @@ class PostgresProjectStore:
             revision_count=summary.revision_count,
             created_at=summary.created_at,
             updated_at=summary.updated_at,
+            thumbnail_updated_at=summary.thumbnail_updated_at,
             latest_revision=self._revision(revision) if revision else None,
         )
 
@@ -128,8 +163,8 @@ class PostgresProjectStore:
     ) -> list[ProjectSummary]:
         with self._connect(user_id) as connection:
             rows = connection.execute(
-                """
-                SELECT p.*, COUNT(r.id) AS revision_count
+                f"""
+                SELECT {PROJECT_COLUMNS}, COUNT(r.id) AS revision_count
                 FROM public.projects p
                 LEFT JOIN public.project_revisions r ON r.project_id = p.id
                 WHERE p.user_id = %s
@@ -281,3 +316,114 @@ class PostgresProjectStore:
             ).fetchone()
             if deleted is None:
                 raise ProjectNotFoundError(project_id)
+
+    def set_thumbnail(
+        self, project_id: str, data: bytes, content_type: str, *, user_id: str
+    ) -> None:
+        project_id = self._project_uuid(project_id)
+        with self._connect(user_id) as connection:
+            updated = connection.execute(
+                """
+                UPDATE public.projects
+                SET thumbnail = %s, thumbnail_content_type = %s,
+                    thumbnail_updated_at = now()
+                WHERE id = %s AND user_id = %s
+                RETURNING id
+                """,
+                (data, content_type, project_id, user_id),
+            ).fetchone()
+            if updated is None:
+                raise ProjectNotFoundError(project_id)
+
+    def get_thumbnail(
+        self, project_id: str, *, user_id: str
+    ) -> tuple[bytes, str]:
+        project_id = self._project_uuid(project_id)
+        with self._connect(user_id) as connection:
+            row = connection.execute(
+                """
+                SELECT thumbnail, thumbnail_content_type FROM public.projects
+                WHERE id = %s AND user_id = %s
+                """,
+                (project_id, user_id),
+            ).fetchone()
+        if row is None:
+            raise ProjectNotFoundError(project_id)
+        if row["thumbnail"] is None:
+            raise ThumbnailNotFoundError(project_id)
+        return bytes(row["thumbnail"]), row["thumbnail_content_type"]
+
+    def create_run(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        project_id: str | None,
+        prompt: str,
+        model_id: str,
+    ) -> CadRunRecord:
+        run_id = self._run_uuid(run_id)
+        if project_id is not None:
+            project_id = self._project_uuid(project_id)
+        with self._connect(user_id) as connection:
+            row = connection.execute(
+                """
+                INSERT INTO public.cad_runs (
+                    id, user_id, project_id, status, prompt, model_id
+                ) VALUES (%s, %s, %s, 'running', %s, %s)
+                RETURNING *
+                """,
+                (run_id, user_id, project_id, prompt, model_id),
+            ).fetchone()
+        return self._run(row)
+
+    def finish_run(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        status: str,
+        result: CadRunResult | None,
+        error: str | None,
+        project_id: str | None,
+    ) -> CadRunRecord:
+        run_id = self._run_uuid(run_id)
+        if project_id is not None:
+            project_id = self._project_uuid(project_id)
+        with self._connect(user_id) as connection:
+            row = connection.execute(
+                """
+                UPDATE public.cad_runs
+                SET status = %s, result_json = %s, error = %s,
+                    project_id = COALESCE(%s, project_id), completed_at = now()
+                WHERE id = %s AND user_id = %s AND status = 'running'
+                RETURNING *
+                """,
+                (
+                    status,
+                    Jsonb(result.model_dump(mode="json", by_alias=True))
+                    if result
+                    else None,
+                    error,
+                    project_id,
+                    run_id,
+                    user_id,
+                ),
+            ).fetchone()
+        if row is None:
+            raise RunNotFoundError(run_id)
+        return self._run(row)
+
+    def get_run(self, run_id: str, *, user_id: str) -> CadRunRecord:
+        run_id = self._run_uuid(run_id)
+        with self._connect(user_id) as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM public.cad_runs
+                WHERE id = %s AND user_id = %s
+                """,
+                (run_id, user_id),
+            ).fetchone()
+        if row is None:
+            raise RunNotFoundError(run_id)
+        return self._run(row)
