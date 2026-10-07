@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -22,6 +24,8 @@ from execution import (
     compare_code,
     export_code,
     inspect_code as sandbox_inspect_code,
+    start_sandbox,
+    stop_sandbox,
 )
 from projects import router as projects_router
 from projects.billing import SubscribedUserId, billing_enabled
@@ -70,7 +74,11 @@ async def lifespan(_app: FastAPI):
     validate_project_configuration()
     for name, status in _optional_service_status().items():
         logger.info("Service %s: %s", name, status)
+    # Warm the CAD sandbox in the background: a cold OpenCASCADE import can
+    # outlast the platform health check, which must answer meanwhile.
+    threading.Thread(target=start_sandbox, name="cad-sandbox-start", daemon=True).start()
     yield
+    stop_sandbox()
     flush_tracing()
 
 
@@ -127,7 +135,7 @@ async def inspect_model(
     request: GenerateMeshRequest, _user: SubscribedUserId
 ):
     """Execute CAD code and return geometry facts."""
-    return _inspect_code(request.code)
+    return await asyncio.to_thread(_inspect_code, request.code)
 
 
 @app.post("/analyze-model", response_model=TopologyAnalysis)
@@ -135,7 +143,7 @@ async def analyze_model(
     request: AnalyzeModelRequest, _user: SubscribedUserId
 ):
     """Index B-rep entities and optionally resolve a geometric face selection."""
-    return analyze_code(request.code, request.selection)
+    return await asyncio.to_thread(analyze_code, request.code, request.selection)
 
 
 @app.post("/compare-models", response_model=RevisionComparison)
@@ -166,7 +174,7 @@ async def export_model(
 
     ext = {"step": ".step", "brep": ".brep", "stl": ".stl"}[fmt]
     try:
-        artifact = export_code(request.code, fmt)
+        artifact = await asyncio.to_thread(export_code, request.code, fmt)
     except SandboxError as error:
         status = 408 if error.kind == "sandbox_timeout" else 400
         raise HTTPException(status_code=status, detail=str(error)) from error
@@ -194,7 +202,7 @@ async def generate_mesh(
 ):
     """Execute build123d code in the sandbox and return a GLB file."""
     try:
-        artifact = export_code(request.code, "glb")
+        artifact = await asyncio.to_thread(export_code, request.code, "glb")
     except SandboxError as error:
         status = 408 if error.kind == "sandbox_timeout" else 400
         raise HTTPException(status_code=status, detail=str(error)) from error

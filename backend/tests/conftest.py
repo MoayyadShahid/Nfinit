@@ -13,3 +13,14 @@ for _name in (
     "APP_URL",
 ):
     os.environ[_name] = ""
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _stop_cad_sandbox():
+    yield
+    from execution import stop_sandbox
+
+    stop_sandbox()

@@ -1,7 +1,11 @@
 """Isolated build123d worker.
 
-This file is launched with Python's isolated mode and communicates only through
-one JSON request on stdin and one JSON response on stdout.
+This file is launched with Python's isolated mode. It runs in one of two ways:
+
+- One-shot: one JSON request on stdin and one JSON response on stdout.
+- Fork server (``serve <socket>``): import build123d once, then fork one fresh
+  child per job from that clean process. A child serves exactly one
+  connection and exits, so no state leaks from one job into the next.
 """
 
 import contextlib
@@ -11,6 +15,8 @@ import math
 import os
 import re
 import resource
+import select
+import signal
 import socket
 import sys
 from collections import Counter
@@ -700,41 +706,143 @@ def _export(result, operation: str, output_name: str):
     return {"bytes": output_path.stat().st_size}
 
 
-def main():
-    os.umask(0o077)
-    _apply_resource_limits()
-    request = json.loads(sys.stdin.read())
-    _disable_network()
+def handle_request(request: dict) -> dict:
     result, feature_records, constraint_records = _execute(request["code"])
     operation = request["operation"]
     if operation == "inspect":
-        data = _inspect(result)
-    elif operation == "topology":
-        data = _topology(
+        return _inspect(result)
+    if operation == "topology":
+        return _topology(
             result,
             request.get("selection"),
             feature_records=feature_records,
             constraint_records=constraint_records,
         )
-    else:
-        data = _export(result, operation, request["output_name"])
+    return _export(result, operation, request["output_name"])
+
+
+def _failure(error: BaseException) -> dict:
+    return {
+        "ok": False,
+        "error": {"type": type(error).__name__, "message": str(error)},
+    }
+
+
+def main():
+    os.umask(0o077)
+    _apply_resource_limits()
+    request = json.loads(sys.stdin.read())
+    _disable_network()
+    data = handle_request(request)
     print(json.dumps({"ok": True, "data": data}), flush=True)
 
 
+def _thread_count() -> int:
+    try:
+        return len(os.listdir("/proc/self/task"))
+    except OSError:
+        import threading
+
+        return threading.active_count()
+
+
+def _warm_up():
+    """Load build123d and the OpenCASCADE code that every job uses.
+
+    Only single-threaded work belongs here. Booleans, fillets and meshing start
+    OpenCASCADE's thread pool, and a child forked from a multi-threaded process
+    can deadlock on a lock that one of those threads held.
+    """
+    import build123d  # noqa: F401
+    import build123d.exporters3d  # noqa: F401
+
+    result, _, _ = _execute("result = Box(1, 1, 1)")
+    _inspect(result)
+
+
+def _read_request(connection) -> dict:
+    connection.settimeout(10)
+    chunks = []
+    while True:
+        chunk = connection.recv(65536)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    return json.loads(b"".join(chunks))
+
+
+def _serve_job(listener, connection):
+    """Run one job in a freshly forked child. Never returns."""
+    status = 1
+    try:
+        listener.close()
+        signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+        connection.sendall(json.dumps({"pid": os.getpid()}).encode() + b"\n")
+        request = _read_request(connection)
+        # The server kills a late job, but if the server itself dies the job
+        # must still end: SIGALRM terminates the child even when it is stuck.
+        signal.alarm(math.ceil(float(request.get("deadline_seconds", 90))) + 5)
+
+        work_dir = Path(request["work_dir"])
+        os.chdir(work_dir)
+        os.environ["HOME"] = os.environ["TMPDIR"] = str(work_dir)
+        os.umask(0o077)
+        # Keep generated output away from the server's pipes; the parent
+        # reads this log when a job dies without answering.
+        log = os.open(work_dir / "worker.log", os.O_WRONLY | os.O_CREAT, 0o600)
+        null = os.open(os.devnull, os.O_RDONLY)
+        os.dup2(null, 0)
+        os.dup2(log, 1)
+        os.dup2(log, 2)
+        os.close(null)
+        os.close(log)
+
+        _apply_resource_limits()
+        _disable_network()
+        try:
+            response = {"ok": True, "data": handle_request(request)}
+        except BaseException as error:
+            response = _failure(error)
+        connection.sendall(json.dumps(response).encode() + b"\n")
+        status = 0
+    finally:
+        os._exit(status)
+
+
+def serve(socket_path: str):
+    _warm_up()
+    if _thread_count() != 1:
+        print(f"refused: {_thread_count()} threads after warm-up", flush=True)
+        return
+    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    listener.bind(socket_path)
+    listener.listen(64)
+    # Children are never waited on; the kernel reaps them.
+    signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+    print("ready", flush=True)
+
+    while True:
+        readable, _, _ = select.select([listener, sys.stdin], [], [])
+        if sys.stdin in readable and not sys.stdin.buffer.read1(1):
+            return  # The server closed our stdin: it has exited.
+        if listener not in readable:
+            continue
+        connection, _ = listener.accept()
+        try:
+            pid = os.fork()
+        except OSError:
+            pid = None  # Out of processes or memory: drop only this job.
+        if pid == 0:
+            _serve_job(listener, connection)
+        connection.close()
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 4 and sys.argv[3] == "serve":
+        serve(sys.argv[4])
+        raise SystemExit(0)
     try:
         main()
     except BaseException as error:
-        print(
-            json.dumps(
-                {
-                    "ok": False,
-                    "error": {
-                        "type": type(error).__name__,
-                        "message": str(error),
-                    },
-                }
-            ),
-            flush=True,
-        )
+        print(json.dumps(_failure(error)), flush=True)
         raise SystemExit(1)
