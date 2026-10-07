@@ -224,6 +224,16 @@ code, and unsafe control flow. Valid code runs in an isolated Python worker with
 - wall-clock, CPU, memory, file-size, and file-descriptor limits
 - a private temporary directory that is deleted after inspection or export
 
+Importing OpenCASCADE takes seconds, while most parts build in milliseconds.
+On Linux the backend therefore starts one fork server at startup that imports
+build123d once. Each job runs in a fresh child forked from that clean process
+and serves only that job, so nothing carries over between jobs. The child
+applies the limits above, and a job past its deadline is killed. The fork
+server refuses to start if OpenCASCADE has started threads, and the backend
+falls back to one-shot workers whenever the fork server is unavailable. Set
+`CAD_SANDBOX_MODE=spawn` to always use one-shot workers.
+`CAD_SANDBOX_MAX_CONCURRENCY` (default 4) limits how many jobs run at once.
+
 The limits can be tuned with the `CAD_SANDBOX_*` variables documented in
 `backend/.env.example`.
 

@@ -5,6 +5,8 @@ from .runner import (
     analyze_code,
     export_code,
     inspect_code,
+    start_sandbox,
+    stop_sandbox,
 )
 from .rematching import compare_analyses, compare_code
 from .topology import RevisionComparison, TopologyAnalysis
@@ -20,5 +22,7 @@ __all__ = [
     "compare_code",
     "export_code",
     "inspect_code",
+    "start_sandbox",
+    "stop_sandbox",
     "validate_cad_code",
 ]

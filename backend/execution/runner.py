@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import shutil
 import site
@@ -6,14 +7,24 @@ import subprocess
 import sys
 import sysconfig
 import tempfile
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 from agent.models import FaceSelection, ModelInspection
 
+from .forkserver import (
+    ForkedJobDied,
+    ForkedJobTimeout,
+    ForkServer,
+    ForkServerUnavailable,
+    bootstrap_command,
+)
 from .policy import CodePolicyError, validate_cad_code
 from .topology import TopologyAnalysis
+
+logger = logging.getLogger(__name__)
 
 SandboxOperation = Literal["inspect", "topology", "glb", "step", "brep", "stl"]
 
@@ -78,13 +89,10 @@ def _trusted_package_paths() -> list[str]:
     )
 
 
-def _decode_worker_response(process: subprocess.CompletedProcess[str]) -> dict:
-    lines = [line for line in process.stdout.splitlines() if line.strip()]
+def _decode_worker_response(stdout: str, failure_detail: str) -> dict:
+    lines = [line for line in stdout.splitlines() if line.strip()]
     if not lines:
-        detail = process.stderr.strip()[-2_000:] or (
-            f"Worker exited with status {process.returncode}."
-        )
-        raise SandboxError("sandbox_process_error", detail)
+        raise SandboxError("sandbox_process_error", failure_detail)
     try:
         response = json.loads(lines[-1])
     except json.JSONDecodeError as error:
@@ -100,25 +108,82 @@ def _decode_worker_response(process: subprocess.CompletedProcess[str]) -> dict:
     return response["data"]
 
 
-def _run_worker(
-    code: str,
-    operation: SandboxOperation,
-    work_dir: Path,
-    output_name: str | None = None,
-    timeout_seconds: float | None = None,
-    worker_path: Path | None = None,
-    selection: FaceSelection | None = None,
-) -> dict:
-    worker = worker_path or Path(__file__).with_name("worker.py")
-    timeout = timeout_seconds or float(
-        os.environ.get("CAD_SANDBOX_TIMEOUT_SECONDS", "90")
-    )
-    payload = {"code": code, "operation": operation}
-    if output_name:
-        payload["output_name"] = output_name
-    if selection:
-        payload["selection"] = selection.model_dump(mode="json")
+def _sandbox_mode() -> str:
+    # The fork server checks that it is single-threaded before it forks, and
+    # only Linux lets it see OpenCASCADE's native threads.
+    default = "fork" if sys.platform.startswith("linux") else "spawn"
+    mode = os.environ.get("CAD_SANDBOX_MODE", default).strip().lower()
+    return mode if mode in ("fork", "spawn") else default
 
+
+def _max_concurrency() -> int:
+    try:
+        return max(1, int(os.environ.get("CAD_SANDBOX_MAX_CONCURRENCY", "4")))
+    except ValueError:
+        return 4
+
+
+_job_slots = threading.BoundedSemaphore(_max_concurrency())
+_fork_server: ForkServer | None = None
+_fork_server_lock = threading.Lock()
+
+
+def get_fork_server() -> ForkServer:
+    global _fork_server
+    with _fork_server_lock:
+        if _fork_server is None:
+            _fork_server = ForkServer(
+                bootstrap_command(
+                    Path(__file__).with_name("worker.py"),
+                    _trusted_package_paths(),
+                    ISOLATED_BOOTSTRAP,
+                ),
+                _worker_environment,
+            )
+        return _fork_server
+
+
+def start_sandbox() -> None:
+    """Warm the fork server so the first request does not pay for it."""
+    if _sandbox_mode() != "fork":
+        return
+    try:
+        get_fork_server().ensure_started()
+    except ForkServerUnavailable as error:
+        logger.warning("%s Falling back to one-shot workers.", error)
+
+
+def stop_sandbox() -> None:
+    if _fork_server is not None:
+        _fork_server.stop()
+
+
+def _log_tail(work_dir: Path) -> str:
+    try:
+        return (work_dir / "worker.log").read_text(errors="replace").strip()[-2_000:]
+    except OSError:
+        return ""
+
+
+def _run_forked(payload: dict, work_dir: Path, timeout: float) -> dict:
+    try:
+        response = get_fork_server().run(
+            {**payload, "work_dir": str(work_dir), "deadline_seconds": timeout},
+            timeout,
+        )
+    except ForkedJobTimeout as error:
+        raise SandboxError(
+            "sandbox_timeout", f"CAD execution exceeded {timeout:g} seconds."
+        ) from error
+    except ForkedJobDied:
+        detail = _log_tail(work_dir) or "Worker exited without a response."
+        raise SandboxError("sandbox_process_error", detail) from None
+    return _decode_worker_response(response, "Worker exited without a response.")
+
+
+def _run_spawned(
+    payload: dict, worker: Path, work_dir: Path, timeout: float
+) -> dict:
     try:
         process = subprocess.run(
             [
@@ -142,7 +207,45 @@ def _run_worker(
             "sandbox_timeout", f"CAD execution exceeded {timeout:g} seconds."
         ) from error
 
-    return _decode_worker_response(process)
+    detail = process.stderr.strip()[-2_000:] or (
+        f"Worker exited with status {process.returncode}."
+    )
+    return _decode_worker_response(process.stdout, detail)
+
+
+def _run_worker(
+    code: str,
+    operation: SandboxOperation,
+    work_dir: Path,
+    output_name: str | None = None,
+    timeout_seconds: float | None = None,
+    worker_path: Path | None = None,
+    selection: FaceSelection | None = None,
+) -> dict:
+    worker = worker_path or Path(__file__).with_name("worker.py")
+    timeout = timeout_seconds or float(
+        os.environ.get("CAD_SANDBOX_TIMEOUT_SECONDS", "90")
+    )
+    payload = {"code": code, "operation": operation}
+    if output_name:
+        payload["output_name"] = output_name
+    if selection:
+        payload["selection"] = selection.model_dump(mode="json")
+
+    # Waiting for a free slot counts against the same deadline as the job.
+    if not _job_slots.acquire(timeout=timeout):
+        raise SandboxError(
+            "sandbox_timeout", "The CAD sandbox is busy. Please retry."
+        )
+    try:
+        if worker_path is None and _sandbox_mode() == "fork":
+            try:
+                return _run_forked(payload, work_dir, timeout)
+            except ForkServerUnavailable as error:
+                logger.warning("%s Running a one-shot worker instead.", error)
+        return _run_spawned(payload, worker, work_dir, timeout)
+    finally:
+        _job_slots.release()
 
 
 def inspect_code(code: str) -> ModelInspection:
