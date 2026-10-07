@@ -14,6 +14,7 @@ from .models import (
     ProjectRevision,
     ProjectState,
     ProjectSummary,
+    RunEvent,
     SubscriptionRecord,
 )
 from .store import (
@@ -480,6 +481,51 @@ class PostgresProjectStore:
         if row is None:
             raise RunNotFoundError(run_id)
         return self._run(row)
+
+    def add_run_event(self, run_id: str, event: RunEvent, *, user_id: str) -> None:
+        run_id = self._run_uuid(run_id)
+        with self._connect(user_id) as connection:
+            added = connection.execute(
+                """
+                INSERT INTO public.run_events
+                    (run_id, seq, user_id, stage, status, message, attempt,
+                     duration_ms, created_at)
+                SELECT id, %s, user_id, %s, %s, %s, %s, %s, %s
+                FROM public.cad_runs
+                WHERE id = %s AND user_id = %s
+                RETURNING seq
+                """,
+                (
+                    event.seq,
+                    event.stage,
+                    event.status,
+                    event.message,
+                    event.attempt,
+                    event.duration_ms,
+                    event.created_at,
+                    run_id,
+                    user_id,
+                ),
+            ).fetchone()
+            if added is None:
+                raise RunNotFoundError(run_id)
+
+    def list_run_events(
+        self, run_id: str, *, user_id: str, after: int = 0
+    ) -> list[RunEvent]:
+        run_id = self._run_uuid(run_id)
+        with self._connect(user_id) as connection:
+            rows = connection.execute(
+                """
+                SELECT seq, stage, status, message, attempt, duration_ms,
+                    created_at
+                FROM public.run_events
+                WHERE run_id = %s AND user_id = %s AND seq > %s
+                ORDER BY seq
+                """,
+                (run_id, user_id, after),
+            ).fetchall()
+        return [RunEvent.model_validate(row) for row in rows]
 
     def get_subscription(self, *, user_id: str) -> SubscriptionRecord | None:
         with self._connect(user_id) as connection:

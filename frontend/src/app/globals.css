@@ -1166,3 +1166,49 @@ html[data-theme="midnight"] .wb-submit:hover {
     transform: none;
   }
 }
+
+/* Studio viewport: a new model fades in over the previous frame. */
+@keyframes viewport-reveal {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.viewport-reveal {
+  animation: viewport-reveal 450ms ease-out forwards;
+}
+
+/* Thin indeterminate bar while a run builds the next model. */
+@keyframes viewport-progress {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.viewport-progress-bar {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: viewport-progress 1400ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewport-reveal,
+  .viewport-progress-bar {
+    animation: none;
+  }
+
+  .viewport-reveal {
+    opacity: 0;
+  }
+}

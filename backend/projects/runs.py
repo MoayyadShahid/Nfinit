@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import Field
 
 from agent import (
@@ -28,7 +28,13 @@ from execution import inspect_code
 from .auth import get_current_user_id
 from .meshes import store_mesh_for_code
 from .billing import SubscribedUserId
-from .models import CadRunRecord, CadRunResult, ProjectCreate, ProjectState
+from .models import (
+    CadRunRecord,
+    CadRunResult,
+    ProjectCreate,
+    ProjectState,
+    RunEvent,
+)
 from .store import (
     ProjectNotFoundError,
     ProjectStoreProtocol,
@@ -131,8 +137,30 @@ async def _execute_run(
     project_id: str | None = None
     result: CadRunResult | None = None
     error: str | None = None
+    sequence = 0
+
+    async def record_event(event: dict[str, Any]) -> None:
+        nonlocal sequence
+        sequence += 1
+        await asyncio.to_thread(
+            store.add_run_event,
+            run_id,
+            RunEvent(
+                seq=sequence,
+                stage=str(event.get("stage", "")),
+                status=str(event.get("status", "")),
+                message=str(event.get("message", ""))[:500],
+                attempt=event.get("attempt"),
+                duration_ms=event.get("duration_ms"),
+                created_at=datetime.now(timezone.utc),
+            ),
+            user_id=user_id,
+        )
+
     try:
-        state = await run_cad_agent(request, api_key, inspect_code, run_id=run_id)
+        state = await run_cad_agent(
+            request, api_key, inspect_code, run_id=run_id, on_event=record_event
+        )
     except CadRunTimeoutError as timeout:
         result = _result_of(timeout.state)
         error = str(timeout)
@@ -160,6 +188,16 @@ async def _execute_run(
                 result.revision_number = revision_number
                 # Build the mesh now, so the studio can show the part as soon
                 # as the run reports success.
+                try:
+                    await record_event(
+                        {
+                            "stage": "mesh",
+                            "status": "started",
+                            "message": "Preparing the 3D view.",
+                        }
+                    )
+                except Exception:
+                    logger.warning("Could not record the mesh event.", exc_info=True)
                 await asyncio.to_thread(
                     store_mesh_for_code,
                     store,
@@ -237,7 +275,13 @@ async def start_run(
 
 
 @router.get("/{run_id}", response_model=CadRunRecord)
-async def get_run(run_id: str, store: Store, user_id: UserId):
+async def get_run(
+    run_id: str,
+    store: Store,
+    user_id: UserId,
+    after: Annotated[int, Query(ge=0)] = 0,
+):
+    """The run, with the progress events after sequence number ``after``."""
     try:
         record = await asyncio.to_thread(store.get_run, run_id, user_id=user_id)
     except RunNotFoundError as error:
@@ -262,4 +306,11 @@ async def get_run(run_id: str, store: Store, user_id: UserId):
             )
         except RunNotFoundError:
             record = await asyncio.to_thread(store.get_run, run_id, user_id=user_id)
+    try:
+        record.events = await asyncio.to_thread(
+            store.list_run_events, run_id, user_id=user_id, after=after
+        )
+    except Exception:
+        # Before the run_events migration is applied, runs still work.
+        logger.warning("Could not read events of run %s.", run_id, exc_info=True)
     return record

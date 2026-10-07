@@ -52,6 +52,7 @@ import {
   type ContentPart,
   type FaceSelection,
   type ModelInspection,
+  type RunEvent,
 } from "@/lib/types";
 import {
   Box,
@@ -118,6 +119,9 @@ export default function Studio({
   const [glbUrl, setGlbUrl] = useState<string | null>(null);
   const [selectedFace, setSelectedFace] = useState<FaceSelection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Progress of the run in flight; cleared when it finishes.
+  const [runEvents, setRunEvents] = useState<RunEvent[]>([]);
+  const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   const [isProjectLoading, setIsProjectLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -486,8 +490,24 @@ export default function Studio({
   const followRun = useCallback(
     async (runId: string) => {
       setIsLoading(true);
+      setRunEvents([]);
+      setRunStartedAt(Date.now());
       try {
-        const run = await waitForRun(runId, () => !mountedRef.current);
+        const run = await waitForRun(
+          runId,
+          () => !mountedRef.current,
+          (events) => {
+            if (!mountedRef.current) return;
+            setRunEvents((previous) => [...previous, ...events]);
+            // A resumed run started before this page: time it from its first event.
+            const first = Date.parse(events[0].createdAt);
+            if (!Number.isNaN(first)) {
+              setRunStartedAt((previous) =>
+                previous === null ? first : Math.min(previous, first)
+              );
+            }
+          }
+        );
         if (mountedRef.current) await completeRun(run);
       } catch (e) {
         if (!mountedRef.current) return;
@@ -498,7 +518,11 @@ export default function Studio({
           setError(e instanceof Error ? e.message : "Lost track of the run");
         }
       } finally {
-        if (mountedRef.current) setIsLoading(false);
+        if (mountedRef.current) {
+          setIsLoading(false);
+          setRunEvents([]);
+          setRunStartedAt(null);
+        }
       }
     },
     [completeRun]
@@ -894,6 +918,9 @@ export default function Studio({
               glbUrl={glbUrl}
               code={code}
               isLoading={isLoading || isProjectLoading}
+              progressMessage={
+                isLoading ? runEvents[runEvents.length - 1]?.message : undefined
+              }
               showSelectionCard={false}
               onThumbnail={handleThumbnail}
               onSelectionChange={handleSelectionChange}
@@ -1007,6 +1034,8 @@ export default function Studio({
                 lastError={error}
                 supportsVision={modelConfig?.supportsVision ?? false}
                 selection={selectedFace}
+                runEvents={isLoading ? runEvents : undefined}
+                runStartedAt={runStartedAt}
               />
             </div>
           </div>

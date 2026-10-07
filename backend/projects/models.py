@@ -108,6 +108,20 @@ class CadRunResult(BaseModel):
     revision_number: int | None = Field(default=None, alias="revisionNumber")
 
 
+class RunEvent(BaseModel):
+    """One progress step of a run: a stage that started or finished."""
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    seq: int
+    stage: str
+    status: str
+    message: str = ""
+    attempt: int | None = None
+    duration_ms: int | None = Field(default=None, alias="durationMs")
+    created_at: datetime = Field(alias="createdAt")
+
+
 class CadRunRecord(BaseModel):
     model_config = ConfigDict(serialize_by_alias=True)
 
@@ -120,6 +134,8 @@ class CadRunRecord(BaseModel):
     error: str | None = None
     created_at: datetime = Field(serialization_alias="createdAt")
     completed_at: datetime | None = Field(serialization_alias="completedAt")
+    # Filled by GET /cad/runs/{id}: the events after the caller's cursor.
+    events: list[RunEvent] = Field(default_factory=list)
 
 
 # Stripe keeps retrying a past_due card, so access continues until it gives up

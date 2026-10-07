@@ -2,11 +2,13 @@ import asyncio
 import json
 import logging
 import os
-from collections.abc import Callable
+import re
+from collections.abc import Awaitable, Callable
 from time import perf_counter
 from typing import Any, Literal, TypedDict
 from uuid import uuid4
 
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from openai import AsyncOpenAI
 
@@ -82,6 +84,29 @@ class CompletionResult(TypedDict):
 
 
 InspectCode = Callable[[str], ModelInspection]
+# Receives each progress event: {"stage", "status", "message", ...}.
+RunEventHandler = Callable[[dict[str, Any]], Awaitable[None]]
+
+def _announce(stage: str, message: str, **extra: Any) -> None:
+    """Tell a streaming caller that a step has started."""
+    get_stream_writer()(
+        {"stage": stage, "status": "started", "message": message, **extra}
+    )
+
+
+def plan_summary(plan: str, limit: int = 160) -> str:
+    """The plan's first sentence, without Markdown markers or headings."""
+    # Split sentences after a word, not after a list number such as "1.".
+    for line in re.split(r"\n|(?<=[a-z)][.!?])\s+", plan):
+        if line.lstrip().startswith("#"):
+            continue
+        text = re.sub(r"^[\s>*_`-]+|[*_`]+", "", line).strip()
+        text = re.sub(r"^\d+[.)]\s+", "", text)
+        # "Intent: A 250 mm frame." -> "A 250 mm frame."
+        text = re.sub(r"^[A-Za-z][\w /-]{0,30}:\s*", "", text)
+        if text:
+            return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+    return ""
 
 
 def _text_of(content: str | list[dict[str, Any]]) -> str:
@@ -332,6 +357,7 @@ def create_cad_graph(
 
     async def retrieve(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
+        _announce("retrieve", "Finding build123d patterns for this request.")
         query = _retrieval_query(state)
         limit = retrieval_limit()
         with tracer.observation(
@@ -370,6 +396,7 @@ def create_cad_graph(
 
     async def plan(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
+        _announce("plan", "Planning the dimensions, features and constraints.")
         pattern_message = _pattern_message(state, include_code=False)
         conversation = [
             {"role": "system", "content": PLANNER_PROMPT},
@@ -396,13 +423,15 @@ def create_cad_graph(
                 state,
                 "plan",
                 "complete",
-                "Translated the request into geometry and manufacturing constraints.",
+                plan_summary(raw)
+                or "Translated the request into geometry and manufacturing constraints.",
                 duration_ms,
             ),
         }
 
     async def generate(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
+        _announce("generate", "Writing the build123d code.")
         pattern_message = _pattern_message(state)
         conversation = [
             {"role": "system", "content": CAD_SYSTEM_PROMPT},
@@ -446,6 +475,7 @@ def create_cad_graph(
 
     async def inspect(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
+        _announce("inspect", "Building the part and checking its geometry.")
         with tracer.observation(
             "node.inspect",
             as_type="tool",
@@ -503,6 +533,12 @@ def create_cad_graph(
 
     async def repair(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
+        _announce(
+            "repair",
+            "Fixing the error (attempt "
+            f"{state['repair_attempts'] + 1} of {MAX_REPAIR_ATTEMPTS}).",
+            attempt=state["repair_attempts"] + 1,
+        )
         pattern_message = _pattern_message(state)
         conversation = [
             {"role": "system", "content": CAD_SYSTEM_PROMPT},
@@ -576,12 +612,23 @@ def create_cad_graph(
     )
 
 
+async def _emit(on_event: RunEventHandler | None, event: dict[str, Any]) -> None:
+    if on_event is None:
+        return
+    try:
+        await on_event(event)
+    except Exception:
+        # Progress is a convenience; it must never fail the paid run.
+        logger.warning("Could not record a run progress event.", exc_info=True)
+
+
 async def run_cad_agent(
     request: CadRunRequest,
     api_key: str,
     inspect_code: InspectCode,
     run_id: str | None = None,
     timeout_seconds: float | None = None,
+    on_event: RunEventHandler | None = None,
 ) -> AgentState:
     run_id = run_id or str(uuid4())
     timeout_seconds = timeout_seconds or run_timeout_seconds()
@@ -625,10 +672,26 @@ async def run_cad_agent(
         result = initial_state
         try:
             async with asyncio.timeout(timeout_seconds):
-                async for result in graph.astream(
-                    initial_state, stream_mode="values"
+                reported = 0
+                async for mode, chunk in graph.astream(
+                    initial_state, stream_mode=["values", "custom"]
                 ):
-                    pass
+                    if mode == "custom":
+                        await _emit(on_event, chunk)
+                        continue
+                    result = chunk
+                    # Each finished step appends one trace entry.
+                    for step in result["trace"][reported:]:
+                        await _emit(
+                            on_event,
+                            {
+                                "stage": step["node"],
+                                "status": step["status"],
+                                "message": step["detail"],
+                                "duration_ms": step.get("duration_ms"),
+                            },
+                        )
+                    reported = len(result["trace"])
         except TimeoutError as error:
             root.update(
                 level="ERROR",

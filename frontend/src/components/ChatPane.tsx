@@ -1,9 +1,11 @@
 "use client";
 
+import { RunProgress } from "@/components/RunProgress";
 import { Button } from "@/components/ui/button";
 import {
   type ChatMessage,
   type FaceSelection,
+  type RunEvent,
   getTextContent,
   getImageUrls,
 } from "@/lib/types";
@@ -51,6 +53,9 @@ interface ChatPaneProps {
   variant?: "studio" | "welcome";
   /** Prefills the input, e.g. with a prompt typed on the landing page. */
   initialInput?: string;
+  /** Progress of the run in flight; shown above the input while set. */
+  runEvents?: RunEvent[];
+  runStartedAt?: number | null;
 }
 
 export function ChatPane({
@@ -62,6 +67,8 @@ export function ChatPane({
   selection,
   variant = "studio",
   initialInput = "",
+  runEvents,
+  runStartedAt = null,
 }: ChatPaneProps) {
   const [input, setInput] = useState(initialInput);
   const [images, setImages] = useState<string[]>([]);
@@ -305,6 +312,9 @@ export function ChatPane({
             : ""
         } p-3`}
       >
+        {runEvents && (
+          <RunProgress events={runEvents} startedAt={runStartedAt} />
+        )}
         {selection && (
           <div className="flex items-center gap-2 rounded-xl border border-[var(--hairline-strong)] bg-[var(--clay)] px-3 py-2 text-[11px] text-[var(--ink-2)]">
             <MapPin className="size-3.5" />

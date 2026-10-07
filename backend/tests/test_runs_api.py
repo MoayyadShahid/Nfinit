@@ -256,3 +256,44 @@ def test_thumbnail_rejects_wrong_type_and_oversize(client):
 
     assert wrong_type.status_code == 415
     assert too_big.status_code == 413
+
+
+def test_run_progress_is_returned_after_a_cursor(client, monkeypatch):
+    async def fake_agent(*_args, on_event=None, **_kwargs):
+        await on_event({"stage": "plan", "status": "started", "message": "Planning."})
+        await on_event(
+            {"stage": "plan", "status": "complete", "message": "A cube.", "duration_ms": 5}
+        )
+        return agent_state()
+
+    use_agent(monkeypatch, fake_agent)
+    record = wait_for(client, start(client)["runId"])
+
+    stages = [(event["stage"], event["status"]) for event in record["events"]]
+    assert stages[:2] == [("plan", "started"), ("plan", "complete")]
+    assert record["events"][1]["durationMs"] == 5
+    assert [event["seq"] for event in record["events"]] == list(
+        range(1, len(record["events"]) + 1)
+    )
+
+    later = client.get(f"/cad/runs/{record['runId']}?after=2").json()
+    assert [event["seq"] for event in later["events"]] == [
+        event["seq"] for event in record["events"][2:]
+    ]
+
+
+def test_run_events_are_private_to_their_owner(client, store, monkeypatch):
+    async def fake_agent(*_args, on_event=None, **_kwargs):
+        await on_event({"stage": "plan", "status": "started", "message": "Planning."})
+        return agent_state()
+
+    use_agent(monkeypatch, fake_agent)
+    run_id = wait_for(client, start(client)["runId"])["runId"]
+
+    assert store.list_run_events(run_id, user_id=OTHER_USER_ID) == []
+    with pytest.raises(runs.RunNotFoundError):
+        store.add_run_event(
+            run_id,
+            store.list_run_events(run_id, user_id=USER_ID)[0],
+            user_id=OTHER_USER_ID,
+        )

@@ -96,6 +96,12 @@ The FastAPI backend owns the LangGraph workflow; Next.js only proxies requests:
 5. **Repair** — feed execution failures back to the model, retrying up to three
    times.
 
+Each step records a progress event when it starts and when it finishes
+(`run_events`). `GET /cad/runs/{id}?after=<seq>` returns the run with the
+events after that sequence number, and the studio polls it every second to
+show a live step list. The current model stays on screen while the next one
+builds.
+
 Clicking a model face adds its local point and normal to the next request, so prompts such as “add a mounting hole on this face” can target the selected geometry.
 
 ### build123d pattern RAG

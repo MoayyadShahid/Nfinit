@@ -16,6 +16,7 @@ from .models import (
     ProjectRevision,
     ProjectState,
     ProjectSummary,
+    RunEvent,
     SubscriptionRecord,
 )
 
@@ -122,6 +123,12 @@ class ProjectStoreProtocol(Protocol):
     ) -> CadRunRecord: ...
 
     def get_run(self, run_id: str, *, user_id: str) -> CadRunRecord: ...
+
+    def add_run_event(self, run_id: str, event: RunEvent, *, user_id: str) -> None: ...
+
+    def list_run_events(
+        self, run_id: str, *, user_id: str, after: int = 0
+    ) -> list[RunEvent]: ...
 
     def get_subscription(self, *, user_id: str) -> SubscriptionRecord | None: ...
 
@@ -242,7 +249,20 @@ class ProjectStore:
                     inspection_json TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
-                PRAGMA user_version = 5;
+                CREATE TABLE IF NOT EXISTS run_events (
+                    run_id TEXT NOT NULL
+                        REFERENCES cad_runs(id) ON DELETE CASCADE,
+                    seq INTEGER NOT NULL CHECK (seq > 0),
+                    user_id TEXT NOT NULL,
+                    stage TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    message TEXT NOT NULL DEFAULT '',
+                    attempt INTEGER,
+                    duration_ms INTEGER,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY (run_id, seq)
+                );
+                PRAGMA user_version = 6;
                 """
             )
 
@@ -620,6 +640,47 @@ class ProjectStore:
             if cursor.rowcount == 0:
                 raise RunNotFoundError(run_id)
         return self.get_run(run_id, user_id=user_id)
+
+    def add_run_event(self, run_id: str, event: RunEvent, *, user_id: str) -> None:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO run_events
+                    (run_id, seq, user_id, stage, status, message, attempt,
+                     duration_ms, created_at)
+                SELECT id, ?, user_id, ?, ?, ?, ?, ?, ? FROM cad_runs
+                WHERE id = ? AND user_id = ?
+                """,
+                (
+                    event.seq,
+                    event.stage,
+                    event.status,
+                    event.message,
+                    event.attempt,
+                    event.duration_ms,
+                    event.created_at.isoformat(),
+                    run_id,
+                    user_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise RunNotFoundError(run_id)
+
+    def list_run_events(
+        self, run_id: str, *, user_id: str, after: int = 0
+    ) -> list[RunEvent]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT seq, stage, status, message, attempt, duration_ms,
+                    created_at
+                FROM run_events
+                WHERE run_id = ? AND user_id = ? AND seq > ?
+                ORDER BY seq
+                """,
+                (run_id, user_id, after),
+            ).fetchall()
+        return [RunEvent.model_validate(dict(row)) for row in rows]
 
     def get_run(self, run_id: str, *, user_id: str) -> CadRunRecord:
         with self._connect() as connection:
