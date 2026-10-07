@@ -136,6 +136,20 @@ def test_other_users_cannot_get_a_link_or_a_mesh(client, store, builds):
     assert builds == []
 
 
+def test_mesh_is_served_when_its_storage_fails(client, store, builds, monkeypatch):
+    project_id = project_with(store, CUBE)
+
+    def missing_table(*_args, **_kwargs):
+        raise RuntimeError('relation "public.project_meshes" does not exist')
+
+    monkeypatch.setattr(store, "get_mesh", missing_table)
+    monkeypatch.setattr(store, "save_mesh", missing_table)
+
+    link = mesh_link(client, project_id, 1)
+    assert client.get(link["url"]).content == f"glTF:{CUBE}".encode()
+    assert builds == [CUBE, CUBE]  # nothing stored: the download rebuilds
+
+
 def test_geometry_errors_are_reported(client, store, monkeypatch):
     project_id = project_with(store, CUBE)
 

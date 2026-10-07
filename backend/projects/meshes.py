@@ -115,12 +115,22 @@ def ensure_mesh(
     project_id: str,
     revision_number: int,
 ) -> StoredMesh:
-    """Return the revision's mesh, building and keeping it when needed."""
+    """Return the revision's mesh, building and keeping it when needed.
+
+    Mesh storage is a cache: if it fails (for example, before the
+    project_meshes migration is applied), the mesh is built and served anyway.
+    """
     try:
         revision = store.get_revision(project_id, revision_number, user_id=user_id)
-        stored = store.get_mesh(project_id, user_id=user_id)
     except (ProjectNotFoundError, RevisionNotFoundError) as error:
         raise HTTPException(status_code=404, detail="Revision not found.") from error
+    try:
+        stored = store.get_mesh(project_id, user_id=user_id)
+    except ProjectNotFoundError as error:
+        raise HTTPException(status_code=404, detail="Revision not found.") from error
+    except Exception:
+        logger.warning("Could not read the stored mesh.", exc_info=True)
+        stored = None
     if stored is not None and stored.code_hash == code_hash(revision.state.code):
         return stored
 
@@ -129,6 +139,8 @@ def ensure_mesh(
         store.save_mesh(project_id, mesh, user_id=user_id)
     except ProjectNotFoundError as error:
         raise HTTPException(status_code=404, detail="Revision not found.") from error
+    except Exception:
+        logger.warning("Could not store the mesh; serving it anyway.", exc_info=True)
     return mesh
 
 
