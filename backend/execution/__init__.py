@@ -1,8 +1,10 @@
 from .policy import CodePolicyError, validate_cad_code
 from .runner import (
+    BuiltMesh,
     SandboxArtifact,
     SandboxError,
     analyze_code,
+    build_mesh,
     export_code,
     inspect_code,
     start_sandbox,
@@ -12,6 +14,8 @@ from .rematching import compare_analyses, compare_code
 from .topology import RevisionComparison, TopologyAnalysis
 
 __all__ = [
+    "BuiltMesh",
+    "build_mesh",
     "CodePolicyError",
     "SandboxArtifact",
     "SandboxError",

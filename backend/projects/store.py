@@ -2,6 +2,7 @@ import json
 import os
 import sqlite3
 from contextlib import contextmanager
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
@@ -33,6 +34,15 @@ class RunNotFoundError(LookupError):
 
 class ThumbnailNotFoundError(LookupError):
     pass
+
+
+@dataclass
+class StoredMesh:
+    """A project's latest built mesh. ``code_hash`` names the code it came from."""
+
+    code_hash: str
+    glb: bytes
+    inspection: dict
 
 
 # Thumbnail bytes stay out of list/detail queries; only the timestamp is read.
@@ -83,6 +93,12 @@ class ProjectStoreProtocol(Protocol):
     def get_thumbnail(
         self, project_id: str, *, user_id: str
     ) -> tuple[bytes, str]: ...
+
+    def get_mesh(self, project_id: str, *, user_id: str) -> StoredMesh | None: ...
+
+    def save_mesh(
+        self, project_id: str, mesh: StoredMesh, *, user_id: str
+    ) -> None: ...
 
     def create_run(
         self,
@@ -217,7 +233,16 @@ class ProjectStore:
                     cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL
                 );
-                PRAGMA user_version = 4;
+                CREATE TABLE IF NOT EXISTS project_meshes (
+                    project_id TEXT PRIMARY KEY
+                        REFERENCES projects(id) ON DELETE CASCADE,
+                    user_id TEXT NOT NULL,
+                    code_hash TEXT NOT NULL,
+                    glb BLOB NOT NULL,
+                    inspection_json TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                PRAGMA user_version = 5;
                 """
             )
 
@@ -497,6 +522,52 @@ class ProjectStore:
         if row["thumbnail"] is None:
             raise ThumbnailNotFoundError(project_id)
         return bytes(row["thumbnail"]), row["thumbnail_content_type"]
+
+    def get_mesh(self, project_id: str, *, user_id: str) -> StoredMesh | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT code_hash, glb, inspection_json FROM project_meshes
+                WHERE project_id = ? AND user_id = ?
+                """,
+                (project_id, user_id),
+            ).fetchone()
+        if row is None:
+            return None
+        return StoredMesh(
+            code_hash=row["code_hash"],
+            glb=bytes(row["glb"]),
+            inspection=json.loads(row["inspection_json"]),
+        )
+
+    def save_mesh(
+        self, project_id: str, mesh: StoredMesh, *, user_id: str
+    ) -> None:
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO project_meshes
+                    (project_id, user_id, code_hash, glb, inspection_json,
+                     updated_at)
+                SELECT id, user_id, ?, ?, ?, ? FROM projects
+                WHERE id = ? AND user_id = ?
+                ON CONFLICT (project_id) DO UPDATE SET
+                    code_hash = excluded.code_hash,
+                    glb = excluded.glb,
+                    inspection_json = excluded.inspection_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    mesh.code_hash,
+                    mesh.glb,
+                    json.dumps(mesh.inspection, separators=(",", ":")),
+                    _timestamp(),
+                    project_id,
+                    user_id,
+                ),
+            )
+            if cursor.rowcount == 0:
+                raise ProjectNotFoundError(project_id)
 
     def create_run(
         self,

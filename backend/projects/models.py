@@ -140,3 +140,14 @@ class SubscriptionRecord(BaseModel):
     @property
     def active(self) -> bool:
         return self.status in ACTIVE_SUBSCRIPTION_STATUSES
+
+
+class RevisionMesh(BaseModel):
+    """A short-lived link to a revision's GLB, plus its geometry facts."""
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    url: str
+    expires_at: datetime = Field(alias="expiresAt")
+    bytes: int
+    inspection: ModelInspection

@@ -31,6 +31,7 @@ import {
   addRevision,
   createProject,
   getProject,
+  getRevisionMesh,
   listProjects,
   listRevisions,
   uploadThumbnail,
@@ -193,6 +194,31 @@ export default function Studio({
     }
   }, []);
 
+  // A saved revision's mesh is stored on the backend: download it instead of
+  // building it again, and take its geometry facts from the same answer.
+  const loadRevisionMesh = useCallback(async (revision: ProjectRevision) => {
+    setError(null);
+    try {
+      const mesh = await getRevisionMesh(
+        revision.projectId,
+        revision.revisionNumber
+      );
+      setInspection(mesh.inspection.valid ? mesh.inspection : null);
+      setGlbUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return mesh.url;
+      });
+    } catch (e) {
+      setError(
+        e instanceof SubscriptionRequiredError
+          ? LAPSED_MESSAGE
+          : e instanceof Error
+            ? e.message
+            : "Mesh generation failed"
+      );
+    }
+  }, []);
+
   const projectNameFromMessages = useCallback(
     (items: ChatMessage[]) => {
       const firstRequest = items.find((message) => message.role === "user");
@@ -212,13 +238,10 @@ export default function Studio({
       setLastRunId(state.lastRunId);
       setCurrentRevision(revision.revisionNumber);
       setIsDirty(false);
-      await Promise.all([
-        generateMesh(state.code, false),
-        inspectModel(state.code),
-      ]);
+      await loadRevisionMesh(revision);
       setSelectedFace(state.selection);
     },
-    [generateMesh, inspectModel]
+    [loadRevisionMesh]
   );
 
   const loadProject = useCallback(

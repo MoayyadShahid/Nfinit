@@ -26,6 +26,7 @@ from agent.graph import run_timeout_seconds
 from execution import inspect_code
 
 from .auth import get_current_user_id
+from .meshes import store_mesh_for_code
 from .billing import SubscribedUserId
 from .models import CadRunRecord, CadRunResult, ProjectCreate, ProjectState
 from .store import (
@@ -157,6 +158,15 @@ async def _execute_run(
                     user_id=user_id,
                 )
                 result.revision_number = revision_number
+                # Build the mesh now, so the studio can show the part as soon
+                # as the run reports success.
+                await asyncio.to_thread(
+                    store_mesh_for_code,
+                    store,
+                    user_id=user_id,
+                    project_id=project_id,
+                    code=result.code,
+                )
             except Exception as failure:
                 logger.error(
                     "Run %s succeeded but saving it failed: %s",

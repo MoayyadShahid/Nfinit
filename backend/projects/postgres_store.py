@@ -21,6 +21,7 @@ from .store import (
     ProjectNotFoundError,
     RevisionNotFoundError,
     RunNotFoundError,
+    StoredMesh,
     ThumbnailNotFoundError,
 )
 
@@ -353,6 +354,57 @@ class PostgresProjectStore:
         if row["thumbnail"] is None:
             raise ThumbnailNotFoundError(project_id)
         return bytes(row["thumbnail"]), row["thumbnail_content_type"]
+
+    def get_mesh(self, project_id: str, *, user_id: str) -> StoredMesh | None:
+        project_id = self._project_uuid(project_id)
+        with self._connect(user_id) as connection:
+            row = connection.execute(
+                """
+                SELECT code_hash, glb, inspection_json FROM public.project_meshes
+                WHERE project_id = %s AND user_id = %s
+                """,
+                (project_id, user_id),
+            ).fetchone()
+        if row is None:
+            return None
+        inspection = row["inspection_json"]
+        if isinstance(inspection, str):
+            inspection = json.loads(inspection)
+        return StoredMesh(
+            code_hash=row["code_hash"],
+            glb=bytes(row["glb"]),
+            inspection=inspection,
+        )
+
+    def save_mesh(
+        self, project_id: str, mesh: StoredMesh, *, user_id: str
+    ) -> None:
+        project_id = self._project_uuid(project_id)
+        with self._connect(user_id) as connection:
+            saved = connection.execute(
+                """
+                INSERT INTO public.project_meshes
+                    (project_id, user_id, code_hash, glb, inspection_json,
+                     updated_at)
+                SELECT id, user_id, %s, %s, %s, now() FROM public.projects
+                WHERE id = %s AND user_id = %s
+                ON CONFLICT (project_id) DO UPDATE SET
+                    code_hash = excluded.code_hash,
+                    glb = excluded.glb,
+                    inspection_json = excluded.inspection_json,
+                    updated_at = excluded.updated_at
+                RETURNING project_id
+                """,
+                (
+                    mesh.code_hash,
+                    mesh.glb,
+                    Jsonb(mesh.inspection),
+                    project_id,
+                    user_id,
+                ),
+            ).fetchone()
+            if saved is None:
+                raise ProjectNotFoundError(project_id)
 
     def create_run(
         self,
