@@ -257,6 +257,14 @@ chat messages, model selection, selected-face context, and the latest agent run
 ID. Loading an older revision never overwrites history; save it again to create
 a new revision.
 
+Each project keeps its latest built mesh (GLB) and geometry facts. The studio
+asks for `GET /projects/{project_id}/revisions/{n}/mesh` through the Next.js
+proxy and receives a signed link that expires after five minutes. The browser
+downloads the GLB directly from the backend with that link, so mesh size is
+not limited by the proxy. Viewing another revision rebuilds its mesh on the
+warm sandbox and stores it in place of the previous one. Set
+`NFNIT_MESH_URL_SECRET` in production so links survive restarts.
+
 Project APIs:
 
 - `POST /projects` and `GET /projects`

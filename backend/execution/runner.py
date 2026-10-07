@@ -318,3 +318,30 @@ def export_code(code: str, operation: SandboxOperation) -> SandboxArtifact:
     except Exception:
         shutil.rmtree(work_dir, ignore_errors=True)
         raise
+
+
+@dataclass
+class BuiltMesh:
+    glb: bytes
+    inspection: ModelInspection
+
+
+def build_mesh(code: str) -> BuiltMesh:
+    """Build a GLB and its geometry facts in one sandbox run."""
+    try:
+        validate_cad_code(code)
+    except CodePolicyError as error:
+        raise SandboxError("sandbox_security_error", str(error)) from error
+
+    work_dir = Path(tempfile.mkdtemp(prefix="nfinit-mesh-"))
+    output_path = work_dir / "model.glb"
+    try:
+        data = _run_worker(code, "glb", work_dir, output_name="model.glb")
+        if not output_path.is_file() or output_path.stat().st_size == 0:
+            raise SandboxError("cad_export_error", "GLB export was empty.")
+        return BuiltMesh(
+            glb=output_path.read_bytes(),
+            inspection=ModelInspection.model_validate(data["inspection"]),
+        )
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)

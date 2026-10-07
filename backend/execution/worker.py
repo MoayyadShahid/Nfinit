@@ -718,7 +718,12 @@ def handle_request(request: dict) -> dict:
             feature_records=feature_records,
             constraint_records=constraint_records,
         )
-    return _export(result, operation, request["output_name"])
+    data = _export(result, operation, request["output_name"])
+    if operation == "glb":
+        # Geometry facts cost about a millisecond once the shape exists, and
+        # save the viewer a second sandbox run just to read them.
+        data["inspection"] = _inspect(result)
+    return data
 
 
 def _failure(error: BaseException) -> dict:

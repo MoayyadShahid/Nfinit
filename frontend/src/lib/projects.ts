@@ -1,4 +1,4 @@
-import type { ChatMessage, FaceSelection } from "@/lib/types";
+import type { ChatMessage, FaceSelection, ModelInspection } from "@/lib/types";
 
 export type ProjectState = {
   code: string;
@@ -125,6 +125,31 @@ export function renameProject(
 
 export function deleteProject(projectId: string): Promise<void> {
   return requestEmpty(`/projects/${projectId}`, { method: "DELETE" });
+}
+
+// Meshes download straight from the backend: a GLB can exceed what the
+// Next.js proxy may return.
+const MESH_ORIGIN = (
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
+).replace(/\/$/, "");
+
+export type RevisionMesh = {
+  /** Signed, short-lived link to the GLB. */
+  url: string;
+  expiresAt: string;
+  bytes: number;
+  inspection: ModelInspection;
+};
+
+/** The revision's built mesh, built on the backend only if it is not stored. */
+export async function getRevisionMesh(
+  projectId: string,
+  revisionNumber: number
+): Promise<RevisionMesh> {
+  const mesh = await requestJson<RevisionMesh>(
+    `/projects/${projectId}/revisions/${revisionNumber}/mesh`
+  );
+  return { ...mesh, url: `${MESH_ORIGIN}${mesh.url}` };
 }
 
 export function uploadThumbnail(projectId: string, image: Blob): Promise<void> {
