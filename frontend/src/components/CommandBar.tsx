@@ -15,6 +15,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   ChevronDown,
   Code2,
+  CreditCard,
   Download,
   FilePlus2,
   LayoutGrid,
@@ -48,6 +49,8 @@ interface CommandBarProps {
   onProjectChange: (projectId: string) => void;
   onNewProject: () => void;
   onSave: () => void;
+  /** Opens Stripe's billing portal; omitted until the user has a plan. */
+  onManageBilling?: () => void;
   viewer?: Viewer | null;
 }
 
@@ -62,6 +65,7 @@ export function CommandBar({
   onProjectChange,
   onNewProject,
   onSave,
+  onManageBilling,
   viewer = null,
 }: CommandBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
@@ -87,7 +91,9 @@ export function CommandBar({
   }, [exportOpen]);
 
   return (
-    <header className="theme-chrome flex h-16 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-xl md:px-5">
+    // backdrop-blur makes the header its own stacking context, so its z-50
+    // export menu only clears the viewport if the header itself sits above it.
+    <header className="theme-chrome relative z-[55] flex h-16 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-xl md:px-5">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <Wordmark href="/" size={20} />
         <span className="hidden h-5 w-px bg-[var(--hairline)] sm:block" />
@@ -154,6 +160,18 @@ export function CommandBar({
       </div>
       <div className="flex min-w-0 items-center justify-end gap-2">
         <ThemeToggle />
+        {onManageBilling && (
+          <button
+            type="button"
+            onClick={onManageBilling}
+            title="Manage subscription"
+            aria-label="Manage subscription"
+            className="theme-control theme-muted flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)]"
+          >
+            <CreditCard className="size-3.5" />
+            <span className="hidden xl:inline">Billing</span>
+          </button>
+        )}
         {viewer && (
           <form action="/auth/signout" method="post">
             <button

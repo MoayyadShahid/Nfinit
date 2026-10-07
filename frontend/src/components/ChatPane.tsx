@@ -42,7 +42,8 @@ function fileToDataUrl(file: File): Promise<string> {
 
 interface ChatPaneProps {
   messages: ChatMessage[];
-  onSend: (text: string, images?: string[]) => void;
+  /** Returning false keeps the text in the box (e.g. stopped by the paywall). */
+  onSend: (text: string, images?: string[]) => boolean | void;
   isLoading: boolean;
   lastError?: string | null;
   supportsVision?: boolean;
@@ -92,7 +93,7 @@ export function ChatPane({
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
-    onSend(trimmed, images.length > 0 ? images : undefined);
+    if (onSend(trimmed, images.length > 0 ? images : undefined) === false) return;
     setInput("");
     setImages([]);
   };

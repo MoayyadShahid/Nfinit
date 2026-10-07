@@ -26,6 +26,7 @@ from agent.graph import run_timeout_seconds
 from execution import inspect_code
 
 from .auth import get_current_user_id
+from .billing import SubscribedUserId
 from .models import CadRunRecord, CadRunResult, ProjectCreate, ProjectState
 from .store import (
     ProjectNotFoundError,
@@ -188,7 +189,9 @@ def _spawn(coroutine) -> None:
 
 
 @router.post("", response_model=CadRunRecord, status_code=status.HTTP_202_ACCEPTED)
-async def start_run(request: CadRunStart, store: Store, user_id: UserId):
+async def start_run(
+    request: CadRunStart, store: Store, user_id: SubscribedUserId
+):
     if not request.messages or request.messages[-1].role != "user":
         raise HTTPException(
             status_code=400,

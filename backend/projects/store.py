@@ -15,6 +15,7 @@ from .models import (
     ProjectRevision,
     ProjectState,
     ProjectSummary,
+    SubscriptionRecord,
 )
 
 
@@ -105,6 +106,12 @@ class ProjectStoreProtocol(Protocol):
     ) -> CadRunRecord: ...
 
     def get_run(self, run_id: str, *, user_id: str) -> CadRunRecord: ...
+
+    def get_subscription(self, *, user_id: str) -> SubscriptionRecord | None: ...
+
+    def save_subscription(
+        self, subscription: SubscriptionRecord, *, user_id: str
+    ) -> None: ...
 
 
 def _timestamp() -> str:
@@ -201,7 +208,16 @@ class ProjectStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_cad_runs_user_created
                     ON cad_runs(user_id, created_at DESC);
-                PRAGMA user_version = 3;
+                CREATE TABLE IF NOT EXISTS subscriptions (
+                    user_id TEXT PRIMARY KEY,
+                    stripe_customer_id TEXT NOT NULL UNIQUE,
+                    stripe_subscription_id TEXT,
+                    status TEXT NOT NULL DEFAULT 'none',
+                    current_period_end TEXT,
+                    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+                    updated_at TEXT NOT NULL
+                );
+                PRAGMA user_version = 4;
                 """
             )
 
@@ -543,6 +559,53 @@ class ProjectStore:
         if row is None:
             raise RunNotFoundError(run_id)
         return self._run(row)
+
+    def get_subscription(self, *, user_id: str) -> SubscriptionRecord | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM subscriptions WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SubscriptionRecord(
+            stripe_customer_id=row["stripe_customer_id"],
+            stripe_subscription_id=row["stripe_subscription_id"],
+            status=row["status"],
+            current_period_end=row["current_period_end"],
+            cancel_at_period_end=bool(row["cancel_at_period_end"]),
+        )
+
+    def save_subscription(
+        self, subscription: SubscriptionRecord, *, user_id: str
+    ) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO subscriptions (
+                    user_id, stripe_customer_id, stripe_subscription_id, status,
+                    current_period_end, cancel_at_period_end, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    stripe_customer_id = excluded.stripe_customer_id,
+                    stripe_subscription_id = excluded.stripe_subscription_id,
+                    status = excluded.status,
+                    current_period_end = excluded.current_period_end,
+                    cancel_at_period_end = excluded.cancel_at_period_end,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    user_id,
+                    subscription.stripe_customer_id,
+                    subscription.stripe_subscription_id,
+                    subscription.status,
+                    subscription.current_period_end.isoformat()
+                    if subscription.current_period_end
+                    else None,
+                    int(subscription.cancel_at_period_end),
+                    _timestamp(),
+                ),
+            )
 
 
 @lru_cache(maxsize=1)

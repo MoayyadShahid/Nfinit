@@ -2,22 +2,21 @@
 
 import { Wordmark } from "@/components/brand/Wordmark";
 import type { Viewer } from "@/components/CommandBar";
+import { Paywall } from "@/components/Paywall";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   deleteProject,
   getProject,
   listProjects,
   renameProject,
+  SubscriptionRequiredError,
   thumbnailUrl,
   type ProjectSummary,
 } from "@/lib/projects";
+import { sandboxRequest } from "@/lib/sandbox";
 import { Box, Check, LogOut, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-
-const BACKEND_URL = (
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
-).replace(/\/$/, "");
 
 const DOWNLOADS = [
   { format: "step", label: "STEP", ext: ".step" },
@@ -55,11 +54,13 @@ function PartCard({
   onRenamed,
   onDeleted,
   onError,
+  onSubscriptionRequired,
 }: {
   part: ProjectSummary;
   onRenamed: (part: ProjectSummary) => void;
   onDeleted: (id: string) => void;
   onError: (message: string) => void;
+  onSubscriptionRequired: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(part.name);
@@ -103,11 +104,7 @@ function PartCard({
       const project = await getProject(part.id);
       const code = project.latestRevision?.state.code;
       if (!code) throw new Error("This part has no saved geometry yet.");
-      const response = await fetch(`${BACKEND_URL}/export-model`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, format }),
-      });
+      const response = await sandboxRequest("export-model", { code, format });
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
         throw new Error(payload?.detail || "Export failed");
@@ -119,7 +116,11 @@ function PartCard({
       link.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Export failed");
+      if (e instanceof SubscriptionRequiredError) {
+        onSubscriptionRequired();
+      } else {
+        onError(e instanceof Error ? e.message : "Export failed");
+      }
     } finally {
       setBusy(null);
     }
@@ -236,6 +237,7 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
   const [parts, setParts] = useState<ProjectSummary[] | null>(null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -363,6 +365,7 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
                 key={part.id}
                 part={part}
                 onError={setError}
+                onSubscriptionRequired={() => setShowPaywall(true)}
                 onRenamed={(updated) =>
                   setParts((previous) =>
                     previous?.map((item) =>
@@ -380,6 +383,10 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
           </div>
         )}
       </main>
+      <Paywall
+        reason={showPaywall ? "export" : null}
+        onClose={() => setShowPaywall(false)}
+      />
     </div>
   );
 }

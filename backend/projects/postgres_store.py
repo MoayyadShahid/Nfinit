@@ -14,6 +14,7 @@ from .models import (
     ProjectRevision,
     ProjectState,
     ProjectSummary,
+    SubscriptionRecord,
 )
 from .store import (
     PROJECT_COLUMNS,
@@ -427,3 +428,47 @@ class PostgresProjectStore:
         if row is None:
             raise RunNotFoundError(run_id)
         return self._run(row)
+
+    def get_subscription(self, *, user_id: str) -> SubscriptionRecord | None:
+        with self._connect(user_id) as connection:
+            row = connection.execute(
+                "SELECT * FROM public.subscriptions WHERE user_id = %s",
+                (user_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return SubscriptionRecord(
+            stripe_customer_id=row["stripe_customer_id"],
+            stripe_subscription_id=row["stripe_subscription_id"],
+            status=row["status"],
+            current_period_end=row["current_period_end"],
+            cancel_at_period_end=row["cancel_at_period_end"],
+        )
+
+    def save_subscription(
+        self, subscription: SubscriptionRecord, *, user_id: str
+    ) -> None:
+        with self._connect(user_id) as connection:
+            connection.execute(
+                """
+                INSERT INTO public.subscriptions (
+                    user_id, stripe_customer_id, stripe_subscription_id, status,
+                    current_period_end, cancel_at_period_end
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    stripe_customer_id = excluded.stripe_customer_id,
+                    stripe_subscription_id = excluded.stripe_subscription_id,
+                    status = excluded.status,
+                    current_period_end = excluded.current_period_end,
+                    cancel_at_period_end = excluded.cancel_at_period_end,
+                    updated_at = now()
+                """,
+                (
+                    user_id,
+                    subscription.stripe_customer_id,
+                    subscription.stripe_subscription_id,
+                    subscription.status,
+                    subscription.current_period_end,
+                    subscription.cancel_at_period_end,
+                ),
+            )

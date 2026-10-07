@@ -1111,6 +1111,22 @@ html[data-theme="midnight"] .wb-submit:hover {
   }
 }
 
+/* Paywall: slides up from the bottom edge, once per attempt. */
+.wb-paywall {
+  animation: wb-paywall-in 320ms var(--ease-out) both;
+}
+
+@keyframes wb-paywall-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* §9: reduced motion renders every end state immediately. */
 @media (prefers-reduced-motion: reduce) {
   .wb-reveal .wb-reveal-content,
@@ -1127,6 +1143,7 @@ html[data-theme="midnight"] .wb-submit:hover {
     display: none;
   }
   .wb-rise-line > span,
+  .wb-paywall,
   .wb-caret,
   .wb-dot-breath,
   [data-active="true"] .wb-stamp {

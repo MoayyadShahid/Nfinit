@@ -18,7 +18,10 @@ function localAuthBypassEnabled() {
 /** Forward a request to the backend as the signed-in Supabase user. */
 export async function proxyToBackend(
   request: Request,
-  segments: string[]
+  segments: string[],
+  // Runs are started and polled, never held open, so 30s is generous. The
+  // sandbox routes pass more: a cold OpenCASCADE import alone can take 90s.
+  timeoutMs = 30_000
 ): Promise<Response> {
   const backendPath = segments.map(encodeURIComponent).join("/");
   const target = new URL(backendPath, `${BACKEND_URL}/`);
@@ -58,11 +61,10 @@ export async function proxyToBackend(
           ? undefined
           : await request.arrayBuffer(),
       cache: "no-store",
-      // Runs are started and polled, never held open, so 30s is generous.
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const responseHeaders = new Headers();
-    for (const name of ["content-type", "cache-control"]) {
+    for (const name of ["content-type", "cache-control", "content-disposition"]) {
       const value = response.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
