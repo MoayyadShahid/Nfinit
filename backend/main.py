@@ -24,6 +24,8 @@ from execution import (
     inspect_code as sandbox_inspect_code,
 )
 from projects import router as projects_router
+from projects.billing import SubscribedUserId, billing_enabled
+from projects.billing import router as billing_router
 from projects.runs import router as runs_router
 from projects.config import validate_project_configuration
 
@@ -55,6 +57,11 @@ def _optional_service_status() -> dict[str, str]:
         "langfuse": langfuse,
         "pinecone": pinecone,
         "supabase": supabase,
+        "stripe": (
+            "enabled"
+            if billing_enabled()
+            else "disabled (everyone can generate and export)"
+        ),
     }
 
 
@@ -79,6 +86,7 @@ app.add_middleware(
 )
 app.include_router(projects_router)
 app.include_router(runs_router)
+app.include_router(billing_router)
 
 
 @app.get("/")
@@ -115,19 +123,25 @@ def _inspect_code(code: str) -> ModelInspection:
 
 
 @app.post("/inspect-model", response_model=ModelInspection)
-async def inspect_model(request: GenerateMeshRequest):
+async def inspect_model(
+    request: GenerateMeshRequest, _user: SubscribedUserId
+):
     """Execute CAD code and return geometry facts."""
     return _inspect_code(request.code)
 
 
 @app.post("/analyze-model", response_model=TopologyAnalysis)
-async def analyze_model(request: AnalyzeModelRequest):
+async def analyze_model(
+    request: AnalyzeModelRequest, _user: SubscribedUserId
+):
     """Index B-rep entities and optionally resolve a geometric face selection."""
     return analyze_code(request.code, request.selection)
 
 
 @app.post("/compare-models", response_model=RevisionComparison)
-def compare_models(request: CompareModelsRequest):
+def compare_models(
+    request: CompareModelsRequest, _user: SubscribedUserId
+):
     """Match semantic features, constraints, and faces across two revisions."""
     return compare_code(
         request.previous_code,
@@ -137,7 +151,11 @@ def compare_models(request: CompareModelsRequest):
 
 
 @app.post("/export-model")
-async def export_model(request: ExportModelRequest, background_tasks: BackgroundTasks):
+async def export_model(
+    request: ExportModelRequest,
+    background_tasks: BackgroundTasks,
+    _user: SubscribedUserId,
+):
     """Execute build123d code in the sandbox and export the requested format."""
     fmt = request.format.lower()
     if fmt not in ("step", "brep", "stl"):
@@ -169,7 +187,11 @@ async def export_model(request: ExportModelRequest, background_tasks: Background
 
 
 @app.post("/generate-mesh")
-async def generate_mesh(request: GenerateMeshRequest, background_tasks: BackgroundTasks):
+async def generate_mesh(
+    request: GenerateMeshRequest,
+    background_tasks: BackgroundTasks,
+    _user: SubscribedUserId,
+):
     """Execute build123d code in the sandbox and return a GLB file."""
     try:
         artifact = export_code(request.code, "glb")

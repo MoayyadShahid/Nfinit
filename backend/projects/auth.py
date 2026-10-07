@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 from functools import lru_cache
 from uuid import UUID
 
@@ -66,16 +67,22 @@ def _decode_access_token(token: str) -> dict:
         raise _unauthorized("Invalid or expired Supabase access token.") from error
 
 
-def get_current_user_id(
+@dataclass(frozen=True)
+class CurrentUser:
+    id: str
+    email: str | None = None
+
+
+def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-) -> str:
+) -> CurrentUser:
     auth_configured = bool(
         os.getenv("SUPABASE_URL", "").strip()
         or os.getenv("SUPABASE_JWT_SECRET", "").strip()
     )
     if not auth_configured:
         if local_auth_bypass_enabled():
-            return LEGACY_LOCAL_USER_ID
+            return CurrentUser(LEGACY_LOCAL_USER_ID)
         raise _unavailable()
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise _unauthorized()
@@ -83,6 +90,14 @@ def get_current_user_id(
     payload = _decode_access_token(credentials.credentials)
     subject = payload.get("sub")
     try:
-        return str(UUID(subject))
+        user_id = str(UUID(subject))
     except (TypeError, ValueError, AttributeError) as error:
         raise _unauthorized("Supabase access token has no valid subject.") from error
+    email = payload.get("email")
+    return CurrentUser(user_id, email if isinstance(email, str) and email else None)
+
+
+def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> str:
+    return get_current_user(credentials).id

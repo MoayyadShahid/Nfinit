@@ -120,3 +120,23 @@ class CadRunRecord(BaseModel):
     error: str | None = None
     created_at: datetime = Field(serialization_alias="createdAt")
     completed_at: datetime | None = Field(serialization_alias="completedAt")
+
+
+# Stripe keeps retrying a past_due card, so access continues until it gives up
+# and the subscription becomes unpaid or canceled.
+ACTIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "trialing", "past_due"})
+
+
+class SubscriptionRecord(BaseModel):
+    """The user's Stripe subscription as last reported by Stripe. A customer
+    created for Checkout but never subscribed has status "none"."""
+
+    stripe_customer_id: str
+    stripe_subscription_id: str | None = None
+    status: str = "none"
+    current_period_end: datetime | None = None
+    cancel_at_period_end: bool = False
+
+    @property
+    def active(self) -> bool:
+        return self.status in ACTIVE_SUBSCRIPTION_STATUSES

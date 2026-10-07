@@ -2,15 +2,13 @@
 
 import { Center, GizmoHelper, GizmoViewcube, Grid, OrbitControls, useGLTF } from "@react-three/drei";
 import { LayoutGrid } from "lucide-react";
+import { sandboxRequest } from "@/lib/sandbox";
 import type { FaceSelection } from "@/lib/types";
 import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
 const NORMAL_TOLERANCE = 0.01;
-const BACKEND_URL = (
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
-).replace(/\/$/, "");
 
 interface ThreeFaceSelection {
   point: THREE.Vector3;
@@ -289,6 +287,8 @@ interface ViewportPaneProps {
   onSelectionChange?: (selection: FaceSelection | null) => void;
   /** Called once per loaded model with a 480×360 preview image. */
   onThumbnail?: (image: Blob) => void;
+  /** When set, clicking a face calls this instead of selecting it. */
+  onSelectBlocked?: () => void;
 }
 
 function ViewportContent({
@@ -298,6 +298,7 @@ function ViewportContent({
   showSelectionCard = true,
   onSelectionChange,
   onThumbnail,
+  onSelectBlocked,
 }: ViewportPaneProps) {
   const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
   const [resolvedFace, setResolvedFace] = useState<FaceSelection | null>(null);
@@ -326,6 +327,10 @@ function ViewportContent({
 
   const selectFace = useCallback(
     async (selection: ThreeFaceSelection) => {
+      if (onSelectBlocked) {
+        onSelectBlocked();
+        return;
+      }
       setFaceSelection(selection);
       setResolvedFace(null);
       const geometricSelection: FaceSelection = {
@@ -349,12 +354,11 @@ function ViewportContent({
 
       const requestId = ++resolutionRequest.current;
       try {
-        const response = await fetch(`${BACKEND_URL}/analyze-model`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, selection: geometricSelection }),
-          signal: AbortSignal.timeout(30_000),
-        });
+        const response = await sandboxRequest(
+          "analyze-model",
+          { code, selection: geometricSelection },
+          { signal: AbortSignal.timeout(30_000) }
+        );
         if (!response.ok) return;
         const analysis = await response.json();
         if (requestId !== resolutionRequest.current || !analysis.selectedFace) {
@@ -373,7 +377,7 @@ function ViewportContent({
         // Positional selection remains usable when semantic resolution fails.
       }
     },
-    [code, glbUrl, onSelectionChange]
+    [code, glbUrl, onSelectionChange, onSelectBlocked]
   );
 
   useEffect(

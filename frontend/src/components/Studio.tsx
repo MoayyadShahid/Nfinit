@@ -7,6 +7,7 @@ import {
   type Viewer,
 } from "@/components/CommandBar";
 import { EditorPane } from "@/components/EditorPane";
+import { Paywall, type PaywallReason } from "@/components/Paywall";
 import { ViewportPane } from "@/components/ViewportPane";
 import {
   Select,
@@ -15,6 +16,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  getBillingStatus,
+  openBillingPortal,
+  savePendingAction,
+  type PendingAction,
+  SubscriptionRequiredError,
+  takePendingAction,
+  waitForActiveSubscription,
+  type BillingStatus,
+} from "@/lib/billing";
 import { DEFAULT_MODEL, getModelConfig, MODEL_CONFIGS } from "@/lib/constants";
 import {
   addRevision,
@@ -33,6 +44,7 @@ import {
   waitForRun,
   type CadRun,
 } from "@/lib/runs";
+import { sandboxRequest } from "@/lib/sandbox";
 import {
   getTextContent,
   type ChatMessage,
@@ -50,9 +62,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const BACKEND_URL = (
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
-).replace(/\/$/, "");
 const LAST_PROJECT_KEY = "nfinit:last-project-id";
 // A run in flight survives a reload: the studio resumes polling it.
 const PENDING_RUN_KEY = "nfinit:pending-run";
@@ -79,6 +88,8 @@ function writePendingRun(pending: PendingRun | null) {
     // Storage can be unavailable (private mode); resuming is a convenience.
   }
 }
+
+const LAPSED_MESSAGE = "Subscribe to open and edit your parts again.";
 
 const DEFAULT_CODE = [
   "width, depth, height = 10.0, 10.0, 10.0",
@@ -120,6 +131,13 @@ export default function Studio({
   const [inspection, setInspection] = useState<ModelInspection | null>(null);
   // Code from a failed run, offered so the tokens spent on it are not lost.
   const [recoverableCode, setRecoverableCode] = useState<string | null>(null);
+  const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [paywall, setPaywall] = useState<PaywallReason | null>(null);
+  // Unknown status is not locked: the backend still answers 402 if it must.
+  const isLocked = billing !== null && !billing.active;
+  const [isActivating, setIsActivating] = useState(false);
+  // An action interrupted by the paywall, run once the subscription is live.
+  const [resumeAction, setResumeAction] = useState<PendingAction | null>(null);
   const mountedRef = useRef(true);
   const lastThumbnailRef = useRef<Blob | null>(null);
   const thumbnailContextRef = useRef({
@@ -132,11 +150,10 @@ export default function Studio({
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
 
   const inspectModel = useCallback(async (codeToInspect: string) => {
-    const response = await fetch(`${BACKEND_URL}/inspect-model`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: codeToInspect }),
-    });
+    const response = await sandboxRequest("inspect-model", {
+      code: codeToInspect,
+    }).catch(() => null);
+    if (!response) return null;
     const result = await response.json().catch(() => null);
     if (response.ok && result?.valid) {
       setInspection(result);
@@ -151,11 +168,7 @@ export default function Studio({
   ) => {
     setError(null);
     try {
-      const res = await fetch(`${BACKEND_URL}/generate-mesh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: codeToExecute }),
-      });
+      const res = await sandboxRequest("generate-mesh", { code: codeToExecute });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -170,7 +183,13 @@ export default function Studio({
         return url;
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Mesh generation failed");
+      setError(
+        e instanceof SubscriptionRequiredError
+          ? LAPSED_MESSAGE
+          : e instanceof Error
+            ? e.message
+            : "Mesh generation failed"
+      );
     }
   }, []);
 
@@ -328,11 +347,7 @@ export default function Studio({
     setError(null);
     setIsSaving(true);
     try {
-      const validationResponse = await fetch(`${BACKEND_URL}/inspect-model`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
+      const validationResponse = await sandboxRequest("inspect-model", { code });
       const validation = await validationResponse.json().catch(() => null);
       if (!validationResponse.ok || !validation?.valid) {
         throw new Error(
@@ -350,7 +365,11 @@ export default function Studio({
         lastRunId,
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save revision");
+      if (e instanceof SubscriptionRequiredError) {
+        setPaywall("build");
+      } else {
+        setError(e instanceof Error ? e.message : "Failed to save revision");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -501,7 +520,12 @@ export default function Studio({
           projectId,
         });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not start generation");
+        if (e instanceof SubscriptionRequiredError) {
+          savePendingAction({ kind: "send", text: text.trim(), images: imageUrls });
+          setPaywall("build");
+        } else {
+          setError(e instanceof Error ? e.message : "Could not start generation");
+        }
         setMessages((prev) => prev.slice(0, -1));
         setIsLoading(false);
         return;
@@ -510,6 +534,21 @@ export default function Studio({
       await followRun(run.runId);
     },
     [messages, code, modelId, modelConfig, selectedFace, projectId, followRun]
+  );
+
+  // Stopped at the paywall, the prompt stays in the box (ChatPane keeps its
+  // input when this returns false) and is replayed after Checkout.
+  const sendOrPaywall = useCallback(
+    (text: string, imageUrls?: string[]) => {
+      if (isLocked) {
+        savePendingAction({ kind: "send", text: text.trim(), images: imageUrls });
+        setPaywall("build");
+        return false;
+      }
+      void handleChatSend(text, imageUrls);
+      return true;
+    },
+    [handleChatSend, isLocked]
   );
 
   const recoverLastAttempt = useCallback(() => {
@@ -534,12 +573,13 @@ export default function Studio({
   const handleExport = useCallback(
     async (format: ExportFormat) => {
       setError(null);
+      if (isLocked) {
+        savePendingAction({ kind: "export", format });
+        setPaywall("export");
+        return;
+      }
       try {
-        const res = await fetch(`${BACKEND_URL}/export-model`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, format }),
-        });
+        const res = await sandboxRequest("export-model", { code, format });
 
         if (!res.ok) {
           const err = await res
@@ -557,11 +597,46 @@ export default function Studio({
         a.click();
         URL.revokeObjectURL(url);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Export failed");
+        if (e instanceof SubscriptionRequiredError) {
+          savePendingAction({ kind: "export", format });
+          setPaywall("export");
+        } else {
+          setError(e instanceof Error ? e.message : "Export failed");
+        }
       }
     },
-    [code]
+    [code, isLocked]
   );
+
+  const handleAdvancedChange = useCallback(
+    (open: boolean) => {
+      if (open && isLocked) {
+        setPaywall("build");
+        return;
+      }
+      setAdvancedOpen(open);
+    },
+    [isLocked]
+  );
+
+  const handleSelectionChange = useCallback(
+    (selection: FaceSelection | null) => {
+      setSelectedFace(selection);
+      setIsDirty(true);
+    },
+    []
+  );
+
+  const closePaywall = useCallback(() => {
+    takePendingAction();
+    setPaywall(null);
+  }, []);
+
+  const manageBilling = useCallback(() => {
+    openBillingPortal().catch((e) =>
+      setError(e instanceof Error ? e.message : "Could not open billing")
+    );
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -643,6 +718,54 @@ export default function Studio({
   }, [applyRevision, followRun, initialProjectId, startNew]);
 
   useEffect(() => {
+    getBillingStatus()
+      .then((status) => {
+        if (mountedRef.current) setBilling(status);
+      })
+      .catch(() => {
+        // Unknown status leaves the studio open; the backend still enforces.
+      });
+  }, []);
+
+  // Back from Checkout: Stripe's webhook may land a moment after the
+  // redirect, so wait for it, then finish what the paywall interrupted.
+  useEffect(() => {
+    if (!hasInitialized) return;
+    const url = new URL(window.location.href);
+    const outcome = url.searchParams.get("checkout");
+    if (!outcome) return;
+    url.searchParams.delete("checkout");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    if (outcome !== "success") {
+      takePendingAction();
+      return;
+    }
+    setIsActivating(true);
+    void waitForActiveSubscription().then((status) => {
+      if (!mountedRef.current) return;
+      setIsActivating(false);
+      if (!status) {
+        setError(
+          "Payment received. Your subscription is still activating; refresh in a minute."
+        );
+        return;
+      }
+      setBilling(status);
+      setResumeAction(takePendingAction());
+    });
+  }, [hasInitialized]);
+
+  useEffect(() => {
+    if (!resumeAction || isLocked) return;
+    setResumeAction(null);
+    if (resumeAction.kind === "send") {
+      void handleChatSend(resumeAction.text, resumeAction.images);
+    } else {
+      void handleExport(resumeAction.format);
+    }
+  }, [resumeAction, isLocked, handleChatSend, handleExport]);
+
+  useEffect(() => {
     const latestRevision = revisions[0] ?? null;
     const currentProject = projects.find((project) => project.id === projectId);
     thumbnailContextRef.current = {
@@ -698,7 +821,10 @@ export default function Studio({
         isDirty={isDirty}
         isSaving={isSaving}
         advancedOpen={advancedOpen}
-        onAdvancedChange={setAdvancedOpen}
+        onAdvancedChange={handleAdvancedChange}
+        onManageBilling={
+          billing?.enabled && billing.status !== "none" ? manageBilling : undefined
+        }
         onProjectChange={loadProject}
         onNewProject={startNewProject}
         onSave={saveCurrentRevision}
@@ -724,7 +850,7 @@ export default function Studio({
             <div className="h-[340px] w-full max-w-3xl">
               <ChatPane
                 messages={messages}
-                onSend={handleChatSend}
+                onSend={sendOrPaywall}
                 isLoading={isLoading || isProjectLoading}
                 lastError={error}
                 supportsVision={modelConfig?.supportsVision ?? false}
@@ -747,10 +873,8 @@ export default function Studio({
               isLoading={isLoading || isProjectLoading}
               showSelectionCard={false}
               onThumbnail={handleThumbnail}
-              onSelectionChange={(selection) => {
-                setSelectedFace(selection);
-                setIsDirty(true);
-              }}
+              onSelectionChange={handleSelectionChange}
+              onSelectBlocked={isLocked ? () => setPaywall("build") : undefined}
             />
           </div>
 
@@ -855,7 +979,7 @@ export default function Studio({
             <div className="pointer-events-auto w-full max-w-3xl">
               <ChatPane
                 messages={messages}
-                onSend={handleChatSend}
+                onSend={sendOrPaywall}
                 isLoading={isLoading || isProjectLoading}
                 lastError={error}
                 supportsVision={modelConfig?.supportsVision ?? false}
@@ -893,6 +1017,17 @@ export default function Studio({
           </button>
         </div>
       )}
+
+      {isActivating && (
+        <div
+          role="status"
+          className="theme-floating fixed left-1/2 top-20 z-[70] -translate-x-1/2 rounded-full border px-4 py-2 text-sm shadow-xl"
+        >
+          Activating your subscription…
+        </div>
+      )}
+
+      <Paywall reason={paywall} onClose={closePaywall} />
 
       {advancedOpen && (
         <>
