@@ -16,7 +16,7 @@ Thumbs.db
 # Local agent skills and tooling
 .agents/
 .claude/
-agent/
+/agent/
 skills-lock.json
 
 # Logs
