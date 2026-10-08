@@ -264,6 +264,7 @@ function ClickableModel({
           onPointerOut={interactive ? handlePointerOut : undefined}
         />
       </Center>
+      <FitCamera model={scene} />
       {onThumbnail && <ThumbnailCapture model={scene} onCapture={onThumbnail} />}
     </>
   );
@@ -351,6 +352,55 @@ function Scene({
       />
     </Suspense>
   );
+}
+
+/**
+ * Frames the part in view when it first appears, and again when its size
+ * changes noticeably, keeping the direction the user is looking from. Small
+ * changes (a hole, a fillet, the next build preview) leave the camera alone.
+ */
+function FitCamera({ model }: { model: THREE.Object3D }) {
+  const { camera, controls } = useThree();
+
+  useEffect(() => {
+    let frame = requestAnimationFrame(() => {
+      // Second frame: <Center> has positioned the model by now.
+      frame = requestAnimationFrame(() => {
+        if (!(camera instanceof THREE.PerspectiveCamera)) return;
+        const box = new THREE.Box3().setFromObject(model);
+        if (box.isEmpty()) return;
+        const sphere = box.getBoundingSphere(new THREE.Sphere());
+        const fitted = camera.userData.fitRadius as number | undefined;
+        if (fitted && sphere.radius / fitted > 0.8 && sphere.radius / fitted < 1.25) {
+          return;
+        }
+        camera.userData.fitRadius = sphere.radius;
+        const orbit = controls as unknown as {
+          target: THREE.Vector3;
+          update: () => void;
+        } | null;
+        const target = orbit?.target ?? new THREE.Vector3();
+        const direction = camera.position.clone().sub(target).normalize();
+        if (direction.lengthSq() === 0) direction.set(1, 1, 1).normalize();
+        const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
+        const halfWidth = Math.atan(Math.tan(halfFov) * camera.aspect);
+        const distance = (sphere.radius * 1.2) / Math.sin(Math.min(halfFov, halfWidth));
+        camera.position.copy(sphere.center).add(direction.multiplyScalar(distance));
+        camera.near = Math.max(0.01, distance / 100);
+        camera.far = distance * 100;
+        camera.updateProjectionMatrix();
+        if (orbit) {
+          orbit.target.copy(sphere.center);
+          orbit.update();
+        } else {
+          camera.lookAt(sphere.center);
+        }
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [camera, controls, model]);
+
+  return null;
 }
 
 function ClearSelectionOnMiss({ onMiss }: { onMiss: () => void }) {

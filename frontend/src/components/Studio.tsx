@@ -6,6 +6,7 @@ import {
   type ExportFormat,
   type Viewer,
 } from "@/components/CommandBar";
+import { DemoReplay } from "@/components/DemoReplay";
 import { EditorPane } from "@/components/EditorPane";
 import { Paywall, type PaywallReason } from "@/components/Paywall";
 import { ViewportPane } from "@/components/ViewportPane";
@@ -45,6 +46,15 @@ import {
   waitForRun,
   type CadRun,
 } from "@/lib/runs";
+import {
+  demoFile,
+  FIRST_DEMO,
+  getDemo,
+  listDemos,
+  toRunEvent,
+  type Demo,
+  type DemoSummary,
+} from "@/lib/demos";
 import { sandboxRequest } from "@/lib/sandbox";
 import { useBuildPreview } from "@/lib/useBuildPreview";
 import {
@@ -103,15 +113,29 @@ const DEFAULT_CODE = [
   "result = part.part",
 ].join("\n");
 
+// A replayed demo step lasts at most this long before its previews play.
+const DEMO_REPLAY_MS = 7_000;
+
+/** The chat of a demo's first `steps` steps, as the agent recorded it. */
+function demoHistory(target: Demo, steps: number): ChatMessage[] {
+  return target.steps.slice(0, steps).flatMap((recorded): ChatMessage[] => [
+    { role: "user", content: recorded.prompt },
+    { role: "assistant", content: recorded.code, agent: recorded.agent },
+  ]);
+}
+
 export default function Studio({
   viewer,
   initialPrompt,
   initialProjectId,
+  initialDemo,
   startNew = false,
 }: {
   viewer?: Viewer | null;
   initialPrompt?: string;
   initialProjectId?: string;
+  /** Open this recorded demo, e.g. from /studio?demo=drone-frame. */
+  initialDemo?: string;
   startNew?: boolean;
 }) {
   const [code, setCode] = useState(DEFAULT_CODE);
@@ -127,6 +151,7 @@ export default function Studio({
   const {
     preview: buildPreview,
     enqueue: enqueuePreview,
+    enqueueFiles: enqueuePreviewFiles,
     settle: settlePreview,
     clear: clearPreview,
   } = useBuildPreview();
@@ -142,6 +167,14 @@ export default function Studio({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [inspection, setInspection] = useState<ModelInspection | null>(null);
+  // A recorded demo being replayed (no project, no backend runs).
+  const [demos, setDemos] = useState<DemoSummary[]>([]);
+  const [demo, setDemo] = useState<Demo | null>(null);
+  const [demoStep, setDemoStep] = useState(0);
+  const [demoPlaying, setDemoPlaying] = useState(false);
+  const demoTimers = useRef<number[]>([]);
+  const demoGeneration = useRef(0);
+  const demoOpened = useRef(false);
   // Code from a failed run, offered so the tokens spent on it are not lost.
   const [recoverableCode, setRecoverableCode] = useState<string | null>(null);
   const [billing, setBilling] = useState<BillingStatus | null>(null);
@@ -541,9 +574,145 @@ export default function Studio({
     [clearPreview, completeRun, enqueuePreview, settlePreview]
   );
 
+  const stopDemoPlayback = useCallback(() => {
+    demoGeneration.current += 1;
+    demoTimers.current.forEach((timer) => window.clearTimeout(timer));
+    demoTimers.current = [];
+    clearPreview();
+    setDemoPlaying(false);
+  }, [clearPreview]);
+
+  /** Show a demo step's finished part and the chat that led to it. */
+  const showDemoStep = useCallback((target: Demo, step: number) => {
+    const recorded = target.steps[step - 1];
+    setMessages(demoHistory(target, step));
+    setCode(recorded.code);
+    setInspection(recorded.agent.inspection.valid ? recorded.agent.inspection : null);
+    setGlbUrl((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return demoFile(target.slug, recorded.glb);
+    });
+    setDemoStep(step);
+  }, []);
+
+  /**
+   * Replay one recorded step as the studio shows a live run: the request in
+   * the chat, the agent's steps in the progress list, then the part growing
+   * feature by feature. The recorded timing is compressed to a few seconds.
+   */
+  const playDemoStep = useCallback(
+    (target: Demo, step: number) => {
+      stopDemoPlayback();
+      const generation = demoGeneration.current;
+      const recorded = target.steps[step - 1];
+      const startedAt = Date.now();
+      setDemo(target);
+      setDemoStep(step);
+      setDemoPlaying(true);
+      setMessages([
+        ...demoHistory(target, step - 1),
+        { role: "user", content: recorded.prompt },
+      ]);
+      setRunEvents([]);
+      setRunStartedAt(startedAt);
+      setIsLoading(true);
+
+      const end = Math.max(1, ...recorded.events.map((event) => event.at_ms));
+      const scale = Math.min(1, DEMO_REPLAY_MS / end);
+      // Previews appear while the last (passing) check builds the part.
+      const lastCheck = recorded.events
+        .map((event) => event.stage === "inspect" && event.status === "started")
+        .lastIndexOf(true);
+      const schedule = (callback: () => void, delay: number) =>
+        demoTimers.current.push(
+          window.setTimeout(() => {
+            if (generation === demoGeneration.current) callback();
+          }, delay)
+        );
+      recorded.events.forEach((event, index) =>
+        schedule(() => {
+          setRunEvents((previous) => [
+            ...previous,
+            toRunEvent(event, index + 1, startedAt),
+          ]);
+          if (index === lastCheck) {
+            // Each step rebuilds the whole part; play only what this step adds.
+            const before = new Set(
+              (target.steps[step - 2]?.previews ?? []).map((preview) => preview.name)
+            );
+            const added = recorded.previews.filter((preview) => !before.has(preview.name));
+            enqueuePreviewFiles(
+              (added.length > 0 ? added : recorded.previews.slice(-1)).map((preview) => ({
+                url: demoFile(target.slug, preview.file),
+                name: preview.name,
+              }))
+            );
+          }
+        }, event.at_ms * scale)
+      );
+      schedule(async () => {
+        await settlePreview(4_000);
+        if (generation !== demoGeneration.current) return;
+        showDemoStep(target, step);
+        setIsLoading(false);
+        setRunEvents([]);
+        setRunStartedAt(null);
+        clearPreview();
+        setDemoPlaying(false);
+      }, end * scale + 400);
+    },
+    [clearPreview, enqueuePreviewFiles, settlePreview, showDemoStep, stopDemoPlayback]
+  );
+
+  const openDemo = useCallback(
+    async (slug: string) => {
+      try {
+        const target = await getDemo(slug);
+        if (!mountedRef.current) return;
+        setProjectId(null);
+        setRevisions([]);
+        setCurrentRevision(null);
+        setLastRunId(null);
+        setSelectedFace(null);
+        setIsDirty(false);
+        setError(null);
+        playDemoStep(target, 1);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "This demo is not available.");
+      }
+    },
+    [playDemoStep]
+  );
+
+  const exitDemo = useCallback(() => {
+    stopDemoPlayback();
+    setDemo(null);
+    setIsLoading(false);
+    setRunEvents([]);
+    setRunStartedAt(null);
+    setGlbUrl(null);
+    setCode(DEFAULT_CODE);
+    setMessages([]);
+    setInspection(null);
+  }, [stopDemoPlayback]);
+
+  useEffect(() => {
+    listDemos()
+      .then((items) => {
+        if (mountedRef.current) setDemos(items);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => () => stopDemoPlayback(), [stopDemoPlayback]);
+
   const handleChatSend = useCallback(
     async (text: string, imageUrls?: string[]) => {
       if (!text.trim()) return;
+      if (demo) {
+        stopDemoPlayback();
+        setDemo(null);
+      }
 
       setIsLoading(true);
       setError(null);
@@ -593,7 +762,17 @@ export default function Studio({
       writePendingRun({ runId: run.runId, projectId, prompt: text.trim() });
       await followRun(run.runId);
     },
-    [messages, code, modelId, modelConfig, selectedFace, projectId, followRun]
+    [
+      messages,
+      code,
+      modelId,
+      modelConfig,
+      selectedFace,
+      projectId,
+      followRun,
+      demo,
+      stopDemoPlayback,
+    ]
   );
 
   // Stopped at the paywall, the prompt stays in the box (ChatPane keeps its
@@ -871,6 +1050,16 @@ export default function Studio({
   const showWelcome =
     hasInitialized && !projectId && messages.length === 0 && glbUrl === null;
 
+  useEffect(() => {
+    if (demoOpened.current || !hasInitialized || billing === null) return;
+    const slug =
+      initialDemo ??
+      (showWelcome && isLocked && !initialPrompt ? FIRST_DEMO : undefined);
+    if (!slug || !demos.some((item) => item.slug === slug)) return;
+    demoOpened.current = true;
+    void openDemo(slug);
+  }, [billing, demos, hasInitialized, initialDemo, initialPrompt, isLocked, openDemo, showWelcome]);
+
   return (
     <div className="wb theme-page flex h-dvh flex-col overflow-hidden">
       <CommandBar
@@ -922,6 +1111,29 @@ export default function Studio({
             <p className="mt-5 text-center text-[11px] text-zinc-600">
               Valid geometry is saved automatically as an immutable revision.
             </p>
+            {demos.length > 0 && (
+              <div className="mt-8 w-full max-w-3xl">
+                <p className="type-label mb-3 text-center">See how it’s built</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {demos.map((item) => (
+                    <button
+                      key={item.slug}
+                      type="button"
+                      onClick={() => void openDemo(item.slug)}
+                      className="theme-inset rounded-xl border p-3.5 text-left transition-colors hover:border-[var(--hairline-strong)]"
+                    >
+                      <p className="text-sm font-medium text-[var(--ink)]">{item.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-[var(--ink-2)]">
+                        {item.summary}
+                      </p>
+                      <p className="mt-2 text-[10px] text-zinc-500">
+                        {item.steps} steps · replay
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </main>
       ) : (
@@ -1054,6 +1266,20 @@ export default function Studio({
                 selection={selectedFace}
                 runEvents={isLoading ? runEvents : undefined}
                 runStartedAt={runStartedAt}
+                header={
+                  demo ? (
+                    <DemoReplay
+                      demo={demo}
+                      step={demoStep}
+                      playing={demoPlaying}
+                      onNext={() => playDemoStep(demo, demoStep + 1)}
+                      onReplay={() =>
+                        playDemoStep(demo, demoStep >= demo.steps.length ? 1 : demoStep)
+                      }
+                      onExit={exitDemo}
+                    />
+                  ) : undefined
+                }
               />
             </div>
           </div>

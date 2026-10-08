@@ -20,7 +20,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, type ReactNode } from "react";
 
 export type { ChatMessage } from "@/lib/types";
 
@@ -56,6 +56,8 @@ interface ChatPaneProps {
   /** Progress of the run in flight; shown above the input while set. */
   runEvents?: RunEvent[];
   runStartedAt?: number | null;
+  /** Shown above the progress and the input, e.g. demo replay controls. */
+  header?: ReactNode;
 }
 
 export function ChatPane({
@@ -69,6 +71,7 @@ export function ChatPane({
   initialInput = "",
   runEvents,
   runStartedAt = null,
+  header,
 }: ChatPaneProps) {
   const [input, setInput] = useState(initialInput);
   const [images, setImages] = useState<string[]>([]);
@@ -312,6 +315,7 @@ export function ChatPane({
             : ""
         } p-3`}
       >
+        {header}
         {runEvents && (
           <RunProgress events={runEvents} startedAt={runStartedAt} />
         )}

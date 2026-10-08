@@ -17,6 +17,7 @@ export default async function StudioPage({
     prompt?: string | string[];
     project?: string | string[];
     new?: string | string[];
+    demo?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -27,6 +28,8 @@ export default async function StudioPage({
     : params.project;
   const projectId = rawProject?.trim().slice(0, 100) || undefined;
   const startNew = (Array.isArray(params.new) ? params.new[0] : params.new) === "1";
+  const rawDemo = Array.isArray(params.demo) ? params.demo[0] : params.demo;
+  const demo = rawDemo && /^[a-z0-9-]{1,40}$/.test(rawDemo) ? rawDemo : undefined;
 
   const user = await getAuthenticatedUser();
   if (isSupabaseConfigured() && !user) {
@@ -42,6 +45,7 @@ export default async function StudioPage({
     <Studio
       initialPrompt={prompt}
       initialProjectId={projectId}
+      initialDemo={demo}
       startNew={startNew}
       viewer={
         user
