@@ -182,10 +182,14 @@ register_feature(
 ```
 
 Feature IDs are authored names that remain stable through parameter edits. The
-sandbox snapshots topology at each declaration, then `/analyze-model` attributes
-surviving final faces to the feature that introduced them. Legacy scripts remain
-valid: they return an empty feature tree and list their faces as unassigned
-instead of receiving guessed history. Scripts may declare up to 64 features.
+sandbox snapshots topology at each declaration, then `/analyze-model` gives
+each final face to the feature that first created it: the first snapshot with
+a face on the same surface (plane, cylinder, cone, sphere or torus). A face
+whose outline a later feature reshapes, such as a plate side rounded by a
+fillet or a top face cut by a hole, stays with the feature that made it.
+Faces on other surfaces fall back to the last feature that produced exactly
+that face. Legacy scripts remain valid: they return an empty feature tree and
+list their faces as unassigned instead of receiving guessed history. Scripts may declare up to 64 features.
 `ownedFaceIds` are recomputed for each B-rep version; the authored feature ID,
 not a face ID, is the cross-edit semantic handle.
 

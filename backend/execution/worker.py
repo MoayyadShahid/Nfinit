@@ -287,6 +287,7 @@ def _build_scope():
                 "parentId": parent_id,
                 "parameters": encoded_parameters,
                 "face_signatures": _snapshot_face_signatures(shape),
+                "surface_keys": _snapshot_surface_keys(shape),
             }
         )
 
@@ -495,6 +496,87 @@ def _snapshot_face_signatures(shape):
     return sorted(_face_snapshot_signature(face) for face in shape.faces())
 
 
+def _canonical_direction(direction):
+    """A unit vector with one sign for both directions along the same line."""
+    values = [float(component) for component in direction]
+    for value in values:
+        if abs(value) > 1e-9:
+            if value < 0:
+                values = [-component for component in values]
+            break
+    return values
+
+
+def _rounded(values, digits: int = 4):
+    # Adding 0.0 turns -0.0 into 0.0, so equal surfaces give equal keys.
+    return [round(value, digits) + 0.0 for value in values]
+
+
+def _surface_key(face):
+    """The surface a face lies on, or None when it cannot be described simply.
+
+    A later feature can reshape a face's outline (a fillet rounds its corners,
+    a hole cuts through it) while the face stays on the same plane or
+    cylinder. The key ignores the outline, so the face keeps the feature that
+    first created it.
+    """
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import (
+        GeomAbs_Cone,
+        GeomAbs_Cylinder,
+        GeomAbs_Plane,
+        GeomAbs_Sphere,
+        GeomAbs_Torus,
+    )
+
+    def axis_key(axis):
+        direction = _canonical_direction(
+            (axis.Direction().X(), axis.Direction().Y(), axis.Direction().Z())
+        )
+        location = axis.Location()
+        point = (location.X(), location.Y(), location.Z())
+        along = sum(point[index] * direction[index] for index in range(3))
+        # The point on the axis closest to the origin names the axis.
+        closest = [point[index] - along * direction[index] for index in range(3)]
+        return _rounded(direction, 6) + _rounded(closest)
+
+    surface = BRepAdaptor_Surface(face.wrapped)
+    kind = surface.GetType()
+    if kind == GeomAbs_Plane:
+        normal = [float(value) for value in face.normal_at()]
+        center = [float(value) for value in face.center()]
+        offset = sum(normal[index] * center[index] for index in range(3))
+        # Oriented: the top and bottom of a sheet are different faces.
+        return ("plane", *_rounded(normal, 6), *_rounded([offset]))
+    if kind == GeomAbs_Cylinder:
+        cylinder = surface.Cylinder()
+        return ("cylinder", *axis_key(cylinder.Axis()), *_rounded([cylinder.Radius()]))
+    if kind == GeomAbs_Cone:
+        cone = surface.Cone()
+        apex = cone.Apex()
+        return (
+            "cone",
+            *axis_key(cone.Axis()),
+            *_rounded([apex.X(), apex.Y(), apex.Z(), cone.SemiAngle()]),
+        )
+    if kind == GeomAbs_Sphere:
+        sphere = surface.Sphere()
+        center = sphere.Location()
+        return ("sphere", *_rounded([center.X(), center.Y(), center.Z(), sphere.Radius()]))
+    if kind == GeomAbs_Torus:
+        torus = surface.Torus()
+        return (
+            "torus",
+            *axis_key(torus.Axis()),
+            *_rounded([torus.MajorRadius(), torus.MinorRadius()]),
+        )
+    return None
+
+
+def _snapshot_surface_keys(shape):
+    return {key for key in (_surface_key(face) for face in shape.faces()) if key}
+
+
 def _entity_id(prefix: str, payload: dict, occurrence: int = 0):
     canonical = json.dumps(
         {"geometry": payload, "occurrence": occurrence},
@@ -506,29 +588,58 @@ def _entity_id(prefix: str, payload: dict, occurrence: int = 0):
 
 
 def _feature_tree(feature_records, face_records):
+    """Give each final face to the feature that first created it.
+
+    A face belongs to the first feature whose snapshot already has a face on
+    the same surface (plane, cylinder, ...), even if later features reshaped
+    its outline. Faces on surfaces without a simple key (splines, lofts) fall
+    back to the exact face signature: the feature that last produced exactly
+    this face. Faces that no snapshot explains stay unassigned.
+    """
+    owners: dict[str, int] = {}
+    for record in face_records:
+        key = record["surface_key"]
+        if key is None:
+            continue
+        index = next(
+            (
+                index
+                for index, feature in enumerate(feature_records)
+                if key in feature["surface_keys"]
+            ),
+            None,
+        )
+        if index is not None:
+            owners[record["payload"]["id"]] = index
+
     final_faces = {}
     for record in face_records:
+        if record["payload"]["id"] in owners:
+            continue
         final_faces.setdefault(record["ownership_signature"], []).append(
             record["payload"]["id"]
         )
     for face_ids in final_faces.values():
         face_ids.sort()
 
-    assigned = set()
+    assigned = set(owners)
     previous = Counter()
-    features = []
     for index, record in enumerate(feature_records):
         current = Counter(record["face_signatures"])
         introduced = current - previous
-        owned_face_ids = []
         for signature, count in sorted(introduced.items()):
             candidates = [
                 face_id
                 for face_id in final_faces.get(signature, [])
                 if face_id not in assigned
             ]
-            owned_face_ids.extend(candidates[:count])
-        assigned.update(owned_face_ids)
+            for face_id in candidates[:count]:
+                owners[face_id] = index
+                assigned.add(face_id)
+        previous = current
+
+    features = []
+    for index, record in enumerate(feature_records):
         features.append(
             {
                 "id": record["id"],
@@ -537,10 +648,11 @@ def _feature_tree(feature_records, face_records):
                 "parentId": record["parentId"],
                 "parameters": record["parameters"],
                 "sequence": index,
-                "ownedFaceIds": sorted(owned_face_ids),
+                "ownedFaceIds": sorted(
+                    face_id for face_id, owner in owners.items() if owner == index
+                ),
             }
         )
-        previous = current
 
     all_face_ids = {record["payload"]["id"] for record in face_records}
     return features, sorted(all_face_ids - assigned)
@@ -586,6 +698,7 @@ def _entity_records(result):
                 "payload": payload,
                 "signature": signature,
                 "ownership_signature": ownership_signature,
+                "surface_key": _surface_key(face),
             }
         )
 
@@ -689,7 +802,7 @@ def _topology(
     }
 
 
-VIEWER_FORMAT = "nfinit-brep-1"
+VIEWER_FORMAT = "nfinit-brep-2"
 # glTF is Y-up; CAD is Z-up. Same root rotation as build123d's exporter.
 Z_UP_TO_Y_UP = [-0.7071067811865475, 0.0, 0.0, 0.7071067811865475]
 MM_TO_M = 0.001

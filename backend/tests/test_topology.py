@@ -250,3 +250,68 @@ def test_semantic_constraint_count_is_bounded():
 
     assert not analysis.valid
     assert "at most 128 constraints" in analysis.error
+
+
+FILLETED_PLATE = """
+with BuildPart() as part:
+    Box(80, 60, 10)
+    register_feature("base_plate", "Base plate", "additive", part.part)
+    with GridLocations(60, 40, 2, 2):
+        Hole(4)
+    register_feature(
+        "mounting_holes", "Mounting holes", "pattern", part.part, parent_id="base_plate"
+    )
+    fillet(part.edges().filter_by(Axis.Z), 3)
+    register_feature(
+        "corner_fillets", "Corner fillets", "fillet", part.part, parent_id="base_plate"
+    )
+result = part.part
+"""
+
+
+def _owned_surfaces(analysis):
+    surface = {face.id: face.surface_type for face in analysis.faces}
+    return {
+        feature.id: sorted(surface[face_id] for face_id in feature.owned_face_ids)
+        for feature in analysis.features
+    }
+
+
+def test_faces_keep_the_feature_that_created_them_when_later_reshaped():
+    analysis = analyze_code(FILLETED_PLATE)
+
+    # The fillets round the plate's outline, but its top, bottom and sides
+    # are still the faces the base plate made.
+    assert _owned_surfaces(analysis) == {
+        "base_plate": ["plane"] * 6,
+        "mounting_holes": ["cylinder"] * 4,
+        "corner_fillets": ["cylinder"] * 4,
+    }
+    assert analysis.unassigned_face_ids == []
+
+
+def test_cut_through_face_stays_with_its_feature():
+    analysis = analyze_code(
+        """
+with BuildPart() as part:
+    Box(20, 16, 4)
+    register_feature("base_plate", "Base plate", "additive", part.part)
+    Hole(3)
+    register_feature("center_hole", "Center hole", "subtractive", part.part)
+result = part.part
+"""
+    )
+
+    assert _owned_surfaces(analysis) == {
+        "base_plate": ["plane"] * 6,
+        "center_hole": ["cylinder"],
+    }
+
+
+def test_resized_feature_keeps_its_faces_across_revisions():
+    template = FILLETED_PLATE.replace("Box(80, 60, 10)", "Box({length}, 60, 10)")
+    first = analyze_code(template.format(length=80))
+    second = analyze_code(template.format(length=100))
+
+    for analysis in (first, second):
+        assert len(analysis.features[0].owned_face_ids) == 6
