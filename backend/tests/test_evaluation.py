@@ -219,8 +219,8 @@ def test_quality_first_live_config_uses_pinned_flagship_models():
     config = load_live_config(root / "config" / "live_quality.json")
 
     assert [model.id for model in config.models] == [
+        "anthropic/claude-sonnet-5.5",
         "anthropic/claude-opus-5.5",
-        "openai/gpt-5.6-sol",
     ]
     assert all(model.supports_structured_outputs for model in config.models)
     assert config.langfuse_dataset == "nfinit-cad50-v1"

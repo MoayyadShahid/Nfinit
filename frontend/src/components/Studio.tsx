@@ -245,7 +245,8 @@ export default function Studio({
       const state = revision.state;
       setCode(state.code);
       setMessages(state.messages);
-      setModelId(state.modelId || DEFAULT_MODEL);
+      // A model no longer offered (e.g. GPT-5.6 Sol) falls back to the default.
+      setModelId(getModelConfig(state.modelId) ? state.modelId : DEFAULT_MODEL);
       setSelectedFace(state.selection);
       setLastRunId(state.lastRunId);
       setCurrentRevision(revision.revisionNumber);

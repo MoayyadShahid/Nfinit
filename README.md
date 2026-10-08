@@ -359,7 +359,7 @@ python -m evaluation.cli \
   --output evaluation/reports/live.json
 ```
 
-The quality-first matrix pins Claude Opus 5.5 and GPT-5.6 Sol, the models the
+The quality-first matrix pins Claude Sonnet 5.5 and Claude Opus 5.5, the models the
 studio ships, so comparisons
 remain reproducible even when OpenRouter's `*-latest` aliases change. Add
 `--publish-langfuse` to create privacy-safe dataset items and attach overall,
@@ -412,7 +412,7 @@ python -m evaluation.gate \
 1. Start the backend on port 8000
 2. Start the frontend on port 3000
 3. Open http://localhost:3000
-4. Select a model (Claude Opus 5.5 or GPT-5.6 Sol)
+4. Select a model (Claude Sonnet 5.5, the default, or Claude Opus 5.5)
 5. Type a prompt (e.g. "a 10mm cube with a 3mm hole through the center")
 6. Press Generate or Cmd+Enter
 
