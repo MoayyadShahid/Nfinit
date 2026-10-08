@@ -4,6 +4,8 @@ import hashlib
 import json
 import os
 import re
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -177,6 +179,216 @@ def extract_patterns(
     return safe_records
 
 
+# Assertions in upstream tests become comments stating the checked result.
+_COMPARISONS = {
+    "assertAlmostEqual": "≈",
+    "assertAlmostEquals": "≈",
+    "assertTupleAlmostEquals": "≈",
+    "assertVectorAlmostEquals": "≈",
+    "assertEqual": "==",
+    "assertEquals": "==",
+    "assertNotEqual": "!=",
+    "assertGreater": ">",
+    "assertGreaterEqual": ">=",
+    "assertLess": "<",
+    "assertLessEqual": "<=",
+    "assertIs": "is",
+    "assertIn": "in",
+}
+_CHECK = "_nfinit_check_"
+_BUILDER_RESULTS = {"BuildPart": "part", "BuildSketch": "sketch", "BuildLine": "line"}
+
+
+def _self_call(node: ast.AST) -> str | None:
+    """The method name of a ``self.method(...)`` call, if node is one."""
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "self"
+    ):
+        return node.func.attr
+    return None
+
+
+def _check_text(name: str, args: list[ast.expr]) -> str | None:
+    if name in _COMPARISONS and len(args) >= 2:
+        return f"{ast.unparse(args[0])} {_COMPARISONS[name]} {ast.unparse(args[1])}"
+    if name == "assertTrue" and args:
+        return ast.unparse(args[0])
+    if name == "assertFalse" and args:
+        return f"not {ast.unparse(args[0])}"
+    if name == "assertIsNone" and args:
+        return f"{ast.unparse(args[0])} is None"
+    if name == "assertIsNotNone" and args:
+        return f"{ast.unparse(args[0])} is not None"
+    return None
+
+
+def _is_check(statement: ast.stmt) -> bool:
+    return (
+        isinstance(statement, ast.Expr)
+        and isinstance(statement.value, ast.Call)
+        and isinstance(statement.value.func, ast.Name)
+        and statement.value.func.id == _CHECK
+    )
+
+
+def _strip_test_statements(body: list[ast.stmt]) -> list[ast.stmt]:
+    """Replace assertions with check markers and drop expected failures."""
+    kept: list[ast.stmt] = []
+    for statement in body:
+        if isinstance(statement, ast.With) and any(
+            (_self_call(item.context_expr) or "").startswith("assert")
+            for item in statement.items
+        ):
+            continue  # e.g. `with self.assertRaises(...)`: a failing example
+        name = _self_call(statement.value) if isinstance(statement, ast.Expr) else None
+        if name is not None:
+            text = _check_text(name, statement.value.args)
+            if text is not None:
+                marker = ast.Expr(
+                    ast.Call(ast.Name(_CHECK, ast.Load()), [ast.Constant(text)], [])
+                )
+                kept.append(ast.copy_location(marker, statement))
+            continue
+        for field in ("body", "orelse", "finalbody"):
+            inner = getattr(statement, field, None)
+            if isinstance(inner, list) and inner:
+                stripped = _strip_test_statements(inner)
+                # Check markers become comments, so a block needs code too.
+                if all(_is_check(item) for item in stripped):
+                    stripped.append(ast.Pass())
+                setattr(statement, field, stripped)
+        kept.append(statement)
+    return kept
+
+
+def _result_line(body: list[ast.stmt]) -> str | None:
+    """The `result = ...` line that names the shape the test built."""
+    for statement in reversed(body):
+        if isinstance(statement, ast.With):
+            for item in statement.items:
+                call = item.context_expr
+                name = _call_name(call) if isinstance(call, ast.Call) else None
+                if name in _BUILDER_RESULTS and isinstance(item.optional_vars, ast.Name):
+                    return f"result = {item.optional_vars.id}.{_BUILDER_RESULTS[name]}"
+        if (
+            isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+            and isinstance(statement.value, (ast.Call, ast.BinOp))
+        ):
+            return f"result = {statement.targets[0].id}"
+    return None
+
+
+def _render(body: list[ast.stmt]) -> str:
+    code = ast.unparse(ast.Module(body=body, type_ignores=[]))
+    lines = []
+    for line in code.splitlines():
+        match = re.fullmatch(rf"(\s*){_CHECK}\((.*)\)", line)
+        if match:
+            lines.append(f"{match.group(1)}# check: {ast.literal_eval(match.group(2))}")
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def extract_test_patterns(
+    source_root: Path,
+    *,
+    repository_url: str = "https://github.com/gumyr/build123d",
+    revision: str = "dev",
+    builds: Callable[[str], bool] | None = None,
+    workers: int = 4,
+) -> list[PatternRecord]:
+    """Turn upstream unit tests into verified, runnable usage patterns.
+
+    Each test function becomes one snippet: its assertions become comments
+    stating the checked result, expected failures are dropped, and a
+    `result = ...` line names the built shape. A snippet is kept only when it
+    passes the CAD code policy and, when `builds` is given, builds in the
+    sandbox, so every pattern uses names and calls that really work here.
+    """
+    source_root = source_root.resolve()
+    candidates = []
+    for path in sorted(source_root.glob("tests/test_*.py")):
+        relative = path.relative_to(source_root)
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.FunctionDef) and node.name.startswith("test_")):
+                continue
+            body = _strip_test_statements(list(node.body))
+            result = _result_line(body)
+            if result is None:
+                continue
+            code = f"{_render(body)}\n{result}"
+            uses_self = any(
+                isinstance(child, ast.Name) and child.id == "self"
+                for child in ast.walk(ast.parse(code))
+            )
+            if uses_self or not 3 <= len(code.splitlines()) <= 60 or len(code) > 4_000:
+                continue
+            try:
+                validate_cad_code(code)
+            except CodePolicyError:
+                continue
+            candidates.append((relative, node, code))
+
+    if builds is not None:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            verdicts = list(pool.map(lambda item: builds(item[2]), candidates))
+        candidates = [item for item, ok in zip(candidates, verdicts) if ok]
+
+    records = []
+    for relative, node, code in candidates:
+        test_name = node.name.removeprefix("test_").replace("_", " ")
+        symbols = sorted(
+            {
+                name
+                for child in ast.walk(node)
+                if isinstance(child, ast.Call)
+                and (name := _call_name(child)) is not None
+                and _is_cad_call(name)
+            }
+        )
+        stem = relative.stem.removeprefix("test_")
+        digest = hashlib.sha256(f"{relative}:{code}".encode()).hexdigest()[:20]
+        records.append(
+            PatternRecord(
+                id=f"build123d-test-{digest}",
+                title=f"{stem.replace('_', ' ').title()}: {test_name}",
+                summary=(
+                    f"Verified build123d unit test from {relative.as_posix()}; "
+                    "the check comments state the results the test asserts."
+                ),
+                code=code,
+                keywords=[
+                    keyword
+                    for keyword in _keywords(Path(stem), symbols + [test_name])
+                    if keyword != "test"
+                ],
+                source_url=(
+                    f"{repository_url.rstrip('/')}/blob/{revision}/"
+                    f"{relative.as_posix()}#L{node.lineno}-L{node.end_lineno}"
+                ),
+                license="Apache-2.0",
+            )
+        )
+    return records
+
+
+def sandbox_builds(code: str) -> bool:
+    """True when the code builds valid geometry in the CAD sandbox."""
+    from execution import inspect_code
+
+    return inspect_code(code).valid
+
+
 def load_replay_patterns(path: Path) -> list[PatternRecord]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     values = payload.get("replays", [])
@@ -293,12 +505,32 @@ def main() -> None:
         default=os.getenv("PINECONE_NAMESPACE", "build123d-patterns-v1"),
     )
     parser.add_argument("--minimum-patterns", type=int, default=100)
+    parser.add_argument(
+        "--no-tests",
+        action="store_true",
+        help="Skip the upstream unit tests.",
+    )
+    parser.add_argument(
+        "--skip-sandbox",
+        action="store_true",
+        help="Keep test patterns that pass the policy without building them.",
+    )
     args = parser.parse_args()
 
     upstream_patterns = extract_patterns(
         args.source_root,
         repository_url=args.repository_url,
         revision=args.revision,
+    )
+    test_patterns = (
+        []
+        if args.no_tests
+        else extract_test_patterns(
+            args.source_root,
+            repository_url=args.repository_url,
+            revision=args.revision,
+            builds=None if args.skip_sandbox else sandbox_builds,
+        )
     )
     replay_patterns = (
         load_replay_patterns(args.replays) if args.replays else []
@@ -307,7 +539,7 @@ def main() -> None:
         load_seed_patterns(args.seed_corpus) if args.seed_corpus else []
     )
     patterns = deduplicate_patterns(
-        [*upstream_patterns, *replay_patterns, *seed_patterns]
+        [*upstream_patterns, *test_patterns, *replay_patterns, *seed_patterns]
     )
     if len(patterns) < args.minimum_patterns:
         raise SystemExit(
@@ -326,6 +558,7 @@ def main() -> None:
             {
                 "extracted": len(patterns),
                 "upstream": len(upstream_patterns),
+                "tests": len(test_patterns),
                 "replays": len(replay_patterns),
                 "curated": len(seed_patterns),
                 "submitted": submitted,

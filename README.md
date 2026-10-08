@@ -122,44 +122,65 @@ Clicking a model face adds its local point and normal to the next request, so pr
 
 ### build123d pattern RAG
 
-Retrieval works without external credentials: a compact curated corpus is
-ranked locally with deterministic lexical scoring. When Pinecone is configured,
-the same graph node uses an integrated-embedding index and falls back to the
-local corpus on service errors. Only the latest text request and selected
-surface type are used as the search query. LangFuse receives a hash and length,
-not the query or retrieved source.
+Retrieval works without external credentials. The default local corpus,
+`backend/agent/retrieval/corpus/build123d-v0.10.0.jsonl`, is ranked with
+deterministic lexical scoring (common words such as "with" and "the" are
+ignored). When Pinecone is configured, the same graph node uses an
+integrated-embedding index and falls back to the local corpus on service
+errors. Only the latest text request and selected surface type are used as the
+search query. LangFuse receives a hash and length, not the query or retrieved
+source.
+
+The shipped corpus has 367 unique patterns, all from build123d 0.10.0 (the
+version in `poetry.lock`, tag commit `fa8e936`):
+
+| Source | Patterns |
+| --- | ---: |
+| Official examples and docs (code windows around each CAD call) | 82 |
+| Official unit tests that build in the sandbox | 217 |
+| CAD50 reference solutions | 50 |
+| Curated patterns (`patterns.json`) | 18 |
+
+Each unit test becomes one runnable pattern: its assertions become
+`# check:` comments that state the result the test verifies, expected
+failures (`assertRaises`) are dropped, and a `result = ...` line names the
+built shape. A test is kept only when it passes the CAD code policy and builds
+valid geometry in the sandbox; 217 of the 342 policy-valid tests do. Rebuild the
+corpus when `poetry.lock` moves to a new build123d release, from that release:
+
+```bash
+curl -sL -o /tmp/build123d.tgz \
+  https://github.com/gumyr/build123d/archive/refs/tags/v0.10.0.tar.gz
+mkdir -p /tmp/build123d && tar -xzf /tmp/build123d.tgz -C /tmp/build123d --strip-components 1
+cd /path/to/Nfinit/backend
+CAD_SANDBOX_MODE=fork poetry run python -m agent.retrieval.ingest \
+  --source-root /tmp/build123d \
+  --revision "$(gh api repos/gumyr/build123d/commits/v0.10.0 --jq .sha)" \
+  --replays evaluation/replays/cad50.json \
+  --seed-corpus agent/retrieval/patterns.json \
+  --output agent/retrieval/corpus/build123d-v0.10.0.jsonl
+```
+
+Add `--pinecone` to upload the same patterns, `--no-tests` to leave out the
+unit tests, or `--skip-sandbox` to keep policy-valid tests without building
+them. The command prints the source revision and each source's count. The
+default quality gate requires at least 100 unique patterns.
+
+CadQuery's tests are not included: CadQuery runs on the same OpenCASCADE
+kernel but has a different API (`cq.Workplane(...)`), so its snippets would
+teach calls that the build123d sandbox does not have.
+
+Set `PATTERN_RAG_ENABLED=false` to disable retrieval, or
+`PATTERN_RAG_LOCAL_CORPUS` to use another corpus file.
 
 Set `PINECONE_API_KEY` and either `PINECONE_INDEX_HOST` (preferred) or
 `PINECONE_INDEX_NAME`. The index must use integrated embedding with its text
 field mapped to `chunk_text`. Use a versioned namespace such as
 `build123d-patterns-v1`.
 
-The ingestion CLI extracts content-addressed snippets from a pinned checkout of
-the official build123d examples and docs. It verifies the upstream Apache-2.0
-license, retains only syntax-valid snippets accepted by the CAD policy, removes
-overlapping windows, and preserves source URLs and license metadata. CAD50
-replays and the curated local corpus can be included as validated seeds:
-
-```bash
-git clone https://github.com/gumyr/build123d.git /tmp/build123d
-cd /tmp/build123d
-REVISION=$(git rev-parse HEAD)
-cd /path/to/Nfinit/backend
-poetry run python -m agent.retrieval.ingest \
-  --source-root /tmp/build123d \
-  --revision "$REVISION" \
-  --replays evaluation/replays/cad50.json \
-  --seed-corpus agent/retrieval/patterns.json \
-  --output agent/retrieval/generated/build123d.jsonl \
-  --pinecone
-```
-
-The default quality gate requires at least 100 unique patterns. The checked
-source revision, source counts, and final deduplicated count are printed by the
-command; use those measured values rather than assuming a corpus size.
-
-Keep the upstream `LICENSE` and `NOTICE` with any exported or redistributed
-corpus. Set `PATTERN_RAG_ENABLED=false` to disable retrieval entirely.
+build123d is Apache-2.0. Its `LICENSE` and `NOTICE` ship next to the corpus
+(`LICENSE-build123d`, `NOTICE-build123d`); keep them with any exported or
+redistributed copy, and each pattern keeps its source URL and license.
 
 ### Semantic topology
 
