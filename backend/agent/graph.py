@@ -66,6 +66,7 @@ class AgentState(TypedDict):
     messages: list[dict[str, Any]]
     current_code: str
     model_id: str
+    plan_model_id: str | None
     supports_structured_outputs: bool
     selection: dict[str, Any] | None
     patterns: list[dict[str, Any]]
@@ -206,11 +207,11 @@ def _append_trace(
     ]
 
 
-def _add_usage(state: AgentState, usage: dict[str, int]) -> dict[str, int]:
-    return {
-        key: state["usage"].get(key, 0) + usage.get(key, 0)
-        for key in ("input_tokens", "output_tokens", "total_tokens")
-    }
+USAGE_KEYS = ("input_tokens", "output_tokens", "total_tokens", "cost_usd")
+
+
+def _add_usage(state: AgentState, usage: dict[str, Any]) -> dict[str, Any]:
+    return {key: state["usage"].get(key, 0) + usage.get(key, 0) for key in USAGE_KEYS}
 
 
 def _message_text(message: Any) -> str:
@@ -243,13 +244,24 @@ def _message_text(message: Any) -> str:
     return "\n".join(parts)
 
 
-def _usage_of(completion: Any) -> dict[str, int]:
+def _usage_of(completion: Any) -> dict[str, Any]:
     completion_usage = getattr(completion, "usage", None)
+    # OpenRouter adds the call's cost in USD when usage accounting is on.
+    cost = getattr(completion_usage, "cost", None)
+    if cost is None:
+        cost = (getattr(completion_usage, "model_extra", None) or {}).get("cost")
     return {
         "input_tokens": getattr(completion_usage, "prompt_tokens", 0) or 0,
         "output_tokens": getattr(completion_usage, "completion_tokens", 0) or 0,
         "total_tokens": getattr(completion_usage, "total_tokens", 0) or 0,
+        "cost_usd": float(cost or 0),
     }
+
+
+def _model_for(state: AgentState, operation: str) -> str:
+    if operation == "plan" and state.get("plan_model_id"):
+        return state["plan_model_id"]
+    return state["model_id"]
 
 
 def _completion_attempts(structured: bool) -> list[dict[str, Any]]:
@@ -274,22 +286,23 @@ async def _complete(
     structured: bool = False,
 ) -> CompletionResult:
     last_finish = None
-    last_usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    last_usage = {key: 0 for key in USAGE_KEYS}
+    model = _model_for(state, operation)
 
     with tracer.observation(
         f"llm.{operation}",
         as_type="generation",
         input=summarize_messages(messages),
         metadata={"structured_output": structured},
-        model=state["model_id"],
+        model=model,
     ) as generation:
         for attempt in _completion_attempts(structured):
             params: dict[str, Any] = {
-                "model": state["model_id"],
+                "model": model,
                 "messages": messages,
                 "max_tokens": attempt["max_tokens"],
             }
-            extra_body: dict[str, Any] = {}
+            extra_body: dict[str, Any] = {"usage": {"include": True}}
             if attempt["reasoning"]:
                 extra_body["reasoning"] = {"effort": attempt["reasoning"]}
             if extra_body:
@@ -647,6 +660,7 @@ async def run_cad_agent(
         "messages": [message.model_dump() for message in request.messages],
         "current_code": request.code,
         "model_id": request.model_id,
+        "plan_model_id": request.plan_model_id,
         "supports_structured_outputs": request.supports_structured_outputs,
         "selection": request.selection.model_dump() if request.selection else None,
         "patterns": [],
@@ -656,7 +670,7 @@ async def run_cad_agent(
         "validation_error": None,
         "repair_attempts": 0,
         "trace": [],
-        "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        "usage": {key: 0 for key in USAGE_KEYS},
     }
     with tracer.observation(
         "nfinit.cad.run",

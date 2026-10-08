@@ -25,6 +25,8 @@ class CadRunRequest(BaseModel):
     messages: list[ChatMessage]
     code: str = ""
     model_id: str = Field(alias="modelId")
+    # Optional cheaper model for the plan step; code and repairs use model_id.
+    plan_model_id: str | None = Field(default=None, alias="planModelId")
     supports_structured_outputs: bool = Field(
         default=False, alias="supportsStructuredOutputs"
     )
@@ -51,3 +53,5 @@ class ModelUsage(BaseModel):
     input_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
+    # As reported by OpenRouter for each call, reasoning tokens included.
+    cost_usd: float = 0.0

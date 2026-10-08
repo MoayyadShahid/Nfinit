@@ -120,6 +120,7 @@ async def test_graph_repairs_failed_geometry_and_reinspects():
         "input_tokens": 300,
         "output_tokens": 75,
         "total_tokens": 375,
+        "cost_usd": 0.0,  # the fake client reports no cost
     }
     assert all(step["duration_ms"] >= 0 for step in result["trace"])
     assert all(
@@ -298,3 +299,38 @@ async def test_failing_progress_handler_does_not_fail_the_run(monkeypatch):
 
     assert result["validation_error"] is None
     assert result["code"] == "result = Box(10, 10, 10)"
+
+
+class CostingCompletions(FakeCompletions):
+    async def create(self, **kwargs):
+        completion = await super().create(**kwargs)
+        completion.usage.cost = 0.0125
+        return completion
+
+
+@pytest.mark.asyncio
+async def test_plan_step_can_use_its_own_model_and_cost_is_reported(monkeypatch):
+    client = FakeClient([])
+    client.chat.completions = CostingCompletions(
+        ["A 10 mm cube.", '{"code":"result = Box(10, 10, 10)"}']
+    )
+    monkeypatch.setattr("agent.graph.AsyncOpenAI", lambda **_kwargs: client)
+    monkeypatch.setattr("agent.graph.get_pattern_retriever", FakeRetriever)
+    request = CadRunRequest(
+        messages=[{"role": "user", "content": "Make a 10 mm cube"}],
+        modelId="anthropic/claude-opus-5.5",
+        planModelId="openai/gpt-5.6-luna",
+        supportsStructuredOutputs=True,
+    )
+
+    result = await run_cad_agent(
+        request, "test-key", lambda _code: ModelInspection(valid=True), run_id="mixed"
+    )
+
+    requests = client.chat.completions.requests
+    assert [call["model"] for call in requests] == [
+        "openai/gpt-5.6-luna",
+        "anthropic/claude-opus-5.5",
+    ]
+    assert all(call["extra_body"]["usage"] == {"include": True} for call in requests)
+    assert result["usage"]["cost_usd"] == pytest.approx(0.025)

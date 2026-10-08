@@ -78,6 +78,9 @@ class ModelSummary(BaseModel):
     mean_latency_ms: float
     mean_total_tokens: float
     repair_rate: float
+    mean_cost_usd: float = 0.0
+    total_cost_usd: float = 0.0
+    p95_latency_ms: float = 0.0
 
 
 class EvaluationReport(BaseModel):
@@ -95,6 +98,13 @@ class LiveModelConfig(BaseModel):
     id: str
     label: str
     supports_structured_outputs: bool = True
+    # Optional cheaper model for the plan step; `id` writes and repairs code.
+    plan_model_id: str | None = None
+
+    @property
+    def setup_id(self) -> str:
+        """The setup's name in reports: "plan+code" when the plan differs."""
+        return f"{self.plan_model_id}+{self.id}" if self.plan_model_id else self.id
 
 
 class LiveEvaluationConfig(BaseModel):
@@ -106,7 +116,7 @@ class LiveEvaluationConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_unique_models(self):
-        ids = [model.id for model in self.models]
+        ids = [model.setup_id for model in self.models]
         if not ids:
             raise ValueError("Live evaluation config must include at least one model.")
         if len(ids) != len(set(ids)):

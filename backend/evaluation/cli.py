@@ -88,7 +88,7 @@ async def run(args: argparse.Namespace) -> int:
         )
     else:
         model_ids = args.models or (
-            [model.id for model in live_config.models] if live_config else []
+            [model.setup_id for model in live_config.models] if live_config else []
         )
         if not model_ids:
             raise ValueError("At least one --model or --config is required in live mode.")
@@ -97,7 +97,7 @@ async def run(args: argparse.Namespace) -> int:
             raise ValueError("OPENROUTER_API_KEY is required in live mode.")
         structured_output_support = (
             {
-                model.id: model.supports_structured_outputs
+                model.setup_id: model.supports_structured_outputs
                 for model in live_config.models
             }
             if live_config
@@ -119,7 +119,8 @@ async def run(args: argparse.Namespace) -> int:
             f"{model_id}: {summary.passed}/{summary.cases} passed "
             f"({summary.pass_rate:.1%}), "
             f"{summary.mean_latency_ms:.0f} ms mean, "
-            f"{summary.mean_total_tokens:.0f} mean tokens"
+            f"{summary.mean_total_tokens:.0f} mean tokens, "
+            f"${summary.total_cost_usd:.2f} total"
         )
 
     if args.publish_langfuse:

@@ -219,8 +219,8 @@ def test_quality_first_live_config_uses_pinned_flagship_models():
     config = load_live_config(root / "config" / "live_quality.json")
 
     assert [model.id for model in config.models] == [
-        "anthropic/claude-opus-5",
-        "openai/gpt-6-astra-pro",
+        "anthropic/claude-opus-5.5",
+        "openai/gpt-5.6-sol",
     ]
     assert all(model.supports_structured_outputs for model in config.models)
     assert config.langfuse_dataset == "nfinit-cad50-v1"
@@ -257,3 +257,12 @@ def test_cad50_benchmark_has_balanced_complete_coverage():
     assert all(case.expected.bounding_box_mm for case in cases)
     assert all(case.tags for case in cases)
     assert all(replay.model_id == "recorded/reference" for replay in replays)
+
+
+def test_model_selection_config_names_mixed_setups():
+    root = Path(__file__).parents[1] / "evaluation"
+    config = load_live_config(root / "config" / "live_models.json")
+
+    setups = [model.setup_id for model in config.models]
+    assert "openai/gpt-5.6-luna+anthropic/claude-opus-5.5" in setups
+    assert len(setups) == len(set(setups))

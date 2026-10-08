@@ -1,0 +1,1903 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-10-08T13:14:59.558026Z",
+  "mode": "live",
+  "models": [
+    "anthropic/claude-haiku-5.5+anthropic/claude-sonnet-5.5",
+    "anthropic/claude-opus-5.5",
+    "anthropic/claude-sonnet-5.5",
+    "openai/gpt-5.6-luna",
+    "openai/gpt-5.6-luna+anthropic/claude-opus-5.5",
+    "openai/gpt-5.6-sol",
+    "openai/gpt-5.6-terra"
+  ],
+  "summary": {
+    "anthropic/claude-haiku-5.5+anthropic/claude-sonnet-5.5": {
+      "cases": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_latency_ms": 16247.33,
+      "mean_total_tokens": 11118.67,
+      "repair_rate": 0.3333,
+      "mean_cost_usd": 0.026699,
+      "total_cost_usd": 0.0801,
+      "p95_latency_ms": 23552.0
+    },
+    "anthropic/claude-opus-5.5": {
+      "cases": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_latency_ms": 44894.67,
+      "mean_total_tokens": 10546.33,
+      "repair_rate": 0.3333,
+      "mean_cost_usd": 0.082543,
+      "total_cost_usd": 0.2476,
+      "p95_latency_ms": 83441.0
+    },
+    "anthropic/claude-sonnet-5.5": {
+      "cases": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_latency_ms": 11071.33,
+      "mean_total_tokens": 7149.67,
+      "repair_rate": 0.0,
+      "mean_cost_usd": 0.025209,
+      "total_cost_usd": 0.0756,
+      "p95_latency_ms": 12739.0
+    },
+    "openai/gpt-5.6-luna": {
+      "cases": 3,
+      "passed": 2,
+      "pass_rate": 0.6667,
+      "mean_latency_ms": 33867.33,
+      "mean_total_tokens": 13498.67,
+      "repair_rate": 1.0,
+      "mean_cost_usd": 0.005573,
+      "total_cost_usd": 0.0167,
+      "p95_latency_ms": 54024.0
+    },
+    "openai/gpt-5.6-luna+anthropic/claude-opus-5.5": {
+      "cases": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_latency_ms": 26036.67,
+      "mean_total_tokens": 9122.33,
+      "repair_rate": 0.3333,
+      "mean_cost_usd": 0.055797,
+      "total_cost_usd": 0.1674,
+      "p95_latency_ms": 31375.0
+    },
+    "openai/gpt-5.6-sol": {
+      "cases": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_latency_ms": 26691.67,
+      "mean_total_tokens": 9592.33,
+      "repair_rate": 1.0,
+      "mean_cost_usd": 0.032143,
+      "total_cost_usd": 0.0964,
+      "p95_latency_ms": 33162.0
+    },
+    "openai/gpt-5.6-terra": {
+      "cases": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_latency_ms": 16511.33,
+      "mean_total_tokens": 8328.67,
+      "repair_rate": 0.6667,
+      "mean_cost_usd": 0.02996,
+      "total_cost_usd": 0.0899,
+      "p95_latency_ms": 25053.0
+    }
+  },
+  "results": [
+    {
+      "case_id": "box_10x20x30",
+      "category": "primitive",
+      "model_id": "anthropic/claude-opus-5.5",
+      "run_id": "15588a31-cb3e-4a29-9d33-e622f3845ad8",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 10.0,
+          "expected": {
+            "target": 10.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 6000.0,
+          "expected": {
+            "target": 6000.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 1,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 6000.0,
+        "bounding_box_mm": {
+          "x": 10.0,
+          "y": 20.0,
+          "z": 30.0
+        },
+        "error": null
+      },
+      "repair_attempts": 1,
+      "latency_ms": 83441,
+      "usage": {
+        "input_tokens": 12286,
+        "output_tokens": 3286,
+        "total_tokens": 15572,
+        "cost_usd": 0.114864
+      },
+      "error": null
+    },
+    {
+      "case_id": "plate_center_hole",
+      "category": "subtractive",
+      "model_id": "anthropic/claude-opus-5.5",
+      "run_id": "dc46a54f-6399-46e7-89af-08252fa6796c",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 6.0,
+          "expected": {
+            "target": 6.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 23528.761,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 6.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 31445,
+      "usage": {
+        "input_tokens": 6064,
+        "output_tokens": 2613,
+        "total_tokens": 8677,
+        "cost_usd": 0.076516
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_plate_thickness",
+      "category": "iterative_edit",
+      "model_id": "anthropic/claude-opus-5.5",
+      "run_id": "dbb5e9cb-d5c1-46cd-8fd9-86b35ef25239",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 8.0,
+          "expected": {
+            "target": 8.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 32000.0,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 8.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 19798,
+      "usage": {
+        "input_tokens": 5722,
+        "output_tokens": 1668,
+        "total_tokens": 7390,
+        "cost_usd": 0.056248000000000006
+      },
+      "error": null
+    },
+    {
+      "case_id": "box_10x20x30",
+      "category": "primitive",
+      "model_id": "openai/gpt-5.6-sol",
+      "run_id": "b37c66e9-c48d-40d0-a9ce-90b8906f332c",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 10.0,
+          "expected": {
+            "target": 10.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 6000.0,
+          "expected": {
+            "target": 6000.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 2,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 6000.0,
+        "bounding_box_mm": {
+          "x": 10.0,
+          "y": 20.0,
+          "z": 30.0
+        },
+        "error": null
+      },
+      "repair_attempts": 2,
+      "latency_ms": 28478,
+      "usage": {
+        "input_tokens": 9880,
+        "output_tokens": 2217,
+        "total_tokens": 12097,
+        "cost_usd": 0.0394005
+      },
+      "error": null
+    },
+    {
+      "case_id": "plate_center_hole",
+      "category": "subtractive",
+      "model_id": "openai/gpt-5.6-sol",
+      "run_id": "99184bdc-e9d3-457e-858c-f879121f30e9",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 6.0,
+          "expected": {
+            "target": 6.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 1,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 23528.761,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 6.0
+        },
+        "error": null
+      },
+      "repair_attempts": 1,
+      "latency_ms": 33162,
+      "usage": {
+        "input_tokens": 6627,
+        "output_tokens": 2738,
+        "total_tokens": 9365,
+        "cost_usd": 0.036545499999999995
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_plate_thickness",
+      "category": "iterative_edit",
+      "model_id": "openai/gpt-5.6-sol",
+      "run_id": "c91682b6-da5f-4b80-9cce-7784dd6270f1",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 8.0,
+          "expected": {
+            "target": 8.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 1,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 32000.0,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 8.0
+        },
+        "error": null
+      },
+      "repair_attempts": 1,
+      "latency_ms": 18435,
+      "usage": {
+        "input_tokens": 6031,
+        "output_tokens": 1284,
+        "total_tokens": 7315,
+        "cost_usd": 0.020483
+      },
+      "error": null
+    },
+    {
+      "case_id": "box_10x20x30",
+      "category": "primitive",
+      "model_id": "anthropic/claude-sonnet-5.5",
+      "run_id": "c41a63c9-cce2-4b93-b14e-e65cfb68ff97",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 10.0,
+          "expected": {
+            "target": 10.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 6000.0,
+          "expected": {
+            "target": 6000.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 6000.0,
+        "bounding_box_mm": {
+          "x": 10.0,
+          "y": 20.0,
+          "z": 30.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 11173,
+      "usage": {
+        "input_tokens": 6109,
+        "output_tokens": 1357,
+        "total_tokens": 7466,
+        "cost_usd": 0.025788
+      },
+      "error": null
+    },
+    {
+      "case_id": "plate_center_hole",
+      "category": "subtractive",
+      "model_id": "anthropic/claude-sonnet-5.5",
+      "run_id": "4b1c8a55-1ca5-4684-907c-0109b12d4f51",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 6.0,
+          "expected": {
+            "target": 6.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 23528.761,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 6.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 12739,
+      "usage": {
+        "input_tokens": 5646,
+        "output_tokens": 1863,
+        "total_tokens": 7509,
+        "cost_usd": 0.029921999999999997
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_plate_thickness",
+      "category": "iterative_edit",
+      "model_id": "anthropic/claude-sonnet-5.5",
+      "run_id": "71d265b1-aea7-4804-ad81-2e0bf03d223f",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 8.0,
+          "expected": {
+            "target": 8.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 32000.0,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 8.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 9302,
+      "usage": {
+        "input_tokens": 5603,
+        "output_tokens": 871,
+        "total_tokens": 6474,
+        "cost_usd": 0.019916000000000003
+      },
+      "error": null
+    },
+    {
+      "case_id": "box_10x20x30",
+      "category": "primitive",
+      "model_id": "openai/gpt-5.6-terra",
+      "run_id": "c595448a-3b01-433c-b05d-699d73e55b89",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 10.0,
+          "expected": {
+            "target": 10.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 6000.0,
+          "expected": {
+            "target": 6000.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 2,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 6000.0,
+        "bounding_box_mm": {
+          "x": 10.0,
+          "y": 20.0,
+          "z": 30.0
+        },
+        "error": null
+      },
+      "repair_attempts": 2,
+      "latency_ms": 17733,
+      "usage": {
+        "input_tokens": 10025,
+        "output_tokens": 1733,
+        "total_tokens": 11758,
+        "cost_usd": 0.038389
+      },
+      "error": null
+    },
+    {
+      "case_id": "plate_center_hole",
+      "category": "subtractive",
+      "model_id": "openai/gpt-5.6-terra",
+      "run_id": "e4d33275-f263-4cdd-b57d-37443c984a6e",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 6.0,
+          "expected": {
+            "target": 6.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 1,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 23528.761,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 6.0
+        },
+        "error": null
+      },
+      "repair_attempts": 1,
+      "latency_ms": 25053,
+      "usage": {
+        "input_tokens": 6979,
+        "output_tokens": 2649,
+        "total_tokens": 9628,
+        "cost_usd": 0.0418335
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_plate_thickness",
+      "category": "iterative_edit",
+      "model_id": "openai/gpt-5.6-terra",
+      "run_id": "40d7acb8-db9b-4f9c-845f-f0cf3f8c2c72",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 8.0,
+          "expected": {
+            "target": 8.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 32000.0,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 8.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 6748,
+      "usage": {
+        "input_tokens": 3126,
+        "output_tokens": 474,
+        "total_tokens": 3600,
+        "cost_usd": 0.009658
+      },
+      "error": null
+    },
+    {
+      "case_id": "box_10x20x30",
+      "category": "primitive",
+      "model_id": "openai/gpt-5.6-luna",
+      "run_id": "be0c584e-a359-471e-bb27-6ae8841ba54d",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 10.0,
+          "expected": {
+            "target": 10.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 6000.0,
+          "expected": {
+            "target": 6000.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 2,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 6000.0,
+        "bounding_box_mm": {
+          "x": 10.0,
+          "y": 20.0,
+          "z": 30.0
+        },
+        "error": null
+      },
+      "repair_attempts": 2,
+      "latency_ms": 27798,
+      "usage": {
+        "input_tokens": 9969,
+        "output_tokens": 2518,
+        "total_tokens": 12487,
+        "cost_usd": 0.0047669
+      },
+      "error": null
+    },
+    {
+      "case_id": "plate_center_hole",
+      "category": "subtractive",
+      "model_id": "openai/gpt-5.6-luna",
+      "run_id": "a07d6a9d-34c5-46fd-bdb9-8ce32fe22c01",
+      "passed": false,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": false,
+          "value": false,
+          "expected": true,
+          "message": "cad_execution_error: ValueError: Constraint kind 'parallel' requires at least two features."
+        },
+        "solid_count": {
+          "passed": false,
+          "value": null,
+          "expected": 1,
+          "message": "Solid count did not match."
+        },
+        "bounding_box_x": {
+          "passed": false,
+          "value": null,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was outside tolerance."
+        },
+        "bounding_box_y": {
+          "passed": false,
+          "value": null,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was outside tolerance."
+        },
+        "bounding_box_z": {
+          "passed": false,
+          "value": null,
+          "expected": {
+            "target": 6.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was outside tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 3,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        },
+        "agent_run": {
+          "passed": false,
+          "value": "cad_execution_error: ValueError: Constraint kind 'parallel' requires at least two features.",
+          "expected": "success",
+          "message": "The agent run raised an error."
+        }
+      },
+      "inspection": {
+        "valid": false,
+        "shape_type": null,
+        "solid_count": null,
+        "volume_mm3": null,
+        "bounding_box_mm": null,
+        "error": "cad_execution_error: ValueError: Constraint kind 'parallel' requires at least two features."
+      },
+      "repair_attempts": 3,
+      "latency_ms": 54024,
+      "usage": {
+        "input_tokens": 14389,
+        "output_tokens": 5850,
+        "total_tokens": 20239,
+        "cost_usd": 0.00915915
+      },
+      "error": "cad_execution_error: ValueError: Constraint kind 'parallel' requires at least two features."
+    },
+    {
+      "case_id": "edit_plate_thickness",
+      "category": "iterative_edit",
+      "model_id": "openai/gpt-5.6-luna",
+      "run_id": "d4d1cec9-fb21-4af8-bcd1-7e78e2b14ff6",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 8.0,
+          "expected": {
+            "target": 8.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 1,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 32000.0,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 8.0
+        },
+        "error": null
+      },
+      "repair_attempts": 1,
+      "latency_ms": 19780,
+      "usage": {
+        "input_tokens": 6091,
+        "output_tokens": 1679,
+        "total_tokens": 7770,
+        "cost_usd": 0.0027941
+      },
+      "error": null
+    },
+    {
+      "case_id": "box_10x20x30",
+      "category": "primitive",
+      "model_id": "openai/gpt-5.6-luna+anthropic/claude-opus-5.5",
+      "run_id": "e578d8b5-e942-4969-a276-e1a35722b6a3",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 10.0,
+          "expected": {
+            "target": 10.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 6000.0,
+          "expected": {
+            "target": 6000.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 1,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 6000.0,
+        "bounding_box_mm": {
+          "x": 10.0,
+          "y": 20.0,
+          "z": 30.0
+        },
+        "error": null
+      },
+      "repair_attempts": 1,
+      "latency_ms": 31375,
+      "usage": {
+        "input_tokens": 10967,
+        "output_tokens": 2444,
+        "total_tokens": 13411,
+        "cost_usd": 0.0805312
+      },
+      "error": null
+    },
+    {
+      "case_id": "plate_center_hole",
+      "category": "subtractive",
+      "model_id": "openai/gpt-5.6-luna+anthropic/claude-opus-5.5",
+      "run_id": "d0ed147f-ca9e-4a57-b38c-979c102c694b",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 6.0,
+          "expected": {
+            "target": 6.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 23528.761,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 6.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 30890,
+      "usage": {
+        "input_tokens": 5178,
+        "output_tokens": 2602,
+        "total_tokens": 7780,
+        "cost_usd": 0.058292000000000004
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_plate_thickness",
+      "category": "iterative_edit",
+      "model_id": "openai/gpt-5.6-luna+anthropic/claude-opus-5.5",
+      "run_id": "2a53e47a-5e6f-45a3-a725-1f6ab3429378",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 8.0,
+          "expected": {
+            "target": 8.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 32000.0,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 8.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 15845,
+      "usage": {
+        "input_tokens": 4973,
+        "output_tokens": 1203,
+        "total_tokens": 6176,
+        "cost_usd": 0.028568200000000002
+      },
+      "error": null
+    },
+    {
+      "case_id": "box_10x20x30",
+      "category": "primitive",
+      "model_id": "anthropic/claude-haiku-5.5+anthropic/claude-sonnet-5.5",
+      "run_id": "c6c4af15-87c4-4b23-a920-4f91d863bb03",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 10.0,
+          "expected": {
+            "target": 10.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 6000.0,
+          "expected": {
+            "target": 6000.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 6000.0,
+        "bounding_box_mm": {
+          "x": 10.0,
+          "y": 20.0,
+          "z": 30.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 12853,
+      "usage": {
+        "input_tokens": 6014,
+        "output_tokens": 2294,
+        "total_tokens": 8308,
+        "cost_usd": 0.0177882
+      },
+      "error": null
+    },
+    {
+      "case_id": "plate_center_hole",
+      "category": "subtractive",
+      "model_id": "anthropic/claude-haiku-5.5+anthropic/claude-sonnet-5.5",
+      "run_id": "6bcd7c9a-83bf-4c0b-95f0-df42c6c5e135",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 6.0,
+          "expected": {
+            "target": 6.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 1,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 23528.761,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 6.0
+        },
+        "error": null
+      },
+      "repair_attempts": 1,
+      "latency_ms": 23552,
+      "usage": {
+        "input_tokens": 12702,
+        "output_tokens": 4515,
+        "total_tokens": 17217,
+        "cost_usd": 0.0473436
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_plate_thickness",
+      "category": "iterative_edit",
+      "model_id": "anthropic/claude-haiku-5.5+anthropic/claude-sonnet-5.5",
+      "run_id": "5505a73f-c905-4ab7-9bad-58d08534deb3",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 8.0,
+          "expected": {
+            "target": 8.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 32000.0,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 8.0
+        },
+        "error": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 12337,
+      "usage": {
+        "input_tokens": 5694,
+        "output_tokens": 2137,
+        "total_tokens": 7831,
+        "cost_usd": 0.0149645
+      },
+      "error": null
+    }
+  ]
+}
