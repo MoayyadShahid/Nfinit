@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "name": "model-selection",
+  "description": "Candidate setups for the studio's default model: current models, cheaper ones, and a cheap plan model with a strong code model.",
+  "models": [
+    {"id": "anthropic/claude-opus-5.5", "label": "Claude Opus 5.5 (current default)"},
+    {"id": "openai/gpt-5.6-sol", "label": "GPT-5.6 Sol (current alternative)"},
+    {"id": "anthropic/claude-sonnet-5.5", "label": "Claude Sonnet 5.5"},
+    {"id": "openai/gpt-5.6-terra", "label": "GPT-5.6 Terra"},
+    {"id": "openai/gpt-5.6-luna", "label": "GPT-5.6 Luna"},
+    {
+      "id": "anthropic/claude-opus-5.5",
+      "plan_model_id": "openai/gpt-5.6-luna",
+      "label": "Luna plans, Opus 5.5 codes"
+    },
+    {
+      "id": "anthropic/claude-sonnet-5.5",
+      "plan_model_id": "anthropic/claude-haiku-5.5",
+      "label": "Haiku 5.5 plans, Sonnet 5.5 codes"
+    }
+  ],
+  "langfuse_dataset": "nfinit-cad50-v1"
+}

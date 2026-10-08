@@ -359,7 +359,8 @@ python -m evaluation.cli \
   --output evaluation/reports/live.json
 ```
 
-The quality-first matrix pins Claude Opus 5 and GPT-6 Astra Pro so comparisons
+The quality-first matrix pins Claude Opus 5.5 and GPT-5.6 Sol, the models the
+studio ships, so comparisons
 remain reproducible even when OpenRouter's `*-latest` aliases change. Add
 `--publish-langfuse` to create privacy-safe dataset items and attach overall,
 per-metric, repair, latency, and token scores to each run trace. Prompt text,
@@ -411,7 +412,7 @@ python -m evaluation.gate \
 1. Start the backend on port 8000
 2. Start the frontend on port 3000
 3. Open http://localhost:3000
-4. Select a quality-first model (Claude Opus 5 or GPT-6 Astra Pro)
+4. Select a model (Claude Opus 5.5 or GPT-5.6 Sol)
 5. Type a prompt (e.g. "a 10mm cube with a 3mm hole through the center")
 6. Press Generate or Cmd+Enter
 

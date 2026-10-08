@@ -113,12 +113,15 @@ async def evaluate_live(
     results = []
     structured_output_support = structured_output_support or {}
     for model_id in model_ids:
+        # "plan+code" runs the plan step on a separate (cheaper) model.
+        plan_model, _, code_model = model_id.rpartition("+")
         for case in cases:
             run_id = str(uuid4())
             request = CadRunRequest(
                 messages=case.messages,
                 code=case.current_code,
-                modelId=model_id,
+                modelId=code_model,
+                planModelId=plan_model or None,
                 supportsStructuredOutputs=structured_output_support.get(
                     model_id, True
                 ),

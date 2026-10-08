@@ -31,6 +31,15 @@ def build_report(
                 2,
             ),
             repair_rate=round(repaired / count, 4),
+            mean_cost_usd=round(
+                sum(result.usage.cost_usd for result in model_results) / count, 6
+            ),
+            total_cost_usd=round(
+                sum(result.usage.cost_usd for result in model_results), 4
+            ),
+            p95_latency_ms=_percentile(
+                [result.latency_ms for result in model_results], 0.95
+            ),
         )
 
     return EvaluationReport(
@@ -47,3 +56,11 @@ def write_report(report: EvaluationReport, path: Path):
         json.dumps(report.model_dump(mode="json"), indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def _percentile(values: list[float], fraction: float) -> float:
+    ordered = sorted(values)
+    if not ordered:
+        return 0.0
+    index = min(len(ordered) - 1, max(0, round(fraction * (len(ordered) - 1))))
+    return round(float(ordered[index]), 2)
