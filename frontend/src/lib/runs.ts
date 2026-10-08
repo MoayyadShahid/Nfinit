@@ -5,7 +5,7 @@ import type {
   ModelInspection,
   RunEvent,
 } from "@/lib/types";
-import { jsonRequest, requestJson } from "@/lib/projects";
+import { BACKEND_ORIGIN, jsonRequest, requestJson } from "@/lib/projects";
 
 export type CadRunStatus = "running" | "succeeded" | "failed";
 
@@ -63,9 +63,79 @@ export class RunStillWorkingError extends Error {
   }
 }
 
+type StreamLink = { url: string; expiresAt: string };
+
+// A stream that worked reconnects by itself; after this many errors in a row
+// the studio polls instead. A stream that never opened is dropped at once.
+const STREAM_MAX_ERRORS = 3;
+
 /**
- * Poll until the run finishes, passing each batch of new progress events to
- * `onEvents`. Transient network errors are retried.
+ * Follow the run's event stream until it reports "done". Resolves false if the
+ * stream cannot be used, so the caller can poll instead.
+ */
+async function streamRun(
+  runId: string,
+  after: number,
+  deliver: (events: RunEvent[]) => void,
+  isCancelled: () => boolean,
+  deadline: number
+): Promise<boolean> {
+  if (typeof EventSource === "undefined") return false;
+  let link: StreamLink;
+  try {
+    link = await requestJson<StreamLink>(
+      `/cad/runs/${runId}/stream`,
+      jsonRequest("POST", {})
+    );
+  } catch {
+    return false;
+  }
+
+  return new Promise<boolean>((resolve, reject) => {
+    const source = new EventSource(`${BACKEND_ORIGIN}${link.url}&after=${after}`);
+    let errors = 0;
+    let opened = false;
+    const finish = (outcome: boolean | Error) => {
+      window.clearInterval(watch);
+      source.close();
+      if (outcome instanceof Error) reject(outcome);
+      else resolve(outcome);
+    };
+    const watch = window.setInterval(() => {
+      if (isCancelled()) finish(new DOMException("Stopped waiting", "AbortError"));
+      else if (Date.now() > deadline) finish(false);
+    }, 1_000);
+
+    source.addEventListener("open", () => {
+      opened = true;
+      errors = 0;
+    });
+    source.addEventListener("progress", (message) => {
+      errors = 0;
+      try {
+        deliver([JSON.parse((message as MessageEvent<string>).data) as RunEvent]);
+      } catch {
+        /* skip a malformed event; the final run carries the full result */
+      }
+    });
+    source.addEventListener("done", () => finish(true));
+    source.addEventListener("error", () => {
+      // CLOSED means the browser gave up (for example, the link expired).
+      if (
+        !opened ||
+        source.readyState === EventSource.CLOSED ||
+        ++errors >= STREAM_MAX_ERRORS
+      ) {
+        finish(false);
+      }
+    });
+  });
+}
+
+/**
+ * Wait until the run finishes, passing new progress events to `onEvents` as
+ * they happen. Uses the run's event stream, and polls when the stream is
+ * unavailable. Transient network errors are retried.
  */
 export async function waitForRun(
   runId: string,
@@ -73,19 +143,33 @@ export async function waitForRun(
   onEvents: (events: RunEvent[]) => void = () => {}
 ): Promise<CadRun> {
   const deadline = Date.now() + MAX_WAIT_MS;
-  let failures = 0;
   let lastSeq = 0;
+  // The stream and the poll can both report an event; pass each on once.
+  const deliver = (events: RunEvent[]) => {
+    const fresh = events.filter((event) => event.seq > lastSeq);
+    if (fresh.length === 0) return;
+    lastSeq = fresh[fresh.length - 1].seq;
+    onEvents(fresh);
+  };
+
+  if (await streamRun(runId, lastSeq, deliver, isCancelled, deadline)) {
+    try {
+      const run = await getRun(runId, lastSeq);
+      deliver(run.events ?? []);
+      if (run.status !== "running") return run;
+    } catch {
+      /* fall through to polling */
+    }
+  }
+
+  let failures = 0;
   while (Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     if (isCancelled()) throw new DOMException("Stopped waiting", "AbortError");
     try {
       const run = await getRun(runId, lastSeq);
       failures = 0;
-      const events = run.events ?? [];
-      if (events.length > 0) {
-        lastSeq = events[events.length - 1].seq;
-        onEvents(events);
-      }
+      deliver(run.events ?? []);
       if (run.status !== "running") return run;
     } catch (error) {
       if (++failures >= 5) throw error;

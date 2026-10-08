@@ -7,13 +7,8 @@ this service. Each project keeps the mesh it last showed; another revision
 rebuilds in a fraction of a second on the warm sandbox.
 """
 
-import base64
 import hashlib
-import hmac
-import json
 import logging
-import os
-import secrets
 import time
 from datetime import datetime, timezone
 from typing import Annotated
@@ -24,6 +19,7 @@ from execution import SandboxError, build_mesh
 
 from .billing import SubscribedUserId
 from .models import RevisionMesh
+from .signed_links import read_token, sign_token
 from .store import (
     ProjectNotFoundError,
     ProjectStoreProtocol,
@@ -39,56 +35,23 @@ LINK_SECONDS = 300
 router = APIRouter(tags=["meshes"])
 Store = Annotated[ProjectStoreProtocol, Depends(get_project_store)]
 
-_fallback_secret = secrets.token_bytes(32)
-_warned_about_secret = False
-
-
-def _secret() -> bytes:
-    global _warned_about_secret
-    configured = os.getenv("NFNIT_MESH_URL_SECRET", "").strip()
-    if configured:
-        return configured.encode()
-    if not _warned_about_secret:
-        _warned_about_secret = True
-        logger.warning(
-            "NFNIT_MESH_URL_SECRET is unset; mesh links use a per-process key "
-            "and stop working after a restart or on another replica."
-        )
-    return _fallback_secret
-
-
-def _encode(payload: dict) -> str:
-    raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
-    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
-
-
-def _signature(body: str) -> str:
-    return hmac.new(_secret(), body.encode(), hashlib.sha256).hexdigest()
-
-
 def sign_mesh_token(
     *, user_id: str, project_id: str, revision_number: int, expires_at: int
 ) -> str:
-    body = _encode(
-        {"u": user_id, "p": project_id, "r": revision_number, "e": expires_at}
+    return sign_token(
+        "mesh",
+        {"u": user_id, "p": project_id, "r": revision_number},
+        expires_at=expires_at,
     )
-    return f"{body}.{_signature(body)}"
 
 
 def read_mesh_token(token: str) -> tuple[str, str, int]:
-    """Return (user_id, project_id, revision_number) or raise 404."""
-    body, _, signature = token.partition(".")
-    if not body or not hmac.compare_digest(signature, _signature(body)):
-        raise HTTPException(status_code=404, detail="Mesh link not found.")
+    """Return (user_id, project_id, revision_number) or raise 404/410."""
+    payload = read_token("mesh", token, label="Mesh link")
     try:
-        payload = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
-        user_id, project_id = str(payload["u"]), str(payload["p"])
-        revision_number, expires_at = int(payload["r"]), int(payload["e"])
+        return str(payload["u"]), str(payload["p"]), int(payload["r"])
     except (ValueError, KeyError, TypeError) as error:
         raise HTTPException(status_code=404, detail="Mesh link not found.") from error
-    if expires_at < time.time():
-        raise HTTPException(status_code=410, detail="Mesh link has expired.")
-    return user_id, project_id, revision_number
 
 
 def code_hash(code: str) -> str:

@@ -7,13 +7,16 @@ connection or a proxy timeout. A failed run keeps its last attempt.
 """
 
 import asyncio
+import json
 import logging
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi.responses import StreamingResponse
 from pydantic import Field
 
 from agent import (
@@ -34,7 +37,9 @@ from .models import (
     ProjectCreate,
     ProjectState,
     RunEvent,
+    RunStreamLink,
 )
+from .signed_links import read_token, sign_token
 from .store import (
     ProjectNotFoundError,
     ProjectStoreProtocol,
@@ -54,6 +59,20 @@ STALE_RUN_GRACE_SECONDS = 120
 
 # Strong references so in-flight runs are not garbage collected mid-await.
 _active_runs: set[asyncio.Task] = set()
+
+# Event streams check the database at least this often. A run in this process
+# also wakes its streams at once, so this only bounds the delay for a run
+# that another replica is executing.
+STREAM_POLL_SECONDS = 2.0
+# Railway closes a connection after 5 minutes without data.
+STREAM_HEARTBEAT_SECONDS = 15.0
+# Streams waiting on each run in this process.
+_run_listeners: dict[str, set[asyncio.Event]] = {}
+
+
+def _wake_streams(run_id: str) -> None:
+    for listener in _run_listeners.get(run_id, ()):
+        listener.set()
 
 
 class CadRunStart(CadRunRequest):
@@ -156,6 +175,7 @@ async def _execute_run(
             ),
             user_id=user_id,
         )
+        _wake_streams(run_id)
 
     try:
         state = await run_cad_agent(
@@ -228,6 +248,8 @@ async def _execute_run(
         logger.warning("Run %s was already closed before it finished.", run_id)
     except Exception:
         logger.exception("Could not record the outcome of run %s.", run_id)
+    finally:
+        _wake_streams(run_id)
 
 
 def _spawn(coroutine) -> None:
@@ -314,3 +336,106 @@ async def get_run(
         # Before the run_events migration is applied, runs still work.
         logger.warning("Could not read events of run %s.", run_id, exc_info=True)
     return record
+
+
+def _stream_deadline_seconds() -> float:
+    return run_timeout_seconds() + STALE_RUN_GRACE_SECONDS
+
+
+@router.post("/{run_id}/stream", response_model=RunStreamLink)
+async def create_stream_link(run_id: str, store: Store, user_id: UserId):
+    """A signed link the browser opens directly, without the proxy.
+
+    The Next.js proxy cannot hold a response open for a whole run, and the
+    browser's EventSource cannot send an Authorization header, so the link
+    itself carries who may read the stream. It lasts as long as a run can.
+    """
+    try:
+        await asyncio.to_thread(store.get_run, run_id, user_id=user_id)
+    except RunNotFoundError as error:
+        raise HTTPException(status_code=404, detail="Run not found.") from error
+    expires_at = int(time.time() + _stream_deadline_seconds())
+    token = sign_token("run-events", {"u": user_id, "r": run_id}, expires_at=expires_at)
+    return RunStreamLink(
+        url=f"/cad/runs/{run_id}/events?token={token}",
+        expires_at=datetime.fromtimestamp(expires_at, timezone.utc),
+    )
+
+
+def _sse(event: str, data: str, event_id: int | None = None) -> str:
+    lines = [f"id: {event_id}"] if event_id is not None else []
+    lines += [f"event: {event}", f"data: {data}"]
+    return "\n".join(lines) + "\n\n"
+
+
+async def _event_stream(
+    request: Request,
+    store: ProjectStoreProtocol,
+    *,
+    run_id: str,
+    user_id: str,
+    cursor: int,
+):
+    wake = asyncio.Event()
+    _run_listeners.setdefault(run_id, set()).add(wake)
+    deadline = time.monotonic() + _stream_deadline_seconds()
+    last_write = time.monotonic()
+    try:
+        # Reconnect after 2 s; the browser sends the last id it received.
+        yield "retry: 2000\n\n"
+        while not await request.is_disconnected():
+            # Clear before reading, so an event recorded meanwhile is not missed.
+            wake.clear()
+            events = await asyncio.to_thread(
+                store.list_run_events, run_id, user_id=user_id, after=cursor
+            )
+            for event in events:
+                cursor = event.seq
+                yield _sse("progress", event.model_dump_json(by_alias=True), event.seq)
+                last_write = time.monotonic()
+            record = await asyncio.to_thread(store.get_run, run_id, user_id=user_id)
+            if record.status != "running" or time.monotonic() > deadline:
+                # The client reads the final run through the proxy, which also
+                # reports a run that its server lost as failed.
+                yield _sse("done", json.dumps({"status": record.status}))
+                return
+            if time.monotonic() - last_write >= STREAM_HEARTBEAT_SECONDS:
+                yield ": ping\n\n"
+                last_write = time.monotonic()
+            try:
+                await asyncio.wait_for(wake.wait(), STREAM_POLL_SECONDS)
+            except TimeoutError:
+                pass
+    finally:
+        listeners = _run_listeners.get(run_id)
+        if listeners is not None:
+            listeners.discard(wake)
+            if not listeners:
+                _run_listeners.pop(run_id, None)
+
+
+@router.get("/{run_id}/events")
+async def stream_run_events(
+    run_id: str,
+    request: Request,
+    store: Store,
+    token: Annotated[str, Query()],
+    after: Annotated[int, Query(ge=0)] = 0,
+    last_event_id: Annotated[str | None, Header()] = None,
+):
+    """Server-sent progress events of a run, then one "done" event."""
+    payload = read_token("run-events", token, label="Event stream")
+    if payload.get("r") != run_id or not isinstance(payload.get("u"), str):
+        raise HTTPException(status_code=404, detail="Event stream not found.")
+    user_id = payload["u"]
+    try:
+        await asyncio.to_thread(store.get_run, run_id, user_id=user_id)
+    except RunNotFoundError as error:
+        raise HTTPException(status_code=404, detail="Run not found.") from error
+    if last_event_id and last_event_id.isdigit():
+        after = max(after, int(last_event_id))
+    return StreamingResponse(
+        _event_stream(request, store, run_id=run_id, user_id=user_id, cursor=after),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
