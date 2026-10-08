@@ -55,7 +55,7 @@ def read_mesh_token(token: str) -> tuple[str, str, int]:
 
 
 # Bump when the GLB layout changes, so stored meshes are rebuilt once.
-MESH_FORMAT = "nfinit-brep-1"
+MESH_FORMAT = "nfinit-brep-2"
 
 
 def code_hash(code: str) -> str:
