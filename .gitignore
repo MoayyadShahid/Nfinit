@@ -35,3 +35,7 @@ yarn-error.log*
 # Build artifacts
 dist/
 build/
+.vercel
+.env*
+!.env*.example
+supabase/.temp/
