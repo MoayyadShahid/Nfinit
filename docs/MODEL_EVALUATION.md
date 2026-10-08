@@ -72,8 +72,9 @@ expensive. A cheaper plan model did not improve either strong code model
 enough to be worth the extra step, so the studio keeps one model per run. The
 `planModelId` option remains available for later evaluations.
 
-The model menu lists Claude Sonnet 5.5 first, then Claude Opus 5.5 and
-GPT-5.6 Sol. Projects saved with another model keep that model.
+The model menu offers Claude Sonnet 5.5 (default) and Claude Opus 5.5. The
+GPT-5.6 models were removed from the menu after this comparison; a project
+saved with one opens with the default model.
 
 ## Limits
 

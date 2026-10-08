@@ -43,12 +43,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - key: claude-sonnet-5-5
+            label: Claude Sonnet 5.5
+            model: anthropic/claude-sonnet-5.5
           - key: claude-opus-5-5
             label: Claude Opus 5.5
             model: anthropic/claude-opus-5.5
-          - key: gpt-5-6-sol
-            label: GPT-5.6 Sol
-            model: openai/gpt-5.6-sol
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
