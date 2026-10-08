@@ -1,3 +1,4 @@
+import hashlib
 import importlib.util
 import time
 
@@ -207,3 +208,67 @@ def test_build_mesh_returns_glb_and_inspection():
     assert built.glb[:4] == b"glTF"
     assert built.inspection.valid
     assert built.inspection.bounding_box_mm == {"x": 10, "y": 20, "z": 30}
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("build123d") is None,
+    reason="build123d runtime is not installed",
+)
+def test_viewer_glb_has_one_node_per_brep_face_and_edge_lines():
+    import json
+    import struct
+
+    from execution import analyze_code, build_mesh
+
+    code = (
+        "with BuildPart() as part:\n"
+        "    Box(40, 30, 10)\n"
+        '    register_feature("base", "Base", "additive", part.part)\n'
+        "    Hole(5)\n"
+        '    register_feature("hole", "Hole", "subtractive", part.part, parent_id="base")\n'
+        "result = part.part\n"
+    )
+    glb = build_mesh(code).glb
+    json_length = struct.unpack_from("<I", glb, 12)[0]
+    document = json.loads(glb[20 : 20 + json_length])
+    extras = document["scenes"][0]["extras"]
+    face_nodes = [node for node in document["nodes"] if "faceId" in node.get("extras", {})]
+    analysis = analyze_code(code)
+
+    assert extras["format"] == meshes.MESH_FORMAT
+    assert extras["topologyVersion"] == analysis.topology_version
+    assert sorted(node["extras"]["faceId"] for node in face_nodes) == sorted(
+        face.id for face in analysis.faces
+    )
+    hole = next(feature for feature in extras["features"] if feature["id"] == "hole")
+    assert hole["ownedFaceIds"]
+    assert all(
+        node["extras"]["featureId"] == "hole"
+        for node in face_nodes
+        if node["extras"]["faceId"] in hole["ownedFaceIds"]
+    )
+    edges = next(node for node in document["nodes"] if node.get("name") == "edges")
+    primitive = document["meshes"][edges["mesh"]]["primitives"][0]
+    assert primitive["mode"] == 1  # LINES
+    # 12 box edges plus 2 sampled hole circles.
+    segments = document["accessors"][primitive["attributes"]["POSITION"]]["count"] // 2
+    assert segments >= 12 + 2 * 8
+
+
+def test_stored_meshes_of_another_format_are_rebuilt(client, store, builds):
+    project_id = project_with(store, CUBE)
+    store.save_mesh(
+        project_id,
+        meshes.StoredMesh(
+            # How #25 named meshes: the code alone, without a format.
+            code_hash=hashlib.sha256(CUBE.encode()).hexdigest(),
+            glb=b"old-format",
+            inspection={"valid": True},
+        ),
+        user_id=USER_ID,
+    )
+
+    link = mesh_link(client, project_id, 1)
+
+    assert client.get(link["url"]).content == f"glTF:{CUBE}".encode()
+    assert builds == [CUBE]

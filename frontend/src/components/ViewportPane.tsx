@@ -1,7 +1,7 @@
 "use client";
 
-import { Center, GizmoHelper, GizmoViewcube, Grid, OrbitControls, useGLTF } from "@react-three/drei";
-import { LayoutGrid } from "lucide-react";
+import { Center, GizmoHelper, GizmoViewcube, OrbitControls, useGLTF } from "@react-three/drei";
+import { Layers } from "lucide-react";
 import { sandboxRequest } from "@/lib/sandbox";
 import type { FaceSelection } from "@/lib/types";
 import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
@@ -15,36 +15,28 @@ interface ThreeFaceSelection {
   normal: THREE.Vector3;
   cadPoint?: THREE.Vector3;
   cadNormal?: THREE.Vector3;
+  /** B-rep identity, read from the face's node in the GLB. */
+  faceId?: string;
+  surfaceType?: string;
+  featureId?: string | null;
 }
 
-function FaceGrid({ selection }: { selection: ThreeFaceSelection }) {
-  const quaternion = useMemo(() => {
-    const up = new THREE.Vector3(0, 1, 0);
-    return new THREE.Quaternion().setFromUnitVectors(up, selection.normal);
-  }, [selection.normal]);
+/** A feature as the GLB's scene extras describe it. */
+export type ModelFeature = {
+  id: string;
+  name: string;
+  operation: string;
+  parentId: string | null;
+  ownedFaceIds: string[];
+};
 
-  const position = useMemo(() => {
-    return selection.point
-      .clone()
-      .add(selection.normal.clone().multiplyScalar(0.005));
-  }, [selection.point, selection.normal]);
+type ModelInfo = { topologyVersion?: string; features: ModelFeature[] };
 
-  return (
-    <group position={position} quaternion={quaternion}>
-      <Grid
-        infiniteGrid
-        cellSize={0.25}
-        sectionSize={1}
-        cellColor="#5b9bd5"
-        sectionColor="#2e75b6"
-        fadeDistance={15}
-        fadeStrength={2}
-        cellThickness={0.5}
-        sectionThickness={0.8}
-      />
-    </group>
-  );
-}
+const FACE_COLOR = new THREE.Color(0x8a93a3);
+const EDGE_COLOR = new THREE.Color(0x1b1e24);
+const HOVER_GLOW = new THREE.Color(0x4f8ff7);
+const FEATURE_GLOW = new THREE.Color(0x3b82f6);
+const SELECTED_GLOW = new THREE.Color(0xf26b3a);
 
 const THUMBNAIL_WIDTH = 480;
 const THUMBNAIL_HEIGHT = 360;
@@ -135,27 +127,84 @@ function ClickableModel({
   onFaceClick,
   onThumbnail,
   onLoaded,
+  onInfo,
+  selectedFaceId,
+  featureFaceIds,
 }: {
   url: string;
   onFaceClick: (sel: ThreeFaceSelection) => void;
   onThumbnail?: (image: Blob) => void;
   onLoaded?: (url: string) => void;
+  onInfo?: (info: ModelInfo) => void;
+  selectedFaceId?: string | null;
+  featureFaceIds?: ReadonlySet<string>;
 }) {
   const { scene } = useGLTF(url);
+  const [hoveredFaceId, setHoveredFaceId] = useState<string | null>(null);
 
   useEffect(() => {
     scene.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
+      if (child instanceof THREE.LineSegments) {
+        // B-rep edges: drawn on top of the faces, never picked.
+        child.material = new THREE.LineBasicMaterial({ color: EDGE_COLOR });
+        child.raycast = () => {};
+      } else if (child instanceof THREE.Mesh) {
+        // Each face gets its own material, so it can be highlighted alone.
         child.material = child.material.clone();
         if (child.material instanceof THREE.MeshStandardMaterial) {
-          child.material.color = new THREE.Color(0x485264);
+          child.material.color = FACE_COLOR.clone();
           child.material.metalness = 0.18;
           child.material.roughness = 0.48;
+          // Push faces back slightly so the edge lines do not flicker.
+          child.material.polygonOffset = true;
+          child.material.polygonOffsetFactor = 1;
+          child.material.polygonOffsetUnits = 1;
         }
       }
     });
+    onInfo?.({
+      topologyVersion: scene.userData.topologyVersion,
+      features: Array.isArray(scene.userData.features) ? scene.userData.features : [],
+    });
     onLoaded?.(url);
-  }, [scene, url, onLoaded]);
+  }, [scene, url, onLoaded, onInfo]);
+
+  useEffect(() => {
+    scene.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      const material = child.material;
+      if (!(material instanceof THREE.MeshStandardMaterial)) return;
+      const faceId = child.userData.faceId as string | undefined;
+      if (faceId && faceId === selectedFaceId) {
+        material.emissive.copy(SELECTED_GLOW);
+        material.emissiveIntensity = 0.45;
+      } else if (faceId && faceId === hoveredFaceId) {
+        material.emissive.copy(HOVER_GLOW);
+        material.emissiveIntensity = 0.28;
+      } else if (faceId && featureFaceIds?.has(faceId)) {
+        material.emissive.copy(FEATURE_GLOW);
+        material.emissiveIntensity = 0.35;
+      } else {
+        material.emissive.setRGB(0, 0, 0);
+        material.emissiveIntensity = 1;
+      }
+    });
+  }, [scene, selectedFaceId, hoveredFaceId, featureFaceIds]);
+
+  // The pointer cursor is set while a face is hovered; reset it on unmount.
+  useEffect(() => () => void (document.body.style.cursor = ""), []);
+
+  const handlePointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    const faceId = (e.object.userData.faceId as string | undefined) ?? null;
+    setHoveredFaceId(faceId);
+    document.body.style.cursor = faceId ? "pointer" : "";
+  }, []);
+
+  const handlePointerOut = useCallback(() => {
+    setHoveredFaceId(null);
+    document.body.style.cursor = "";
+  }, []);
 
   const handleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
@@ -173,8 +222,8 @@ function ClickableModel({
         Math.abs(worldNormal.z) < NORMAL_TOLERANCE ? 0 : worldNormal.z
       ).normalize();
 
-      // build123d's GLTF export uses meters; convert mesh-local coordinates
-      // back to the millimeters used by generated CAD code.
+      // The GLB stores CAD coordinates in meters under one Y-up rotation;
+      // convert mesh-local coordinates back to the millimeters of the code.
       const cadPoint = e.object
         .worldToLocal(e.point.clone())
         .multiplyScalar(1000);
@@ -185,6 +234,9 @@ function ClickableModel({
         normal: snapped,
         cadPoint,
         cadNormal,
+        faceId: e.object.userData.faceId,
+        surfaceType: e.object.userData.surfaceType,
+        featureId: e.object.userData.featureId ?? null,
       });
     },
     [onFaceClick]
@@ -193,7 +245,13 @@ function ClickableModel({
   return (
     <>
       <Center>
-        <primitive object={scene} scale={100} onClick={handleClick} />
+        <primitive
+          object={scene}
+          scale={100}
+          onClick={handleClick}
+          onPointerMove={handlePointerMove}
+          onPointerOut={handlePointerOut}
+        />
       </Center>
       {onThumbnail && <ThumbnailCapture model={scene} onCapture={onThumbnail} />}
     </>
@@ -233,11 +291,17 @@ function Scene({
   onFaceClick,
   onThumbnail,
   onModelShown,
+  onInfo,
+  selectedFaceId,
+  featureFaceIds,
 }: {
   glbUrl: string | null;
   onFaceClick: (sel: ThreeFaceSelection) => void;
   onThumbnail?: (image: Blob) => void;
   onModelShown?: () => void;
+  onInfo?: (info: ModelInfo) => void;
+  selectedFaceId?: string | null;
+  featureFaceIds?: ReadonlySet<string>;
 }) {
   // The last model that finished loading. It stays on screen (it is already
   // in useGLTF's cache) while the next one downloads.
@@ -267,6 +331,9 @@ function Scene({
         onFaceClick={onFaceClick}
         onThumbnail={onThumbnail}
         onLoaded={handleLoaded}
+        onInfo={onInfo}
+        selectedFaceId={selectedFaceId}
+        featureFaceIds={featureFaceIds}
       />
     </Suspense>
   );
@@ -301,6 +368,76 @@ function ClearSelectionOnMiss({ onMiss }: { onMiss: () => void }) {
   return null;
 }
 
+const OPERATION_LABELS: Record<string, string> = {
+  additive: "Add",
+  subtractive: "Cut",
+  pattern: "Pattern",
+  fillet: "Fillet",
+  chamfer: "Chamfer",
+  transform: "Move",
+  reference: "Reference",
+};
+
+/** The part's authored feature history; a click highlights its faces. */
+function FeatureList({
+  features,
+  activeFeatureId,
+  selectedFeatureId,
+  onToggle,
+}: {
+  features: ModelFeature[];
+  activeFeatureId: string | null;
+  selectedFeatureId: string | null;
+  onToggle: (featureId: string) => void;
+}) {
+  return (
+    <div className="absolute left-3 top-[118px] z-20 hidden w-[230px] sm:block">
+      <div className="theme-floating rounded-2xl border p-2 shadow-xl shadow-black/10 backdrop-blur-xl">
+        <p className="flex items-center gap-1.5 px-1.5 pb-1.5 pt-0.5 text-[10px] uppercase tracking-[0.14em] text-zinc-600">
+          <Layers className="size-3" />
+          Features
+        </p>
+        <ol className="max-h-[38dvh] space-y-0.5 overflow-y-auto">
+          {features.map((feature) => {
+            const active = feature.id === activeFeatureId;
+            const holdsSelection = feature.id === selectedFeatureId;
+            return (
+              <li key={feature.id}>
+                <button
+                  type="button"
+                  onClick={() => onToggle(feature.id)}
+                  aria-pressed={active}
+                  title={`${feature.ownedFaceIds.length} face(s) · ${feature.id}`}
+                  className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-[11px] transition-colors ${
+                    active
+                      ? "bg-[var(--control-hover)] text-[var(--ink)]"
+                      : "text-[var(--ink-2)] hover:bg-[var(--control-hover)]"
+                  }`}
+                  style={{ paddingLeft: feature.parentId ? 18 : 6 }}
+                >
+                  <span
+                    className={`size-1.5 shrink-0 rounded-full ${
+                      holdsSelection
+                        ? "bg-[#f26b3a]"
+                        : active
+                          ? "bg-[#3b82f6]"
+                          : "bg-zinc-400/60"
+                    }`}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{feature.name}</span>
+                  <span className="shrink-0 text-[9px] text-zinc-500">
+                    {OPERATION_LABELS[feature.operation] ?? ""}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
 interface ViewportPaneProps {
   glbUrl: string | null;
   code: string;
@@ -327,7 +464,20 @@ function ViewportContent({
 }: ViewportPaneProps) {
   const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
   const [resolvedFace, setResolvedFace] = useState<FaceSelection | null>(null);
-  const [showGrid, setShowGrid] = useState(true);
+  const [modelInfo, setModelInfo] = useState<ModelInfo>({ features: [] });
+  const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
+  const handleModelInfo = useCallback((info: ModelInfo) => {
+    setModelInfo(info);
+    setActiveFeatureId(null);
+  }, []);
+  const featureFaceIds = useMemo(
+    () =>
+      new Set(
+        modelInfo.features.find((feature) => feature.id === activeFeatureId)
+          ?.ownedFaceIds ?? []
+      ),
+    [modelInfo, activeFeatureId]
+  );
   const [boothColor, setBoothColor] = useState("#ddd3c2");
   const resolutionRequest = useRef(0);
   // Bumped when a new model appears; restarts the reveal fade.
@@ -377,7 +527,21 @@ function ViewportContent({
           number,
         ],
       };
+      if (selection.faceId) {
+        const semanticSelection: FaceSelection = {
+          ...geometricSelection,
+          entityId: selection.faceId,
+          topologyVersion: modelInfo.topologyVersion,
+          surfaceType: selection.surfaceType,
+          confidence: 1,
+        };
+        resolutionRequest.current += 1;
+        setResolvedFace(semanticSelection);
+        onSelectionChange?.(semanticSelection);
+        return;
+      }
       onSelectionChange?.(geometricSelection);
+      // A mesh without face IDs (an older format): resolve on the backend.
       if (!glbUrl) return;
 
       const requestId = ++resolutionRequest.current;
@@ -405,7 +569,7 @@ function ViewportContent({
         // Positional selection remains usable when semantic resolution fails.
       }
     },
-    [code, glbUrl, onSelectionChange, onSelectBlocked]
+    [code, glbUrl, modelInfo.topologyVersion, onSelectionChange, onSelectBlocked]
   );
 
   useEffect(
@@ -425,21 +589,16 @@ function ViewportContent({
 
   return (
     <div className="relative h-full w-full bg-[var(--clay)]">
-      <div className="absolute right-3 top-3 z-20">
-        <button
-          type="button"
-          onClick={() => setShowGrid((v) => !v)}
-          title={showGrid ? "Hide face grid" : "Show face grid"}
-          className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium shadow-sm transition-colors ${
-            showGrid
-              ? "border-[var(--hairline-strong)] bg-[var(--ink)] text-[var(--paper)]"
-              : "border-[var(--hairline)] bg-[var(--sheet)] text-[var(--ink-2)]"
-          }`}
-        >
-          <LayoutGrid className="size-3.5" />
-          Grid
-        </button>
-      </div>
+      {glbUrl && modelInfo.features.length > 0 && (
+        <FeatureList
+          features={modelInfo.features}
+          activeFeatureId={activeFeatureId}
+          selectedFeatureId={faceSelection?.featureId ?? null}
+          onToggle={(featureId) =>
+            setActiveFeatureId((current) => (current === featureId ? null : featureId))
+          }
+        />
+      )}
       {faceSelection && showSelectionCard && (
         <div className="absolute bottom-3 left-3 z-20 rounded-xl border border-[var(--hairline-strong)] bg-[var(--sheet)] px-3.5 py-2.5 text-xs text-[var(--ink)] shadow-xl">
           <div className="font-medium">Face selected</div>
@@ -447,7 +606,7 @@ function ViewportContent({
             {resolvedFace?.entityId
               ? `${resolvedFace.surfaceType ?? "surface"} · ${resolvedFace.entityId.slice(0, 13)}`
               : glbUrl
-                ? "Resolving exact B-rep face…"
+                ? "Identifying the B-rep face…"
                 : "Positional selection"}
           </div>
         </div>
@@ -497,13 +656,15 @@ function ViewportContent({
         <directionalLight position={[5, 8, 5]} intensity={1.2} />
         <directionalLight position={[-5, 5, -5]} intensity={0.6} />
         <directionalLight position={[0, -5, 5]} intensity={0.4} />
-        {faceSelection && showGrid && <FaceGrid selection={faceSelection} />}
         <Suspense fallback={null}>
           <Scene
             glbUrl={glbUrl}
             onFaceClick={selectFace}
             onThumbnail={onThumbnail}
             onModelShown={handleModelShown}
+            onInfo={handleModelInfo}
+            selectedFaceId={faceSelection?.faceId ?? null}
+            featureFaceIds={featureFaceIds}
           />
         </Suspense>
       </Canvas>
