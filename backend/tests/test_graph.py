@@ -218,3 +218,83 @@ async def test_run_deadline_keeps_the_last_finished_step(monkeypatch):
 
     assert raised.value.state["plan"] == "Make a parameterized 10 mm cube."
     assert raised.value.state["usage"]["total_tokens"] == 125
+
+
+def _repairing_run(monkeypatch):
+    client = FakeClient(
+        [
+            "## Intent\n**Intent:** A 10 mm cube. Centered on the origin.",
+            '{"code":"result = broken_shape"}',
+            '{"code":"result = Box(10, 10, 10)"}',
+        ]
+    )
+    monkeypatch.setattr("agent.graph.AsyncOpenAI", lambda **_kwargs: client)
+    monkeypatch.setattr("agent.graph.get_pattern_retriever", FakeRetriever)
+    inspections = iter(
+        [
+            ModelInspection(valid=False, error="NameError: broken_shape"),
+            ModelInspection(
+                valid=True, solid_count=1, bounding_box_mm={"x": 10, "y": 10, "z": 10}
+            ),
+        ]
+    )
+    request = CadRunRequest(
+        messages=[{"role": "user", "content": "Make a 10 mm cube"}],
+        modelId="anthropic/claude-opus-5",
+        supportsStructuredOutputs=True,
+    )
+    return request, lambda _code: next(inspections)
+
+
+@pytest.mark.asyncio
+async def test_run_reports_each_step_as_it_starts_and_finishes(monkeypatch):
+    request, inspect = _repairing_run(monkeypatch)
+    events: list[dict[str, Any]] = []
+
+    async def record(event):
+        events.append(event)
+
+    result = await run_cad_agent(
+        request, "test-key", inspect, run_id="progress-run", on_event=record
+    )
+
+    assert result["validation_error"] is None
+    assert [(event["stage"], event["status"]) for event in events] == [
+        ("retrieve", "started"),
+        ("retrieve", "complete"),
+        ("plan", "started"),
+        ("plan", "complete"),
+        ("generate", "started"),
+        ("generate", "complete"),
+        ("inspect", "started"),
+        ("inspect", "failed"),
+        ("repair", "started"),
+        ("repair", "complete"),
+        ("inspect", "started"),
+        ("inspect", "passed"),
+    ]
+    plan_done = events[3]
+    assert plan_done["message"] == "A 10 mm cube."
+    assert events[8]["attempt"] == 1
+    assert "attempt 1 of 3" in events[8]["message"]
+    assert events[7]["message"] == "NameError: broken_shape"
+    assert all(
+        isinstance(event["duration_ms"], int)
+        for event in events
+        if event["status"] != "started"
+    )
+
+
+@pytest.mark.asyncio
+async def test_failing_progress_handler_does_not_fail_the_run(monkeypatch):
+    request, inspect = _repairing_run(monkeypatch)
+
+    async def broken(_event):
+        raise RuntimeError('relation "public.run_events" does not exist')
+
+    result = await run_cad_agent(
+        request, "test-key", inspect, run_id="progress-run", on_event=broken
+    )
+
+    assert result["validation_error"] is None
+    assert result["code"] == "result = Box(10, 10, 10)"

@@ -134,10 +134,12 @@ function ClickableModel({
   url,
   onFaceClick,
   onThumbnail,
+  onLoaded,
 }: {
   url: string;
   onFaceClick: (sel: ThreeFaceSelection) => void;
   onThumbnail?: (image: Blob) => void;
+  onLoaded?: (url: string) => void;
 }) {
   const { scene } = useGLTF(url);
 
@@ -152,7 +154,8 @@ function ClickableModel({
         }
       }
     });
-  }, [scene]);
+    onLoaded?.(url);
+  }, [scene, url, onLoaded]);
 
   const handleClick = useCallback(
     (e: ThreeEvent<MouseEvent>) => {
@@ -229,22 +232,41 @@ function Scene({
   glbUrl,
   onFaceClick,
   onThumbnail,
+  onModelShown,
 }: {
   glbUrl: string | null;
   onFaceClick: (sel: ThreeFaceSelection) => void;
   onThumbnail?: (image: Blob) => void;
+  onModelShown?: () => void;
 }) {
+  // The last model that finished loading. It stays on screen (it is already
+  // in useGLTF's cache) while the next one downloads.
+  const [shownUrl, setShownUrl] = useState<string | null>(null);
+  const handleLoaded = useCallback(
+    (url: string) => {
+      setShownUrl(url);
+      onModelShown?.();
+    },
+    [onModelShown]
+  );
+
   if (!glbUrl) {
     return <ClickablePlaceholder onFaceClick={onFaceClick} />;
   }
 
+  const previous =
+    shownUrl && shownUrl !== glbUrl ? (
+      <ClickableModel key={shownUrl} url={shownUrl} onFaceClick={onFaceClick} />
+    ) : null;
+
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={previous}>
       <ClickableModel
         key={glbUrl}
         url={glbUrl}
         onFaceClick={onFaceClick}
         onThumbnail={onThumbnail}
+        onLoaded={handleLoaded}
       />
     </Suspense>
   );
@@ -283,6 +305,8 @@ interface ViewportPaneProps {
   glbUrl: string | null;
   code: string;
   isLoading: boolean;
+  /** What the agent is doing now; shown in the progress strip. */
+  progressMessage?: string;
   showSelectionCard?: boolean;
   onSelectionChange?: (selection: FaceSelection | null) => void;
   /** Called once per loaded model with a 480×360 preview image. */
@@ -295,6 +319,7 @@ function ViewportContent({
   glbUrl,
   code,
   isLoading,
+  progressMessage,
   showSelectionCard = true,
   onSelectionChange,
   onThumbnail,
@@ -305,6 +330,9 @@ function ViewportContent({
   const [showGrid, setShowGrid] = useState(true);
   const [boothColor, setBoothColor] = useState("#ddd3c2");
   const resolutionRequest = useRef(0);
+  // Bumped when a new model appears; restarts the reveal fade.
+  const [reveal, setReveal] = useState(0);
+  const handleModelShown = useCallback(() => setReveal((count) => count + 1), []);
 
   useEffect(() => {
     const readBooth = () => {
@@ -424,13 +452,30 @@ function ViewportContent({
           </div>
         </div>
       )}
-      {isLoading && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--clay)]/90">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--hairline-strong)] border-t-[var(--accent)]" />
-            <span className="text-sm text-[var(--ink-2)]">Building your model…</span>
+      {isLoading && glbUrl && (
+        // The current model stays visible and usable while the next one builds.
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-center">
+          <div className="viewport-progress-bar h-0.5 w-full" />
+          <div className="theme-floating mt-3 max-w-[80%] truncate rounded-full border px-3 py-1 text-[11px] text-[var(--ink-2)] shadow-sm">
+            {progressMessage || "Building your model…"}
           </div>
         </div>
+      )}
+      {isLoading && !glbUrl && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="flex max-w-[70%] flex-col items-center gap-3 text-center">
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--hairline-strong)] border-t-[var(--accent)]" />
+            <span className="theme-floating rounded-full border px-3.5 py-1.5 text-sm text-[var(--ink-2)] shadow-sm">
+              {progressMessage || "Building your model…"}
+            </span>
+          </div>
+        </div>
+      )}
+      {reveal > 0 && (
+        <div
+          key={reveal}
+          className="viewport-reveal pointer-events-none absolute inset-0 z-[5] bg-[var(--clay)]"
+        />
       )}
       <Canvas
         camera={{ position: [5, 5, 5], fov: 50 }}
@@ -458,6 +503,7 @@ function ViewportContent({
             glbUrl={glbUrl}
             onFaceClick={selectFace}
             onThumbnail={onThumbnail}
+            onModelShown={handleModelShown}
           />
         </Suspense>
       </Canvas>

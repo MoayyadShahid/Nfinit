@@ -12,6 +12,17 @@ export type AgentTraceStep = {
   duration_ms?: number;
 };
 
+/** One progress step of a CAD run, as the backend records it. */
+export type RunEvent = {
+  seq: number;
+  stage: AgentTraceStep["node"] | "mesh" | string;
+  status: "started" | AgentTraceStep["status"] | string;
+  message: string;
+  attempt: number | null;
+  durationMs: number | null;
+  createdAt: string;
+};
+
 export type ModelInspection = {
   valid: boolean;
   shape_type?: string;
