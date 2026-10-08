@@ -163,3 +163,59 @@ def test_expired_stream_link_is_refused(client, monkeypatch):
         "run-events", {"u": USER_ID, "r": run_id}, expires_at=int(time.time()) - 1
     )
     assert client.get(f"/cad/runs/{run_id}/events?token={expired}").status_code == 410
+
+
+def test_build_previews_become_events_with_fetchable_meshes(client, store, monkeypatch):
+    from agent import ModelInspection
+    from execution import BuildSnapshot
+
+    def fake_inspect(code):
+        return ModelInspection(valid=True), [
+            BuildSnapshot("base", "Base plate", b"glTF-base"),
+            BuildSnapshot("holes", "Mounting holes", b"glTF-holes"),
+        ]
+
+    async def fake_agent(_request, _api_key, inspect_code, on_event=None, **_kwargs):
+        await on_event({"stage": "inspect", "status": "started", "message": "Checking."})
+        inspection = await asyncio.to_thread(inspect_code, CUBE)
+        await on_event({"stage": "inspect", "status": "passed", "message": "Built."})
+        assert inspection.valid
+        return {
+            "code": CUBE, "plan": "A cube.", "inspection": {"valid": True},
+            "validation_error": None, "trace": [], "usage": {},
+        }
+
+    monkeypatch.setattr(runs, "inspect_with_snapshots", fake_inspect)
+    monkeypatch.setattr(runs, "run_cad_agent", fake_agent)
+    run_id = start(client)
+    messages, _ = read_stream(client, stream_url(client, run_id))
+    progress = [m[2] for m in messages if m[0] == "progress"]
+
+    snapshots = [event for event in progress if event["stage"] == "snapshot"]
+    assert [event["message"] for event in snapshots] == ["Base plate", "Mounting holes"]
+    # Previews arrive while the check step runs, before it passes.
+    stages = [(event["stage"], event["status"]) for event in progress]
+    assert stages.index(("snapshot", "ready")) < stages.index(("inspect", "passed"))
+
+    first = client.get(f"/cad/runs/{run_id}/snapshots/{snapshots[0]['seq']}")
+    assert first.status_code == 200
+    assert first.content == b"glTF-base"
+    assert first.headers["content-type"] == "model/gltf-binary"
+    assert client.get(f"/cad/runs/{run_id}/snapshots/999").status_code == 404
+
+    main.app.dependency_overrides[get_current_user_id] = lambda: OTHER_USER_ID
+    assert (
+        client.get(f"/cad/runs/{run_id}/snapshots/{snapshots[0]['seq']}").status_code
+        == 404
+    )
+
+
+def test_snapshot_cache_drops_the_oldest_previews(monkeypatch):
+    monkeypatch.setattr(runs, "_snapshots", runs.OrderedDict())
+    monkeypatch.setattr(runs, "_snapshot_bytes", 0)
+    monkeypatch.setattr(runs, "SNAPSHOT_CACHE_BYTES", 10)
+
+    for seq in range(1, 5):
+        runs._remember_snapshot("run", seq, USER_ID, b"1234")
+
+    assert list(runs._snapshots) == [("run", 3), ("run", 4)]

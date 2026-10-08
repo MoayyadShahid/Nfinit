@@ -12,11 +12,12 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta, timezone
+from collections import OrderedDict
 from typing import Annotated, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
 
 from agent import (
@@ -26,7 +27,7 @@ from agent import (
     run_cad_agent,
 )
 from agent.graph import run_timeout_seconds
-from execution import inspect_code
+from execution import BuildSnapshot, inspect_with_snapshots
 
 from .auth import get_current_user_id
 from .meshes import store_mesh_for_code
@@ -68,6 +69,23 @@ STREAM_POLL_SECONDS = 2.0
 STREAM_HEARTBEAT_SECONDS = 15.0
 # Streams waiting on each run in this process.
 _run_listeners: dict[str, set[asyncio.Event]] = {}
+
+
+# Build previews (coarse GLBs of the part after each feature), by run and
+# event sequence. They only matter while a run is watched, so they stay in
+# memory: a restart or another replica loses them, and the studio skips them.
+SNAPSHOT_CACHE_BYTES = 64 * 1024 * 1024
+_snapshots: "OrderedDict[tuple[str, int], tuple[str, bytes]]" = OrderedDict()
+_snapshot_bytes = 0
+
+
+def _remember_snapshot(run_id: str, seq: int, user_id: str, glb: bytes) -> None:
+    global _snapshot_bytes
+    _snapshots[(run_id, seq)] = (user_id, glb)
+    _snapshot_bytes += len(glb)
+    while _snapshot_bytes > SNAPSHOT_CACHE_BYTES and _snapshots:
+        _, (_, evicted) = _snapshots.popitem(last=False)
+        _snapshot_bytes -= len(evicted)
 
 
 def _wake_streams(run_id: str) -> None:
@@ -158,9 +176,12 @@ async def _execute_run(
     error: str | None = None
     sequence = 0
 
-    async def record_event(event: dict[str, Any]) -> None:
+    async def record_event(event: dict[str, Any], glb: bytes | None = None) -> None:
         nonlocal sequence
         sequence += 1
+        if glb is not None:
+            # Stored before the event exists, so a client never asks too early.
+            _remember_snapshot(run_id, sequence, user_id, glb)
         await asyncio.to_thread(
             store.add_run_event,
             run_id,
@@ -177,9 +198,29 @@ async def _execute_run(
         )
         _wake_streams(run_id)
 
+    loop = asyncio.get_running_loop()
+
+    def inspect_and_preview(code: str):
+        """Inspect in the sandbox thread, then report each build preview."""
+        inspection, previews = inspect_with_snapshots(code)
+        for preview in previews:
+            try:
+                asyncio.run_coroutine_threadsafe(
+                    _record_snapshot(preview), loop
+                ).result(timeout=10)
+            except Exception:
+                logger.warning("Could not record a build preview.", exc_info=True)
+        return inspection
+
+    async def _record_snapshot(preview: BuildSnapshot) -> None:
+        await record_event(
+            {"stage": "snapshot", "status": "ready", "message": preview.name},
+            glb=preview.glb,
+        )
+
     try:
         state = await run_cad_agent(
-            request, api_key, inspect_code, run_id=run_id, on_event=record_event
+            request, api_key, inspect_and_preview, run_id=run_id, on_event=record_event
         )
     except CadRunTimeoutError as timeout:
         result = _result_of(timeout.state)
@@ -438,4 +479,21 @@ async def stream_run_events(
         _event_stream(request, store, run_id=run_id, user_id=user_id, cursor=after),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/{run_id}/snapshots/{seq}")
+async def get_run_snapshot(run_id: str, seq: int, store: Store, user_id: UserId):
+    """The build preview recorded as event ``seq`` of the run."""
+    try:
+        await asyncio.to_thread(store.get_run, run_id, user_id=user_id)
+    except RunNotFoundError as error:
+        raise HTTPException(status_code=404, detail="Run not found.") from error
+    entry = _snapshots.get((run_id, seq))
+    if entry is None or entry[0] != user_id:
+        raise HTTPException(status_code=404, detail="Preview not available.")
+    return Response(
+        content=entry[1],
+        media_type="model/gltf-binary",
+        headers={"Cache-Control": "private, max-age=600"},
     )

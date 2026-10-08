@@ -78,3 +78,44 @@ def test_valid_geometry_exports_in_worker(operation: str):
         assert artifact.path.stat().st_size > 0
     finally:
         artifact.cleanup()
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("build123d") is None,
+    reason="build123d runtime is not installed",
+)
+def test_inspection_keeps_a_preview_after_each_feature():
+    import json
+    import struct
+
+    from execution import inspect_with_snapshots
+
+    inspection, previews = inspect_with_snapshots(
+        "with BuildPart() as part:\n"
+        "    Box(40, 30, 10)\n"
+        '    register_feature("base", "Base", "additive", part.part)\n'
+        "    Hole(5)\n"
+        '    register_feature("hole", "Hole", "subtractive", part.part)\n'
+        "result = part.part\n"
+    )
+
+    assert inspection.valid
+    assert [preview.feature_id for preview in previews] == ["base", "hole"]
+
+    def new_faces(glb):
+        length = struct.unpack_from("<I", glb, 12)[0]
+        nodes = json.loads(glb[20 : 20 + length])["nodes"]
+        return [node for node in nodes if node.get("extras", {}).get("isNew")]
+
+    assert len(new_faces(previews[0].glb)) == 6  # the whole box is new
+    assert len(new_faces(previews[1].glb)) == 1  # only the hole wall
+
+
+def test_code_without_features_has_no_previews():
+    from execution import inspect_with_snapshots
+
+    if importlib.util.find_spec("build123d") is None:
+        pytest.skip("build123d runtime is not installed")
+    inspection, previews = inspect_with_snapshots("result = Box(1, 2, 3)")
+    assert inspection.valid
+    assert previews == []

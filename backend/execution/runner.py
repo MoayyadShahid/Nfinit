@@ -221,6 +221,7 @@ def _run_worker(
     timeout_seconds: float | None = None,
     worker_path: Path | None = None,
     selection: FaceSelection | None = None,
+    snapshots: bool = False,
 ) -> dict:
     worker = worker_path or Path(__file__).with_name("worker.py")
     timeout = timeout_seconds or float(
@@ -231,6 +232,8 @@ def _run_worker(
         payload["output_name"] = output_name
     if selection:
         payload["selection"] = selection.model_dump(mode="json")
+    if snapshots:
+        payload["snapshots"] = True
 
     # Waiting for a free slot counts against the same deadline as the job.
     if not _job_slots.acquire(timeout=timeout):
@@ -343,5 +346,40 @@ def build_mesh(code: str) -> BuiltMesh:
             glb=output_path.read_bytes(),
             inspection=ModelInspection.model_validate(data["inspection"]),
         )
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
+@dataclass
+class BuildSnapshot:
+    """The part right after one registered feature, as a coarse GLB."""
+
+    feature_id: str
+    name: str
+    glb: bytes
+
+
+def inspect_with_snapshots(code: str) -> tuple[ModelInspection, list[BuildSnapshot]]:
+    """Inspect the code, and keep a preview of the part after each feature."""
+    try:
+        validate_cad_code(code)
+    except CodePolicyError as error:
+        return ModelInspection(valid=False, error=f"sandbox_security_error: {error}"), []
+
+    work_dir = Path(tempfile.mkdtemp(prefix="nfinit-inspect-"))
+    try:
+        data = _run_worker(code, "inspect", work_dir, snapshots=True)
+        previews = []
+        for item in data.pop("snapshots", []):
+            path = work_dir / item["file"]
+            if path.is_file() and path.parent == work_dir:
+                previews.append(
+                    BuildSnapshot(item["featureId"], item["name"], path.read_bytes())
+                )
+        if data.pop("snapshot_error", None):
+            logger.warning("Build previews failed; the inspection still stands.")
+        return ModelInspection.model_validate(data), previews
+    except SandboxError as error:
+        return ModelInspection(valid=False, error=str(error)), []
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)

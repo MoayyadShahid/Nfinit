@@ -1,5 +1,6 @@
 from .policy import CodePolicyError, validate_cad_code
 from .runner import (
+    BuildSnapshot,
     BuiltMesh,
     SandboxArtifact,
     SandboxError,
@@ -7,6 +8,7 @@ from .runner import (
     build_mesh,
     export_code,
     inspect_code,
+    inspect_with_snapshots,
     start_sandbox,
     stop_sandbox,
 )
@@ -14,6 +16,8 @@ from .rematching import compare_analyses, compare_code
 from .topology import RevisionComparison, TopologyAnalysis
 
 __all__ = [
+    "BuildSnapshot",
+    "inspect_with_snapshots",
     "BuiltMesh",
     "build_mesh",
     "CodePolicyError",
