@@ -60,10 +60,20 @@ class NullPatternRetriever:
         return []
 
 
+# Words that say nothing about geometry. With hundreds of upstream test
+# titles such as "plane with no x", they would otherwise decide matches.
+STOP_WORDS = frozenset(
+    "an and are as at be by can for from has have in into is it its make made "
+    "my need no not of on or that the then this to too use using want was we "
+    "will with without you your".split()
+)
+
+
 def _tokens(value: str) -> list[str]:
     return [
         SYNONYMS.get(token, token)
         for token in TOKEN_PATTERN.findall(value.lower())
+        if token not in STOP_WORDS
     ]
 
 
@@ -224,14 +234,20 @@ class FallbackPatternRetriever:
             return self.fallback.retrieve(query, limit)
 
 
+# Built by agent.retrieval.ingest from the pinned build123d release, its
+# verified unit tests, CAD50 and the curated patterns; see the README.
+DEFAULT_CORPUS = Path(__file__).with_name("corpus") / "build123d-v0.10.0.jsonl"
+
+
+def default_corpus_path() -> Path:
+    return DEFAULT_CORPUS if DEFAULT_CORPUS.is_file() else Path(__file__).with_name(
+        "patterns.json"
+    )
+
+
 @lru_cache(maxsize=1)
 def get_pattern_retriever() -> PatternRetriever:
-    corpus_path = Path(
-        os.getenv(
-            "PATTERN_RAG_LOCAL_CORPUS",
-            Path(__file__).with_name("patterns.json"),
-        )
-    )
+    corpus_path = Path(os.getenv("PATTERN_RAG_LOCAL_CORPUS", default_corpus_path()))
     local = LocalPatternRetriever.from_path(corpus_path)
     if os.getenv("PATTERN_RAG_ENABLED", "true").lower() in {"0", "false", "no"}:
         return NullPatternRetriever()
