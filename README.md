@@ -98,9 +98,17 @@ The FastAPI backend owns the LangGraph workflow; Next.js only proxies requests:
 
 Each step records a progress event when it starts and when it finishes
 (`run_events`). `GET /cad/runs/{id}?after=<seq>` returns the run with the
-events after that sequence number, and the studio polls it every second to
-show a live step list. The current model stays on screen while the next one
-builds.
+events after that sequence number. The studio shows them as a live step
+list, and the current model stays on screen while the next one builds.
+
+The studio first follows the run as server-sent events. It asks for
+`POST /cad/runs/{id}/stream` through the Next.js proxy and opens the returned
+signed link (`GET /cad/runs/{id}/events?token=…`) directly on the backend,
+because the proxy cannot hold a response open for a whole run. The stream
+sends each event as soon as the run records it, a heartbeat every 15 seconds
+(Railway closes idle connections after 5 minutes), and a final `done` event.
+A reconnect resumes after the browser's `Last-Event-ID`. When the stream is
+unavailable, the studio polls the status endpoint every second instead.
 
 Clicking a model face adds its local point and normal to the next request, so prompts such as “add a mounting hole on this face” can target the selected geometry.
 

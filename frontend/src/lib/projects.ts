@@ -127,9 +127,9 @@ export function deleteProject(projectId: string): Promise<void> {
   return requestEmpty(`/projects/${projectId}`, { method: "DELETE" });
 }
 
-// Meshes download straight from the backend: a GLB can exceed what the
-// Next.js proxy may return.
-const MESH_ORIGIN = (
+// Meshes download and run events stream straight from the backend: a GLB
+// can exceed what the Next.js proxy may return, and a stream outlasts it.
+export const BACKEND_ORIGIN = (
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
 ).replace(/\/$/, "");
 
@@ -149,7 +149,7 @@ export async function getRevisionMesh(
   const mesh = await requestJson<RevisionMesh>(
     `/projects/${projectId}/revisions/${revisionNumber}/mesh`
   );
-  return { ...mesh, url: `${MESH_ORIGIN}${mesh.url}` };
+  return { ...mesh, url: `${BACKEND_ORIGIN}${mesh.url}` };
 }
 
 export function uploadThumbnail(projectId: string, image: Blob): Promise<void> {

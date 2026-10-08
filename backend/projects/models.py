@@ -167,3 +167,12 @@ class RevisionMesh(BaseModel):
     expires_at: datetime = Field(alias="expiresAt")
     bytes: int
     inspection: ModelInspection
+
+
+class RunStreamLink(BaseModel):
+    """A signed link to a run's server-sent event stream."""
+
+    model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
+
+    url: str
+    expires_at: datetime = Field(alias="expiresAt")
