@@ -77,12 +77,13 @@ Stripe lives in the backend, which already owns the database.
 
 ## Demo parts
 
-Five recorded build stories, served as static files from
-`frontend/public/demos/` (5.9 MB):
+Six recorded build stories, served as static files from
+`frontend/public/demos/` (6.4 MB):
 
 | Demo | Steps |
 | --- | --- |
 | 5-inch drone frame (first for free users) | body and arms → motor holes → flight-controller holes → weight-saving slots → corner fillets |
+| Desk phone stand | base, lip and back support → cable slot → edge fillets |
 | Desk cable clip | plate and cradles → countersunk holes → corner fillets |
 | Under-desk headphone hook | plate, drop and arm → retaining lip → countersunk holes |
 | Raspberry Pi base tray | tray → standoffs → floor vents → port openings |
@@ -120,14 +121,15 @@ step by step, as the studio would. Each first step asks for the base shape
 only ("no holes, slots, cutouts or fillets yet") and each later step for one
 change ("keep everything else exactly as it is"): without this the agent adds
 most features in step 1 and the later steps show nothing new. A demo whose
-step fails or times out is left out. The 2026-10-08 build cost about $3.60 in
-total with Claude Sonnet 5.5. The phone stand was left out: its fillet step
-timed out twice (see the note below).
+step fails or times out is left out. The 2026-10-08 builds cost about $4 in
+total with Claude Sonnet 5.5.
 
-**Known issue found while building.** Some Sonnet 5.5 calls used the whole
-8,192-token output budget on reasoning and returned no code
-(`finish_reason=length`); after the fallback attempts the run hit the 300 s
-deadline. This also affects live runs.
+The phone stand's fillet step first timed out twice. With `effort: "high"`,
+OpenRouter reserves 80% of `max_tokens` for an Anthropic model's reasoning,
+which left about 1,600 of 8,192 tokens for the code, so calls ended with
+`finish_reason=length` and no content. The agent now gives Anthropic models an
+explicit reasoning budget and 32,000 tokens of output room; with that, the
+step built on its first try.
 
 ## Build order
 

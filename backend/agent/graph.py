@@ -264,17 +264,35 @@ def _model_for(state: AgentState, operation: str) -> str:
     return state["model_id"]
 
 
+# Output room for one call. Only the tokens a call uses are billed.
+MAX_OUTPUT_TOKENS = 32_000
+# Explicit reasoning budgets for models that take one (Anthropic). With an
+# effort level instead, OpenRouter reserves a share of max_tokens for
+# reasoning (80% for "high"), which left too little room for the code: the
+# call ended with finish_reason="length" and no content, still billed.
+REASONING_BUDGETS = {"high": 8_000, "medium": 3_000}
+
+
 def _completion_attempts(structured: bool) -> list[dict[str, Any]]:
     """First try the quality-first path, then drop structured JSON / high reasoning."""
     attempts: list[dict[str, Any]] = [
-        {"structured": structured, "reasoning": "high", "max_tokens": 8192},
+        {"structured": structured, "reasoning": "high", "max_tokens": MAX_OUTPUT_TOKENS},
     ]
     if structured:
         attempts.append(
-            {"structured": False, "reasoning": "medium", "max_tokens": 16384}
+            {"structured": False, "reasoning": "medium", "max_tokens": MAX_OUTPUT_TOKENS}
         )
-    attempts.append({"structured": False, "reasoning": None, "max_tokens": 16384})
+    attempts.append(
+        {"structured": False, "reasoning": None, "max_tokens": MAX_OUTPUT_TOKENS}
+    )
     return attempts
+
+
+def _reasoning_parameter(model: str, effort: str) -> dict[str, Any]:
+    """A token budget for Anthropic models, an effort level for the others."""
+    if model.startswith("anthropic/"):
+        return {"max_tokens": REASONING_BUDGETS[effort]}
+    return {"effort": effort}
 
 
 async def _complete(
@@ -304,7 +322,7 @@ async def _complete(
             }
             extra_body: dict[str, Any] = {"usage": {"include": True}}
             if attempt["reasoning"]:
-                extra_body["reasoning"] = {"effort": attempt["reasoning"]}
+                extra_body["reasoning"] = _reasoning_parameter(model, attempt["reasoning"])
             if extra_body:
                 params["extra_body"] = extra_body
             if (
