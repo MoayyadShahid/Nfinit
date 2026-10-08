@@ -46,6 +46,7 @@ import {
   type CadRun,
 } from "@/lib/runs";
 import { sandboxRequest } from "@/lib/sandbox";
+import { useBuildPreview } from "@/lib/useBuildPreview";
 import {
   getTextContent,
   type ChatMessage,
@@ -122,6 +123,13 @@ export default function Studio({
   // Progress of the run in flight; cleared when it finishes.
   const [runEvents, setRunEvents] = useState<RunEvent[]>([]);
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
+  // The part after each feature, played back while the run builds it.
+  const {
+    preview: buildPreview,
+    enqueue: enqueuePreview,
+    settle: settlePreview,
+    clear: clearPreview,
+  } = useBuildPreview();
   const [isProjectLoading, setIsProjectLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -499,6 +507,7 @@ export default function Studio({
           (events) => {
             if (!mountedRef.current) return;
             setRunEvents((previous) => [...previous, ...events]);
+            enqueuePreview(runId, events);
             // A resumed run started before this page: time it from its first event.
             const first = Date.parse(events[0].createdAt);
             if (!Number.isNaN(first)) {
@@ -508,6 +517,8 @@ export default function Studio({
             }
           }
         );
+        // Let the last previews play before the finished part replaces them.
+        await settlePreview(3_000);
         if (mountedRef.current) await completeRun(run);
       } catch (e) {
         if (!mountedRef.current) return;
@@ -522,10 +533,11 @@ export default function Studio({
           setIsLoading(false);
           setRunEvents([]);
           setRunStartedAt(null);
+          clearPreview();
         }
       }
     },
-    [completeRun]
+    [clearPreview, completeRun, enqueuePreview, settlePreview]
   );
 
   const handleChatSend = useCallback(
@@ -918,8 +930,13 @@ export default function Studio({
               glbUrl={glbUrl}
               code={code}
               isLoading={isLoading || isProjectLoading}
+              previewUrl={isLoading ? buildPreview?.url : undefined}
+              previewLabel={buildPreview ? `Built: ${buildPreview.name}` : undefined}
               progressMessage={
-                isLoading ? runEvents[runEvents.length - 1]?.message : undefined
+                isLoading
+                  ? runEvents.filter((event) => event.stage !== "snapshot").at(-1)
+                      ?.message
+                  : undefined
               }
               showSelectionCard={false}
               onThumbnail={handleThumbnail}

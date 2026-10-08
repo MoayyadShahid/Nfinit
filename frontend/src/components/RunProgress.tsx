@@ -25,6 +25,8 @@ type Step = {
 function stepsOf(events: RunEvent[]): Step[] {
   const steps: Step[] = [];
   for (const event of events) {
+    // Build previews are shown in the viewport, not as steps.
+    if (event.stage === "snapshot") continue;
     if (event.status === "started") {
       steps.push({
         key: `${event.seq}`,

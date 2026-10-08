@@ -130,8 +130,10 @@ function ClickableModel({
   onInfo,
   selectedFaceId,
   featureFaceIds,
+  interactive = true,
 }: {
   url: string;
+  interactive?: boolean;
   onFaceClick: (sel: ThreeFaceSelection) => void;
   onThumbnail?: (image: Blob) => void;
   onLoaded?: (url: string) => void;
@@ -141,6 +143,12 @@ function ClickableModel({
 }) {
   const { scene } = useGLTF(url);
   const [hoveredFaceId, setHoveredFaceId] = useState<string | null>(null);
+  // Faces a build preview marks as new glow for a moment when it appears.
+  const [glowNew, setGlowNew] = useState(true);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setGlowNew(false), 1_000);
+    return () => window.clearTimeout(timer);
+  }, [scene]);
 
   useEffect(() => {
     scene.traverse((child) => {
@@ -181,7 +189,10 @@ function ClickableModel({
       } else if (faceId && faceId === hoveredFaceId) {
         material.emissive.copy(HOVER_GLOW);
         material.emissiveIntensity = 0.28;
-      } else if (faceId && featureFaceIds?.has(faceId)) {
+      } else if (
+        (faceId && featureFaceIds?.has(faceId)) ||
+        (glowNew && child.userData.isNew)
+      ) {
         material.emissive.copy(FEATURE_GLOW);
         material.emissiveIntensity = 0.35;
       } else {
@@ -189,7 +200,7 @@ function ClickableModel({
         material.emissiveIntensity = 1;
       }
     });
-  }, [scene, selectedFaceId, hoveredFaceId, featureFaceIds]);
+  }, [scene, selectedFaceId, hoveredFaceId, featureFaceIds, glowNew]);
 
   // The pointer cursor is set while a face is hovered; reset it on unmount.
   useEffect(() => () => void (document.body.style.cursor = ""), []);
@@ -248,9 +259,9 @@ function ClickableModel({
         <primitive
           object={scene}
           scale={100}
-          onClick={handleClick}
-          onPointerMove={handlePointerMove}
-          onPointerOut={handlePointerOut}
+          onClick={interactive ? handleClick : undefined}
+          onPointerMove={interactive ? handlePointerMove : undefined}
+          onPointerOut={interactive ? handlePointerOut : undefined}
         />
       </Center>
       {onThumbnail && <ThumbnailCapture model={scene} onCapture={onThumbnail} />}
@@ -294,11 +305,13 @@ function Scene({
   onInfo,
   selectedFaceId,
   featureFaceIds,
+  interactive = true,
 }: {
   glbUrl: string | null;
+  interactive?: boolean;
   onFaceClick: (sel: ThreeFaceSelection) => void;
   onThumbnail?: (image: Blob) => void;
-  onModelShown?: () => void;
+  onModelShown?: (url: string) => void;
   onInfo?: (info: ModelInfo) => void;
   selectedFaceId?: string | null;
   featureFaceIds?: ReadonlySet<string>;
@@ -309,7 +322,7 @@ function Scene({
   const handleLoaded = useCallback(
     (url: string) => {
       setShownUrl(url);
-      onModelShown?.();
+      onModelShown?.(url);
     },
     [onModelShown]
   );
@@ -334,6 +347,7 @@ function Scene({
         onInfo={onInfo}
         selectedFaceId={selectedFaceId}
         featureFaceIds={featureFaceIds}
+        interactive={interactive}
       />
     </Suspense>
   );
@@ -444,6 +458,10 @@ interface ViewportPaneProps {
   isLoading: boolean;
   /** What the agent is doing now; shown in the progress strip. */
   progressMessage?: string;
+  /** A build preview shown in place of the model while a run builds it. */
+  previewUrl?: string;
+  /** What the preview shows, e.g. "Built: Mounting holes". */
+  previewLabel?: string;
   showSelectionCard?: boolean;
   onSelectionChange?: (selection: FaceSelection | null) => void;
   /** Called once per loaded model with a 480×360 preview image. */
@@ -457,6 +475,8 @@ function ViewportContent({
   code,
   isLoading,
   progressMessage,
+  previewUrl,
+  previewLabel,
   showSelectionCard = true,
   onSelectionChange,
   onThumbnail,
@@ -482,7 +502,14 @@ function ViewportContent({
   const resolutionRequest = useRef(0);
   // Bumped when a new model appears; restarts the reveal fade.
   const [reveal, setReveal] = useState(0);
-  const handleModelShown = useCallback(() => setReveal((count) => count + 1), []);
+  const [shownModelUrl, setShownModelUrl] = useState<string | null>(null);
+  const handleModelShown = useCallback((url: string) => {
+    setShownModelUrl(url);
+    setReveal((count) => count + 1);
+  }, []);
+  const displayedUrl = previewUrl ?? glbUrl;
+  const statusMessage =
+    previewUrl && shownModelUrl === previewUrl ? previewLabel : progressMessage;
 
   useEffect(() => {
     const readBooth = () => {
@@ -589,7 +616,7 @@ function ViewportContent({
 
   return (
     <div className="relative h-full w-full bg-[var(--clay)]">
-      {glbUrl && modelInfo.features.length > 0 && (
+      {glbUrl && !previewUrl && modelInfo.features.length > 0 && (
         <FeatureList
           features={modelInfo.features}
           activeFeatureId={activeFeatureId}
@@ -611,21 +638,21 @@ function ViewportContent({
           </div>
         </div>
       )}
-      {isLoading && glbUrl && (
+      {isLoading && displayedUrl && (
         // The current model stays visible and usable while the next one builds.
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col items-center">
           <div className="viewport-progress-bar h-0.5 w-full" />
           <div className="theme-floating mt-3 max-w-[80%] truncate rounded-full border px-3 py-1 text-[11px] text-[var(--ink-2)] shadow-sm">
-            {progressMessage || "Building your model…"}
+            {statusMessage || "Building your model…"}
           </div>
         </div>
       )}
-      {isLoading && !glbUrl && (
+      {isLoading && !displayedUrl && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="flex max-w-[70%] flex-col items-center gap-3 text-center">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-[var(--hairline-strong)] border-t-[var(--accent)]" />
             <span className="theme-floating rounded-full border px-3.5 py-1.5 text-sm text-[var(--ink-2)] shadow-sm">
-              {progressMessage || "Building your model…"}
+              {statusMessage || "Building your model…"}
             </span>
           </div>
         </div>
@@ -658,9 +685,11 @@ function ViewportContent({
         <directionalLight position={[0, -5, 5]} intensity={0.4} />
         <Suspense fallback={null}>
           <Scene
-            glbUrl={glbUrl}
+            glbUrl={displayedUrl}
+            interactive={!previewUrl}
             onFaceClick={selectFace}
-            onThumbnail={onThumbnail}
+            // A preview is never the part's thumbnail.
+            onThumbnail={previewUrl ? undefined : onThumbnail}
             onModelShown={handleModelShown}
             onInfo={handleModelInfo}
             selectedFaceId={faceSelection?.faceId ?? null}

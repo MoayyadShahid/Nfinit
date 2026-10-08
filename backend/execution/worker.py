@@ -288,6 +288,8 @@ def _build_scope():
                 "parameters": encoded_parameters,
                 "face_signatures": _snapshot_face_signatures(shape),
                 "surface_keys": _snapshot_surface_keys(shape),
+                # Shapes are immutable; later operations make new ones.
+                "shape": shape,
             }
         )
 
@@ -1024,6 +1026,72 @@ def _export_viewer_glb(result, output_path: Path, feature_records, constraint_re
     return {"faces": len(faces), "edgeSegments": len(edge_segments) // 6}
 
 
+MAX_BUILD_SNAPSHOTS = 16
+
+
+def _snapshot_glb(shape, path: Path, previous_keys: set, feature: dict):
+    """A coarse GLB of the part after one feature; new faces are tagged."""
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+
+    bounds = shape.bounding_box()
+    diagonal = math.dist(tuple(bounds.min), tuple(bounds.max))
+    # Coarser than the final mesh: a preview shown for half a second.
+    linear = min(2.0, max(0.05, diagonal / 400))
+    angular = 0.25
+    BRepMesh_IncrementalMesh(shape.wrapped, linear, False, angular, True)
+
+    faces, seams = [], []
+    for face in shape.faces():
+        seams += [
+            edge for edge in face.edges()
+            if BRep_Tool.IsClosed_s(edge.wrapped, face.wrapped)
+        ]
+        mesh = _face_mesh(face)
+        if mesh is None:
+            continue
+        key = _surface_key(face)
+        faces.append(
+            {
+                "id": f"preview_{len(faces)}",
+                "mesh": mesh,
+                "extras": {"isNew": key is None or key not in previous_keys},
+            }
+        )
+    edge_segments = []
+    for edge in shape.edges():
+        if not any(edge.is_same(seam) for seam in seams):
+            edge_segments += _edge_segments(edge, angular, linear)
+    _write_viewer_glb(
+        path,
+        faces,
+        edge_segments,
+        {"format": "nfinit-preview-1", "featureId": feature["id"], "name": feature["name"]},
+    )
+
+
+def _export_build_snapshots(feature_records) -> list[dict]:
+    """One preview GLB per registered feature, in build order (at most 16)."""
+    if not feature_records:
+        return []
+    count = len(feature_records)
+    if count > MAX_BUILD_SNAPSHOTS:
+        # Evenly spaced, always ending with the last feature.
+        step = (count - 1) / (MAX_BUILD_SNAPSHOTS - 1)
+        chosen = sorted({round(index * step) for index in range(MAX_BUILD_SNAPSHOTS)})
+    else:
+        chosen = list(range(count))
+    snapshots = []
+    previous_keys: set = set()
+    for index in chosen:
+        record = feature_records[index]
+        name = f"snapshot-{len(snapshots)}.glb"
+        _snapshot_glb(record["shape"], Path.cwd() / name, previous_keys, record)
+        snapshots.append({"featureId": record["id"], "name": record["name"], "file": name})
+        previous_keys = record["surface_keys"]
+    return snapshots
+
+
 def _export(result, operation: str, output_name: str):
     from build123d.exporters3d import export_brep, export_step, export_stl
 
@@ -1051,7 +1119,15 @@ def handle_request(request: dict) -> dict:
     result, feature_records, constraint_records = _execute(request["code"])
     operation = request["operation"]
     if operation == "inspect":
-        return _inspect(result)
+        data = _inspect(result)
+        if request.get("snapshots"):
+            # Previews must never fail an otherwise valid part.
+            try:
+                data["snapshots"] = _export_build_snapshots(feature_records)
+            except Exception as error:  # noqa: BLE001
+                data["snapshots"] = []
+                data["snapshot_error"] = f"{type(error).__name__}: {error}"
+        return data
     if operation == "topology":
         return _topology(
             result,

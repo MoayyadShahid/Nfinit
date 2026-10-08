@@ -110,6 +110,14 @@ sends each event as soon as the run records it, a heartbeat every 15 seconds
 A reconnect resumes after the browser's `Last-Event-ID`. When the stream is
 unavailable, the studio polls the status endpoint every second instead.
 
+While the check step builds the part, the sandbox also writes a coarse
+preview after each `register_feature` call (at most 16), tagging the faces
+that feature added. Each preview becomes a `snapshot` progress event, and
+`GET /cad/runs/{id}/snapshots/{seq}` serves its GLB to the run's owner.
+Previews are kept in memory only while a run is watched. The studio plays them
+at least half a second apart, so the part visibly grows feature by feature,
+then replaces them with the finished part.
+
 Clicking a model face adds its local point and normal to the next request, so prompts such as “add a mounting hole on this face” can target the selected geometry.
 
 ### build123d pattern RAG
