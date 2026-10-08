@@ -44,6 +44,9 @@ def store(tmp_path):
 @pytest.fixture
 def client(store, monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    # These tests check runs, not meshes: building a real mesh after each
+    # successful run takes seconds where the sandbox starts cold (macOS).
+    monkeypatch.setattr(runs, "store_mesh_for_code", lambda *_args, **_kwargs: None)
     main.app.dependency_overrides[get_project_store] = lambda: store
     main.app.dependency_overrides[get_current_user_id] = lambda: USER_ID
     with TestClient(main.app) as test_client:
