@@ -186,7 +186,8 @@ async def test_generate_retries_when_structured_response_is_empty():
     generate_requests = client.chat.completions.requests[1:]
     assert generate_requests[0]["response_format"]["json_schema"]["name"] == "cad_code"
     assert "response_format" not in generate_requests[1]
-    assert generate_requests[1]["extra_body"]["reasoning"]["effort"] == "medium"
+    # Anthropic models get a reasoning token budget, not an effort level.
+    assert generate_requests[1]["extra_body"]["reasoning"] == {"max_tokens": 3_000}
 
 
 class SlowAfterPlanCompletions(FakeCompletions):
@@ -334,3 +335,35 @@ async def test_plan_step_can_use_its_own_model_and_cost_is_reported(monkeypatch)
     ]
     assert all(call["extra_body"]["usage"] == {"include": True} for call in requests)
     assert result["usage"]["cost_usd"] == pytest.approx(0.025)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("model", "reasoning"),
+    [
+        ("anthropic/claude-sonnet-5.5", {"max_tokens": 8_000}),
+        ("openai/gpt-5.6-sol", {"effort": "high"}),
+    ],
+)
+async def test_reasoning_leaves_room_for_the_answer(monkeypatch, model, reasoning):
+    from agent.graph import MAX_OUTPUT_TOKENS
+
+    client = FakeClient(["A 10 mm cube.", '{"code":"result = Box(10, 10, 10)"}'])
+    monkeypatch.setattr("agent.graph.AsyncOpenAI", lambda **_kwargs: client)
+    monkeypatch.setattr("agent.graph.get_pattern_retriever", FakeRetriever)
+    request = CadRunRequest(
+        messages=[{"role": "user", "content": "Make a 10 mm cube"}],
+        modelId=model,
+        supportsStructuredOutputs=True,
+    )
+
+    await run_cad_agent(
+        request, "test-key", lambda _code: ModelInspection(valid=True), run_id="budget"
+    )
+
+    for call in client.chat.completions.requests:
+        assert call["extra_body"]["reasoning"] == reasoning
+        assert call["max_tokens"] == MAX_OUTPUT_TOKENS
+    if "max_tokens" in reasoning:
+        # The answer keeps at least three quarters of the output room.
+        assert reasoning["max_tokens"] <= MAX_OUTPUT_TOKENS / 4
