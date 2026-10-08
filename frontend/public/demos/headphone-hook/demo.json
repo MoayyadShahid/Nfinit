@@ -1,0 +1,337 @@
+{
+ "slug": "headphone-hook",
+ "title": "Under-desk headphone hook",
+ "summary": "A hook that screws under the desk and holds a pair of headphones.",
+ "model_id": "anthropic/claude-sonnet-5.5",
+ "steps": [
+  {
+   "prompt": "An under-desk headphone hook, 25 mm wide: a 50 x 40 x 5 mm mounting plate, a 60 mm drop, and a 45 mm deep hook arm. Only this base shape for now: no holes, slots, cutouts or fillets yet.",
+   "summary": "A J/L-shaped hook with a flat mounting plate.",
+   "code": "plate_width = 50.0\nplate_depth = 40.0\nplate_thickness = 5.0\nhook_width = 25.0\nhook_thickness = 5.0\ndrop_length = 60.0\narm_depth = 45.0\n\nleg_bottom_z = -(plate_thickness + drop_length)\narm_top_z = leg_bottom_z + hook_thickness\n\nwith BuildPart() as part:\n    # Mounting plate: X centered, Y 0..40, Z -5..0\n    Box(plate_width, plate_depth, plate_thickness, align=(Align.CENTER, Align.MIN, Align.MAX))\n    register_feature(\n        \"plate_base\",\n        \"Mounting plate\",\n        \"additive\",\n        part.part,\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness},\n    )\n    register_constraint(\n        \"c_plate_size\",\n        \"other\",\n        [\"plate_base\"],\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness, \"unit\": \"mm\"},\n    )\n\n    # L-shaped hook profile on YZ plane (local x = Y, local y = Z)\n    with BuildSketch(Plane.YZ):\n        Polygon(\n            (0.0, 0.0),\n            (hook_thickness, 0.0),\n            (hook_thickness, leg_bottom_z),\n            (-arm_depth, leg_bottom_z),\n            (-arm_depth, arm_top_z),\n            (0.0, arm_top_z),\n            (0.0, 0.0),\n        )\n    # Extrude symmetrically about X (+/- hook_width / 2)\n    extrude(amount=hook_width / 2, both=True)\n    register_feature(\n        \"hook_profile\",\n        \"Hook L profile\",\n        \"reference\",\n        part.part,\n        parent_id=\"plate_base\",\n        parameters={\"hook_thickness\": hook_thickness, \"drop_length\": drop_length, \"arm_depth\": arm_depth},\n    )\n    register_feature(\n        \"hook_body\",\n        \"Hook body\",\n        \"additive\",\n        part.part,\n        parent_id=\"hook_profile\",\n        parameters={\"hook_width\": hook_width},\n    )\n\n    register_constraint(\n        \"c_hook_width\",\n        \"distance\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"hook_width\", \"value\": hook_width, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_hook_centered\",\n        \"symmetry\",\n        [\"plate_base\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_front_flush\",\n        \"coincident\",\n        [\"plate_base\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_drop_total\",\n        \"distance\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"drop_length\", \"value\": drop_length, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_arm_reach\",\n        \"distance\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"arm_depth\", \"value\": arm_depth, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_wall_uniform\",\n        \"thickness\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"hook_thickness\", \"value\": hook_thickness, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_single_solid\",\n        \"other\",\n        [\"plate_base\", \"hook_body\"],\n        parameters={\"solid_count\": 1},\n    )\n    register_constraint(\n        \"c_no_extras\",\n        \"other\",\n        [\"plate_base\", \"hook_body\"],\n        parameters={\"holes\": 0, \"slots\": 0, \"cutouts\": 0, \"fillets\": 0},\n    )\nresult = part.part",
+   "glb": "step-1.glb",
+   "previews": [
+    {
+     "file": "step-1-preview-1.glb",
+     "name": "Mounting plate"
+    },
+    {
+     "file": "step-1-preview-2.glb",
+     "name": "Hook L profile"
+    },
+    {
+     "file": "step-1-preview-3.glb",
+     "name": "Hook body"
+    }
+   ],
+   "events": [
+    {
+     "stage": "retrieve",
+     "status": "started",
+     "message": "Finding build123d patterns for this request.",
+     "at_ms": 12
+    },
+    {
+     "stage": "retrieve",
+     "status": "complete",
+     "message": "Retrieved 4 build123d pattern(s) via local.",
+     "duration_ms": 5,
+     "at_ms": 13
+    },
+    {
+     "stage": "plan",
+     "status": "started",
+     "message": "Planning the dimensions, features and constraints.",
+     "at_ms": 14
+    },
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A J/L-shaped hook with a flat mounting plate.",
+     "duration_ms": 26959,
+     "at_ms": 26977
+    },
+    {
+     "stage": "generate",
+     "status": "started",
+     "message": "Writing the build123d code.",
+     "at_ms": 26988
+    },
+    {
+     "stage": "generate",
+     "status": "complete",
+     "message": "Generated parameterized build123d geometry.",
+     "duration_ms": 16121,
+     "at_ms": 43100
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 43105
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid(s); bounds 50.0 \u00d7 65.0 \u00d7 65.0 mm.",
+     "duration_ms": 135,
+     "at_ms": 43236
+    }
+   ],
+   "agent": {
+    "plan": "# Plan: under-desk headphone hook (base shape only)\n\n## Intent\nA J/L-shaped hook with a flat mounting plate. The plate's top face sits against the underside of the desk. A 25 mm wide strap drops from the plate's front edge, then turns forward into a horizontal arm that carries the headphone band. There are no holes, slots, cutouts or fillets yet.\n\n## Likely manufacturing process\nFDM 3D printing in PETG or ABS, or CNC/waterjet from 5 mm plate. Hook geometry is a constant 5 mm wall, so it suits either process. If printed, orient it with the L profile in the layer plane so the bend is not a layer-split weak point.\n\n## Parameters (mm)\n- `plate_width` = 50 (X)\n- `plate_depth` = 40 (Y)\n- `plate_thickness` = 5 (Z)\n- `hook_width` = 25 (X, centered on the plate)\n- `hook_thickness` = 5 (leg and arm wall)\n- `drop_length` = 60, measured from the plate underside to the bottom of the arm\n- `arm_depth` = 45, projecting forward past the drop leg's front face\n\nAssumptions to flag: the drop is measured from the plate underside, and the arm depth is measured beyond the drop's front face. Both can be changed through the parameters.\n\n## Coordinates\n- Origin is at the plate's front edge, centered in X.\n- X is centered on the plate, from -25 to 25.\n- Plate Y runs from 0 to 40, toward the wall.\n- Plate Z runs from -5 to 0, so the desk contact face is the top at z=0.\n- The hook extends toward -Y (forward, away from the wall) and down in -Z.\n\n## Feature order\n1. `plate_base` (parent: none). Box 50 x 40 x 5, with X centered, Y from 0 to 40, and Z from -5 to 0.\n2. `hook_profile` (parent: `plate_base`). One L-shaped sketch on the YZ plane at X=0, symmetric about X:\n   - The leg runs from y=0 to y=5, from the plate underside (z=-5) down to z=-65.\n   - The arm runs from y=-45 to y=5 at z=-65 to z=-60.\n   - The leg's back face (y=5) and front face (y=0) are not flush with the plate edge. The leg's front face (y=0) is flush with the plate's front edge.\n3. `hook_body` (parent: `hook_profile`). Extrude the profile 25 mm symmetrically about X (\u00b112.5) and union it to the plate. The leg top overlaps or abuts the plate underside at z=-5 so the result is one solid.\n\n## Smallest-robust-edit guidance\nThis is a new part, so build it as one `BuildPart`: the plate box, then the extruded L profile with symmetric extrusion. Do not build the leg and arm as separate boxes unless the corner joint is unioned cleanly. A single L profile avoids a seam at the bend.\n\n## Constraints\n- `c_plate_size`: the plate is 50 x 40 x 5.\n- `c_hook_width`: the hook is 25 mm wide in X.\n- `c_hook_centered`: the hook is centered on the plate in X, with 12.5 mm of plate on each side.\n- `c_front_flush`: the drop leg's front face is flush with the plate's front edge (y=0).\n- `c_drop_total`: the bottom of the arm is 60 mm below the plate underside, at z=-65.\n- `c_arm_reach`: the arm projects 45 mm forward of the leg front face, to y=-45.\n- `c_wall_uniform`: leg and arm thickness are both 5 mm.\n- `c_single_solid`: the plate and hook union into one solid, with no gaps and no extra volumes.\n- `c_no_extras`: no holes, slots, cutouts or fillets at this stage.\n\n## Verification\n- Overall bounding box: X 50, Y from -45 to 40 (85), Z from -65 to 0 (65).\n- Exactly one solid.\n- Volume check: plate 50\u00b740\u00b75 = 10,000 mm\u00b3. The hook adds 25 \u00b7 (5\u00b760 + 45\u00b75) = 13,125 mm\u00b3, minus the leg's overlap with the plate if the leg starts at z=0. Starting the leg at z=-5 gives an expected total of about 23,125 mm\u00b3 minus any small overlap. With the leg running z=-5 to -65 and the arm at y from -45 to 0 only, the hook volume is 25\u00b7(5\u00b760 + 45\u00b75) = 13,125 mm\u00b3.",
+    "trace": [
+     {
+      "node": "retrieve",
+      "status": "complete",
+      "detail": "Retrieved 4 build123d pattern(s) via local.",
+      "duration_ms": 5
+     },
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A J/L-shaped hook with a flat mounting plate.",
+      "duration_ms": 26959
+     },
+     {
+      "node": "generate",
+      "status": "complete",
+      "detail": "Generated parameterized build123d geometry.",
+      "duration_ms": 16121
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid(s); bounds 50.0 \u00d7 65.0 \u00d7 65.0 mm.",
+      "duration_ms": 135
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 23125.0,
+     "bounding_box_mm": {
+      "x": 50.0,
+      "y": 65.0,
+      "z": 65.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add a 10 mm tall lip at the end of the hook arm so the headphones cannot slide off. Keep everything else exactly as it is.",
+   "summary": "Add an upturned lip at the free end of the hook arm.",
+   "code": "plate_width = 50.0\nplate_depth = 40.0\nplate_thickness = 5.0\nhook_width = 25.0\nhook_thickness = 5.0\ndrop_length = 60.0\narm_depth = 45.0\nlip_height = 10.0\nlip_thickness = hook_thickness\n\nleg_bottom_z = -(plate_thickness + drop_length)\narm_top_z = leg_bottom_z + hook_thickness\n\nwith BuildPart() as part:\n    # Mounting plate: X centered, Y 0..40, Z -5..0\n    Box(plate_width, plate_depth, plate_thickness, align=(Align.CENTER, Align.MIN, Align.MAX))\n    register_feature(\n        \"plate_base\",\n        \"Mounting plate\",\n        \"additive\",\n        part.part,\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness},\n    )\n    register_constraint(\n        \"c_plate_size\",\n        \"other\",\n        [\"plate_base\"],\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness, \"unit\": \"mm\"},\n    )\n\n    # L-shaped hook profile on YZ plane (local x = Y, local y = Z)\n    with BuildSketch(Plane.YZ):\n        Polygon(\n            (0.0, 0.0),\n            (hook_thickness, 0.0),\n            (hook_thickness, leg_bottom_z),\n            (-arm_depth, leg_bottom_z),\n            (-arm_depth, arm_top_z),\n            (0.0, arm_top_z),\n            (0.0, 0.0),\n        )\n    # Extrude symmetrically about X (+/- hook_width / 2)\n    extrude(amount=hook_width / 2, both=True)\n    register_feature(\n        \"hook_profile\",\n        \"Hook L profile\",\n        \"reference\",\n        part.part,\n        parent_id=\"plate_base\",\n        parameters={\"hook_thickness\": hook_thickness, \"drop_length\": drop_length, \"arm_depth\": arm_depth},\n    )\n    register_feature(\n        \"hook_body\",\n        \"Hook body\",\n        \"additive\",\n        part.part,\n        parent_id=\"hook_profile\",\n        parameters={\"hook_width\": hook_width},\n    )\n\n    register_constraint(\n        \"c_hook_width\",\n        \"distance\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"hook_width\", \"value\": hook_width, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_hook_centered\",\n        \"symmetry\",\n        [\"plate_base\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_front_flush\",\n        \"coincident\",\n        [\"plate_base\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_drop_total\",\n        \"distance\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"drop_length\", \"value\": drop_length, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_arm_reach\",\n        \"distance\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"arm_depth\", \"value\": arm_depth, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_wall_uniform\",\n        \"thickness\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"hook_thickness\", \"value\": hook_thickness, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_single_solid\",\n        \"other\",\n        [\"plate_base\", \"hook_body\"],\n        parameters={\"solid_count\": 1},\n    )\n    register_constraint(\n        \"c_no_extras\",\n        \"other\",\n        [\"plate_base\", \"hook_body\"],\n        parameters={\"holes\": 0, \"slots\": 0, \"cutouts\": 0, \"fillets\": 0},\n    )\n\n    # Retaining lip at the free end of the arm (Y -45..-40, Z -65..-50)\n    with Locations((0.0, -arm_depth, leg_bottom_z)):\n        Box(\n            hook_width,\n            lip_thickness,\n            hook_thickness + lip_height,\n            align=(Align.CENTER, Align.MIN, Align.MIN),\n        )\n    register_feature(\n        \"arm_lip\",\n        \"Arm retaining lip\",\n        \"additive\",\n        part.part,\n        parent_id=\"hook_body\",\n        parameters={\"lip_height\": lip_height, \"lip_thickness\": lip_thickness},\n    )\n    register_constraint(\n        \"c_lip_height\",\n        \"distance\",\n        [\"arm_lip\"],\n        parameters={\"parameter\": \"lip_height\", \"value\": lip_height, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_lip_thickness\",\n        \"thickness\",\n        [\"arm_lip\"],\n        parameters={\"parameter\": \"lip_thickness\", \"value\": lip_thickness, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_lip_width_match\",\n        \"equal\",\n        [\"arm_lip\", \"hook_body\"],\n        parameters={\"parameter\": \"hook_width\", \"value\": hook_width, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_lip_centered\",\n        \"symmetry\",\n        [\"arm_lip\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_lip_end_flush\",\n        \"coincident\",\n        [\"arm_lip\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_lip_joined\",\n        \"other\",\n        [\"arm_lip\", \"hook_body\"],\n        parameters={\"solid_count\": 1},\n    )\nresult = part.part",
+   "glb": "step-2.glb",
+   "previews": [
+    {
+     "file": "step-2-preview-1.glb",
+     "name": "Arm retaining lip"
+    }
+   ],
+   "events": [
+    {
+     "stage": "retrieve",
+     "status": "started",
+     "message": "Finding build123d patterns for this request.",
+     "at_ms": 13
+    },
+    {
+     "stage": "retrieve",
+     "status": "complete",
+     "message": "Retrieved 4 build123d pattern(s) via local.",
+     "duration_ms": 4,
+     "at_ms": 13
+    },
+    {
+     "stage": "plan",
+     "status": "started",
+     "message": "Planning the dimensions, features and constraints.",
+     "at_ms": 15
+    },
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Add an upturned lip at the free end of the hook arm.",
+     "duration_ms": 19656,
+     "at_ms": 19672
+    },
+    {
+     "stage": "generate",
+     "status": "started",
+     "message": "Writing the build123d code.",
+     "at_ms": 19675
+    },
+    {
+     "stage": "generate",
+     "status": "complete",
+     "message": "Generated parameterized build123d geometry.",
+     "duration_ms": 15482,
+     "at_ms": 35155
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 35161
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 2 solid(s); bounds 50.0 \u00d7 85.0 \u00d7 97.5 mm.",
+     "duration_ms": 241,
+     "at_ms": 35398
+    }
+   ],
+   "agent": {
+    "plan": "# Plan: add a retaining lip to the hook arm\n\n## Intent\nAdd an upturned lip at the free end of the hook arm. Headphones resting on the arm are stopped by the lip and cannot slide off. All existing geometry, IDs, parameters and constraints stay unchanged.\n\n## Current geometry (from the code)\n- The plate is X \u00b125, Y 0..40, Z -5..0.\n- The vertical leg is at Y 0..5 and runs down to Z = -65.\n- The arm runs toward -Y from Y = 0 to Y = -45, at Z -65..-60 (`leg_bottom_z` to `arm_top_z`).\n- The free end of the arm is therefore the face at Y = -45.\n\n## New parameters\nExisting parameters are untouched. Add these:\n- `lip_height = 10.0`: the lip rises 10 mm above the arm's top surface (`arm_top_z`), so its top is at Z = -50. I read \"10 mm tall\" as the functional height above the arm. If you meant 10 mm total including the arm thickness, set the value to 5.\n- `lip_thickness = hook_thickness` (5 mm): the same wall thickness as the rest of the hook.\n- The lip width reuses `hook_width` (25 mm).\n\n## Feature order\n1. `plate_base` (existing, unchanged).\n2. `hook_profile` (existing, unchanged, parent `plate_base`).\n3. `hook_body` (existing, unchanged, parent `hook_profile`).\n4. `arm_lip` (new, additive, parent `hook_body`).\n\n### `arm_lip` details\n- Make it a separate box added after `hook_body`. Do not edit the L polygon. This is the smallest edit and keeps `hook_profile` and `hook_body` valid.\n- X: centered on 0, width `hook_width`, so it matches the arm edges (\u00b112.5).\n- Y: from `-arm_depth` to `-arm_depth + lip_thickness` (-45..-40). The outer face is flush with the arm end face.\n- Z: from `leg_bottom_z` (-65) up to `arm_top_z + lip_height` (-50). Starting at the arm's bottom face gives a real volumetric overlap with the arm. That fuses reliably, where touching only on the top face could leave a seam.\n- Register it with parent `hook_body` and parameters `lip_height` and `lip_thickness`.\n- The result stays a single solid.\n\n## Symmetry and constraints\nKeep these existing constraints as they are:\n- `c_plate_size`\n- `c_hook_width`\n- `c_hook_centered`\n- `c_front_flush`\n- `c_drop_total`\n- `c_arm_reach`\n- `c_wall_uniform`\n- `c_single_solid`\n- `c_no_extras`: still true, because the lip has no holes, slots, cutouts or fillets.\n\nAdd these new constraints:\n- `c_lip_height`: distance, on `arm_lip`, parameter `lip_height` = 10 mm, measured from the arm top face to the lip top.\n- `c_lip_thickness`: thickness, on `arm_lip`, parameter `lip_thickness` = `hook_thickness` (5 mm).\n- `c_lip_width_match`: the lip width equals `hook_width`, so its side faces are coplanar with the arm's side faces.\n- `c_lip_centered`: symmetry about X = 0, on `arm_lip` and `hook_body`.\n- `c_lip_end_flush`: coincident, with the lip outer face (Y = -45) flush with the arm end face.\n- `c_lip_joined`: the lip fuses with the arm, and the solid count remains 1.\n\n## Likely manufacturing process\nThe part is most likely FDM 3D printed in PETG or ABS. Print it with the plate flat on the bed, or on its side so the layer lines run along the leg and lip. A CNC-machined or cast aluminium version would work as well. The 5 mm uniform wall suits either process. Sharp inside corners at the arm/lip junction are acceptable for now, since fillets were excluded.",
+    "trace": [
+     {
+      "node": "retrieve",
+      "status": "complete",
+      "detail": "Retrieved 4 build123d pattern(s) via local.",
+      "duration_ms": 4
+     },
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Add an upturned lip at the free end of the hook arm.",
+      "duration_ms": 19656
+     },
+     {
+      "node": "generate",
+      "status": "complete",
+      "detail": "Generated parameterized build123d geometry.",
+      "duration_ms": 15482
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 2 solid(s); bounds 50.0 \u00d7 85.0 \u00d7 97.5 mm.",
+      "duration_ms": 241
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 2,
+     "volume_mm3": 25000.0,
+     "bounding_box_mm": {
+      "x": 50.0,
+      "y": 85.0,
+      "z": 97.5
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add two countersunk M4 screw holes in the mounting plate. Keep everything else exactly as it is.",
+   "summary": "Add two flush-mount screw holes to the plate so it can be screwed to the underside of a desk.",
+   "code": "plate_width = 50.0\nplate_depth = 40.0\nplate_thickness = 5.0\nhook_width = 25.0\nhook_thickness = 5.0\ndrop_length = 60.0\narm_depth = 45.0\nlip_height = 10.0\nlip_thickness = hook_thickness\nscrew_hole_dia = 4.5\ncsk_head_dia = 9.0\ncsk_angle = 90.0\nhole_x_offset = 15.0\nhole_y = 20.0\n\nleg_bottom_z = -(plate_thickness + drop_length)\narm_top_z = leg_bottom_z + hook_thickness\n\n# Countersink geometry (90 degree included angle -> 45 degree flank)\ncsk_depth = (csk_head_dia - screw_hole_dia) / 2.0\ncsk_overshoot = 0.5\ncone_height = csk_depth + csk_overshoot\ncone_bottom_radius = csk_head_dia / 2.0 + csk_overshoot\ncone_top_radius = screw_hole_dia / 2.0\ncone_center_z = -plate_thickness - csk_overshoot + cone_height / 2.0\nbore_height = plate_thickness + 2.0 * csk_overshoot\nbore_center_z = -plate_thickness / 2.0\n\nwith BuildPart() as part:\n    # Mounting plate: X centered, Y 0..40, Z -5..0\n    Box(plate_width, plate_depth, plate_thickness, align=(Align.CENTER, Align.MIN, Align.MAX))\n    register_feature(\n        \"plate_base\",\n        \"Mounting plate\",\n        \"additive\",\n        part.part,\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness},\n    )\n    register_constraint(\n        \"c_plate_size\",\n        \"other\",\n        [\"plate_base\"],\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness, \"unit\": \"mm\"},\n    )\n\n    # L-shaped hook profile on YZ plane (local x = Y, local y = Z)\n    with BuildSketch(Plane.YZ):\n        Polygon(\n            (0.0, 0.0),\n            (hook_thickness, 0.0),\n            (hook_thickness, leg_bottom_z),\n            (-arm_depth, leg_bottom_z),\n            (-arm_depth, arm_top_z),\n            (0.0, arm_top_z),\n            (0.0, 0.0),\n        )\n    # Extrude symmetrically about X (+/- hook_width / 2)\n    extrude(amount=hook_width / 2, both=True)\n    register_feature(\n        \"hook_profile\",\n        \"Hook L profile\",\n        \"reference\",\n        part.part,\n        parent_id=\"plate_base\",\n        parameters={\"hook_thickness\": hook_thickness, \"drop_length\": drop_length, \"arm_depth\": arm_depth},\n    )\n    register_feature(\n        \"hook_body\",\n        \"Hook body\",\n        \"additive\",\n        part.part,\n        parent_id=\"hook_profile\",\n        parameters={\"hook_width\": hook_width},\n    )\n\n    register_constraint(\n        \"c_hook_width\",\n        \"distance\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"hook_width\", \"value\": hook_width, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_hook_centered\",\n        \"symmetry\",\n        [\"plate_base\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_front_flush\",\n        \"coincident\",\n        [\"plate_base\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_drop_total\",\n        \"distance\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"drop_length\", \"value\": drop_length, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_arm_reach\",\n        \"distance\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"arm_depth\", \"value\": arm_depth, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_wall_uniform\",\n        \"thickness\",\n        [\"hook_body\"],\n        parameters={\"parameter\": \"hook_thickness\", \"value\": hook_thickness, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_single_solid\",\n        \"other\",\n        [\"plate_base\", \"hook_body\"],\n        parameters={\"solid_count\": 1},\n    )\n    register_constraint(\n        \"c_no_extras\",\n        \"other\",\n        [\"plate_base\", \"hook_body\"],\n        parameters={\"holes\": 2, \"slots\": 0, \"cutouts\": 0, \"fillets\": 0},\n    )\n\n    # Retaining lip at the free end of the arm (Y -45..-40, Z -65..-50)\n    with Locations((0.0, -arm_depth, leg_bottom_z)):\n        Box(\n            hook_width,\n            lip_thickness,\n            hook_thickness + lip_height,\n            align=(Align.CENTER, Align.MIN, Align.MIN),\n        )\n    register_feature(\n        \"arm_lip\",\n        \"Arm retaining lip\",\n        \"additive\",\n        part.part,\n        parent_id=\"hook_body\",\n        parameters={\"lip_height\": lip_height, \"lip_thickness\": lip_thickness},\n    )\n    register_constraint(\n        \"c_lip_height\",\n        \"distance\",\n        [\"arm_lip\"],\n        parameters={\"parameter\": \"lip_height\", \"value\": lip_height, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_lip_thickness\",\n        \"thickness\",\n        [\"arm_lip\"],\n        parameters={\"parameter\": \"lip_thickness\", \"value\": lip_thickness, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_lip_width_match\",\n        \"equal\",\n        [\"arm_lip\", \"hook_body\"],\n        parameters={\"parameter\": \"hook_width\", \"value\": hook_width, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_lip_centered\",\n        \"symmetry\",\n        [\"arm_lip\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_lip_end_flush\",\n        \"coincident\",\n        [\"arm_lip\", \"hook_body\"],\n    )\n    register_constraint(\n        \"c_lip_joined\",\n        \"other\",\n        [\"arm_lip\", \"hook_body\"],\n        parameters={\"solid_count\": 1},\n    )\n\n    # Countersunk M4 screw holes, countersink opening on the underside (Z = -5)\n    with Locations((-hole_x_offset, hole_y, bore_center_z), (hole_x_offset, hole_y, bore_center_z)):\n        Cylinder(screw_hole_dia / 2.0, bore_height, mode=Mode.SUBTRACT)\n    with Locations((-hole_x_offset, hole_y, cone_center_z), (hole_x_offset, hole_y, cone_center_z)):\n        Cone(cone_bottom_radius, cone_top_radius, cone_height, mode=Mode.SUBTRACT)\n    register_feature(\n        \"mount_holes\",\n        \"Countersunk M4 mounting holes\",\n        \"subtractive\",\n        part.part,\n        parent_id=\"plate_base\",\n        parameters={\n            \"screw_hole_dia\": screw_hole_dia,\n            \"csk_head_dia\": csk_head_dia,\n            \"csk_angle\": csk_angle,\n            \"hole_x_offset\": hole_x_offset,\n            \"hole_y\": hole_y,\n            \"count\": 2,\n        },\n    )\n    register_constraint(\n        \"c_hole_diameter\",\n        \"diameter\",\n        [\"mount_holes\"],\n        parameters={\"parameter\": \"screw_hole_dia\", \"value\": screw_hole_dia, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_csk_head_diameter\",\n        \"diameter\",\n        [\"mount_holes\"],\n        parameters={\"parameter\": \"csk_head_dia\", \"value\": csk_head_dia, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_csk_angle\",\n        \"angle\",\n        [\"mount_holes\"],\n        parameters={\"parameter\": \"csk_angle\", \"value\": csk_angle, \"unit\": \"deg\"},\n    )\n    register_constraint(\n        \"c_hole_spacing\",\n        \"distance\",\n        [\"mount_holes\"],\n        parameters={\"parameter\": \"hole_spacing\", \"value\": 2.0 * hole_x_offset, \"unit\": \"mm\"},\n    )\n    register_constraint(\n        \"c_holes_symmetry\",\n        \"symmetry\",\n        [\"mount_holes\", \"plate_base\"],\n        parameters={\"axis\": \"X=0\", \"hole_y\": hole_y},\n    )\n    register_constraint(\n        \"c_holes_on_underside\",\n        \"other\",\n        [\"mount_holes\", \"plate_base\"],\n        parameters={\"countersink_face_z\": -plate_thickness, \"through\": True},\n    )\n    register_constraint(\n        \"c_holes_clear_of_leg\",\n        \"other\",\n        [\"mount_holes\", \"hook_body\"],\n        parameters={\"min_y\": hole_y - csk_head_dia / 2.0, \"leg_max_y\": hook_thickness},\n    )\n    register_constraint(\n        \"c_holes_edge_margin\",\n        \"other\",\n        [\"mount_holes\", \"plate_base\"],\n        parameters={\n            \"side_margin\": plate_width / 2.0 - hole_x_offset - csk_head_dia / 2.0,\n            \"far_edge_margin\": plate_depth - hole_y - csk_head_dia / 2.0,\n        },\n    )\nresult = part.part",
+   "glb": "step-3.glb",
+   "previews": [
+    {
+     "file": "step-3-preview-1.glb",
+     "name": "Countersunk M4 mounting holes"
+    }
+   ],
+   "events": [
+    {
+     "stage": "retrieve",
+     "status": "started",
+     "message": "Finding build123d patterns for this request.",
+     "at_ms": 62
+    },
+    {
+     "stage": "retrieve",
+     "status": "complete",
+     "message": "Retrieved 4 build123d pattern(s) via local.",
+     "duration_ms": 32,
+     "at_ms": 75
+    },
+    {
+     "stage": "plan",
+     "status": "started",
+     "message": "Planning the dimensions, features and constraints.",
+     "at_ms": 86
+    },
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Add two flush-mount screw holes to the plate so it can be screwed to the underside of a desk.",
+     "duration_ms": 24032,
+     "at_ms": 24113
+    },
+    {
+     "stage": "generate",
+     "status": "started",
+     "message": "Writing the build123d code.",
+     "at_ms": 24118
+    },
+    {
+     "stage": "generate",
+     "status": "complete",
+     "message": "Generated parameterized build123d geometry.",
+     "duration_ms": 29059,
+     "at_ms": 53173
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 53183
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 2 solid(s); bounds 50.0 \u00d7 85.0 \u00d7 97.5 mm.",
+     "duration_ms": 259,
+     "at_ms": 53432
+    }
+   ],
+   "agent": {
+    "plan": "## Plan: add two countersunk M4 holes to the mounting plate\n\n**Intent:** Add two flush-mount screw holes to the plate so it can be screwed to the underside of a desk. Everything else stays as is.\n\n**Likely process:** CNC-machined aluminum or steel (drilled and countersunk), or an FDM/injection-molded part with the same hole geometry.\n\n### Smallest robust edit\n- Keep all existing geometry, parameter names, feature IDs and constraint IDs.\n- Append one subtractive feature after `arm_lip`, just before `result = part.part`.\n- Add new parameters beside the existing ones.\n- Update the existing `c_no_extras` constraint, because it asserts `holes: 0`. Change only its `holes` value to 2. Leave slots, cutouts and fillets at 0. This keeps the ID and keeps the constraint truthful.\n\n### Geometry and frame\n- The plate spans X \u00b125, Y 0..40, Z -5..0.\n- The desk-mounting face is the top, Z = 0. The screws are driven from the underside, Z = -5, so the countersink opens on that bottom face.\n- The cut runs upward through the plate thickness only (depth = `plate_thickness`). The cone is widest at Z = -5 and narrows toward Z = 0.\n- The hook leg occupies Y 0..5 within X \u00b112.5. The holes sit well clear of it, in the free plate area Y 5..40.\n\n### New parameters\n| Parameter | Value | Note |\n|---|---|---|\n| `screw_hole_dia` | 4.5 mm | M4 clearance |\n| `csk_head_dia` | 9.0 mm | at the bottom face |\n| `csk_angle` | 90\u00b0 | included angle |\n| `hole_x_offset` | 15.0 mm | holes at X = \u00b115 |\n| `hole_y` | 20.0 mm | plate mid-depth |\n\nThe cone depth is (9.0 \u2212 4.5) / 2 = 2.25 mm. That leaves 2.75 mm of straight bore in the 5 mm plate.\n\n### Feature order\n1. `plate_base`: existing.\n2. `hook_profile`: existing.\n3. `hook_body`: existing.\n4. `arm_lip`: existing.\n5. `mount_holes`: new, subtractive, parent `plate_base`. Two countersunk holes at (\u00b1`hole_x_offset`, `hole_y`) on the plate underside plane at Z = -5, with the cut direction pointing up (+Z). Register the feature with the parameters above.\n\n### New constraints\n- `c_hole_diameter`: `screw_hole_dia` = 4.5 mm.\n- `c_csk_head_diameter`: `csk_head_dia` = 9.0 mm.\n- `c_csk_angle`: `csk_angle` = 90\u00b0.\n- `c_hole_spacing`: 2 \u00d7 `hole_x_offset` = 30 mm between hole centers.\n- `c_holes_symmetry`: the holes are symmetric about X = 0, and both sit at Y = `hole_y`.\n- `c_holes_on_underside`: the countersink opens on the Z = -5 face. The holes are through the full plate thickness.\n- `c_holes_clear_of_leg`: the hole and countersink edges stay outside the hook leg zone (Y > 5). The nearest edge is at Y = 15.5.\n- `c_holes_edge_margin`: the countersink edge is at least 10 mm from the side edges (X = \u00b125) and 15 mm from the far edge (Y = 40).\n\n### Updated constraint\n- `c_no_extras`: set `holes` to 2.\n\n### Checks\n- The result is still a single solid.\n- Volume decreases only by the two countersunk holes.\n- The hook body and lip are unchanged.",
+    "trace": [
+     {
+      "node": "retrieve",
+      "status": "complete",
+      "detail": "Retrieved 4 build123d pattern(s) via local.",
+      "duration_ms": 32
+     },
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Add two flush-mount screw holes to the plate so it can be screwed to the underside of a desk.",
+      "duration_ms": 24032
+     },
+     {
+      "node": "generate",
+      "status": "complete",
+      "detail": "Generated parameterized build123d geometry.",
+      "duration_ms": 29059
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 2 solid(s); bounds 50.0 \u00d7 85.0 \u00d7 97.5 mm.",
+      "duration_ms": 259
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 2,
+     "volume_mm3": 24739.095,
+     "bounding_box_mm": {
+      "x": 50.0,
+      "y": 85.0,
+      "z": 97.5
+     },
+     "error": null
+    }
+   }
+  }
+ ]
+}

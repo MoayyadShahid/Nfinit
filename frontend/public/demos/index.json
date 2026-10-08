@@ -1,0 +1,34 @@
+{
+ "demos": [
+  {
+   "slug": "drone-frame",
+   "title": "5-inch drone frame",
+   "summary": "A quadcopter X-frame, built up from a plate to a flight-ready frame.",
+   "steps": 5
+  },
+  {
+   "slug": "cable-clip",
+   "title": "Desk cable clip",
+   "summary": "A screw-on clip that keeps three charging cables on the desk.",
+   "steps": 3
+  },
+  {
+   "slug": "headphone-hook",
+   "title": "Under-desk headphone hook",
+   "summary": "A hook that screws under the desk and holds a pair of headphones.",
+   "steps": 3
+  },
+  {
+   "slug": "pi-tray",
+   "title": "Raspberry Pi base tray",
+   "summary": "A tray with standoffs and vents for a Raspberry Pi 4.",
+   "steps": 4
+  },
+  {
+   "slug": "l-bracket",
+   "title": "L-bracket",
+   "summary": "A stiff 90-degree bracket with countersunk mounting holes.",
+   "steps": 3
+  }
+ ]
+}

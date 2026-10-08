@@ -77,18 +77,57 @@ Stripe lives in the backend, which already owns the database.
 
 ## Demo parts
 
-4–6 parts, each a short build story (3–5 prompts). Stored as static files in
-`frontend/public/demos/<slug>/`: `demo.json` (title, steps with the user
-prompt, the agent's plan/trace summary and code) and one `step-N.glb` per
-step. Generated once by a script that runs the real agent, then committed.
+Five recorded build stories, served as static files from
+`frontend/public/demos/` (5.9 MB):
 
-The studio's welcome screen keeps the prompt box (Send → paywall) and adds a
-"See how it's built" row of demo cards. Opening a demo shows the viewport and
-the chat replay; stepping through the chat swaps in that step's model.
+| Demo | Steps |
+| --- | --- |
+| 5-inch drone frame (first for free users) | body and arms → motor holes → flight-controller holes → weight-saving slots → corner fillets |
+| Desk cable clip | plate and cradles → countersunk holes → corner fillets |
+| Under-desk headphone hook | plate, drop and arm → retaining lip → countersunk holes |
+| Raspberry Pi base tray | tray → standoffs → floor vents → port openings |
+| L-bracket | legs → countersunk holes → gusset |
 
-Candidate set: wall-mount phone stand, Raspberry Pi enclosure with vents,
-L-bracket with countersunk holes, 20-tooth spur gear, cable clip, desk
-headphone hook.
+Each folder has `demo.json` (for every step: the prompt, the agent's plan,
+trace and recorded progress events, the code, the finished GLB and the
+previews of the features that step adds) and the GLB files. `index.json`
+lists the demos.
+
+**Replay.** The studio plays a step like a live run: the prompt appears in the
+chat, the recorded progress events play in the step list (compressed to at
+most 7 seconds; the durations shown are the recorded ones), the step's new
+features grow in the viewport, and then the finished part appears. "Next
+step", "Replay step" and "Watch again" move through the story. Replays make no
+backend calls.
+
+**Who sees what.**
+
+- A free user with nothing open lands in the drone-frame demo.
+- Everyone sees "See how it's built" cards under the prompt box on the
+  welcome screen, and `/studio?demo=<slug>` opens a demo directly.
+- Sending a prompt, selecting a face and exporting open the paywall for free
+  users. For subscribers, a prompt builds on the demo part as a new project,
+  and export works as for any part.
+
+**Regenerate.** From `backend/`, with `OPENROUTER_API_KEY` set:
+
+```bash
+CAD_SANDBOX_MODE=fork poetry run python -m demos.build [--only drone-frame]
+```
+
+The script runs the production agent on the prompts in `backend/demos/specs.json`,
+step by step, as the studio would. Each first step asks for the base shape
+only ("no holes, slots, cutouts or fillets yet") and each later step for one
+change ("keep everything else exactly as it is"): without this the agent adds
+most features in step 1 and the later steps show nothing new. A demo whose
+step fails or times out is left out. The 2026-10-08 build cost about $3.60 in
+total with Claude Sonnet 5.5. The phone stand was left out: its fillet step
+timed out twice (see the note below).
+
+**Known issue found while building.** Some Sonnet 5.5 calls used the whole
+8,192-token output budget on reasoning and returned no code
+(`finish_reason=length`); after the fallback attempts the run hit the 300 s
+deadline. This also affects live runs.
 
 ## Build order
 
@@ -97,7 +136,7 @@ headphone hook.
 2. Frontend: proxy routes for sandbox endpoints, billing client, paywall
    panel, gate on send / face select / editor / export, resume after Checkout,
    "Manage subscription" in the account menu.
-3. Demo gallery and replay; generate and commit the demo parts.
+3. Demo gallery and replay; generate and commit the demo parts (done).
 4. End-to-end in Stripe test mode, then switch to live keys.
 
 ## Setup the owner does in Stripe (test mode first)

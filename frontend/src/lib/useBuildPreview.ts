@@ -8,7 +8,7 @@ const MIN_SHOW_MS = 500;
 
 export type BuildPreview = { url: string; name: string };
 
-type Queued = { runId: string; seq: number; name: string };
+type Queued = { url: string; name: string };
 
 /**
  * Plays a run's build previews (the part after each feature) one at a time.
@@ -38,10 +38,7 @@ export function useBuildPreview() {
     while (queue.current.length > 0 && current === generation.current) {
       const item = queue.current.shift()!;
       try {
-        const response = await fetch(
-          `/api/cad/runs/${item.runId}/snapshots/${item.seq}`,
-          { cache: "no-store" }
-        );
+        const response = await fetch(item.url, { cache: "no-store" });
         if (!response.ok) continue;
         const blob = await response.blob();
         const wait = MIN_SHOW_MS - (Date.now() - lastShownAt.current);
@@ -65,8 +62,21 @@ export function useBuildPreview() {
       const previews = events.filter((event) => event.stage === "snapshot");
       if (previews.length === 0) return;
       queue.current.push(
-        ...previews.map((event) => ({ runId, seq: event.seq, name: event.message }))
+        ...previews.map((event) => ({
+          url: `/api/cad/runs/${runId}/snapshots/${event.seq}`,
+          name: event.message,
+        }))
       );
+      void play();
+    },
+    [play]
+  );
+
+  /** Queue previews stored as files, e.g. a recorded demo's. */
+  const enqueueFiles = useCallback(
+    (items: { url: string; name: string }[]) => {
+      if (items.length === 0) return;
+      queue.current.push(...items);
       void play();
     },
     [play]
@@ -90,5 +100,5 @@ export function useBuildPreview() {
 
   useEffect(() => () => clear(), [clear]);
 
-  return { preview, enqueue, settle, clear };
+  return { preview, enqueue, enqueueFiles, settle, clear };
 }
