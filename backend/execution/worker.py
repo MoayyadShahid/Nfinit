@@ -546,12 +546,8 @@ def _feature_tree(feature_records, face_records):
     return features, sorted(all_face_ids - assigned)
 
 
-def _topology(
-    result,
-    selection=None,
-    feature_records=None,
-    constraint_records=None,
-):
+def _entity_records(result):
+    """Index the shape's edges and faces with content-addressed IDs."""
     edge_records = []
     for edge in result.edges():
         payload = _edge_geometry(edge)
@@ -600,7 +596,17 @@ def _topology(
         record["payload"]["id"] = _entity_id(
             "face", record["payload"], occurrence
         )
+    return edge_records, face_records
 
+
+def _topology(
+    result,
+    selection=None,
+    feature_records=None,
+    constraint_records=None,
+    entity_records=None,
+):
+    edge_records, face_records = entity_records or _entity_records(result)
     edges = sorted(
         (record["payload"] for record in edge_records),
         key=lambda item: item["id"],
@@ -683,15 +689,237 @@ def _topology(
     }
 
 
+VIEWER_FORMAT = "nfinit-brep-1"
+# glTF is Y-up; CAD is Z-up. Same root rotation as build123d's exporter.
+Z_UP_TO_Y_UP = [-0.7071067811865475, 0.0, 0.0, 0.7071067811865475]
+MM_TO_M = 0.001
+
+
+def _face_mesh(face):
+    """Positions (m), normals and triangle indices of one meshed face."""
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepLib import BRepLib_ToolTriangulatedShape
+    from OCP.TopAbs import TopAbs_REVERSED
+    from OCP.TopLoc import TopLoc_Location
+
+    location = TopLoc_Location()
+    triangulation = BRep_Tool.Triangulation_s(face.wrapped, location)
+    if triangulation is None or triangulation.NbTriangles() == 0:
+        return None
+    reversed_face = face.wrapped.Orientation() == TopAbs_REVERSED
+    transform = location.Transformation()
+    BRepLib_ToolTriangulatedShape.ComputeNormals_s(face.wrapped, triangulation)
+    positions, normals, indices = [], [], []
+    sign = -1.0 if reversed_face else 1.0
+    for index in range(1, triangulation.NbNodes() + 1):
+        point = triangulation.Node(index).Transformed(transform)
+        positions += [point.X() * MM_TO_M, point.Y() * MM_TO_M, point.Z() * MM_TO_M]
+        normal = triangulation.Normal(index).Transformed(transform)
+        normals += [normal.X() * sign, normal.Y() * sign, normal.Z() * sign]
+    for index in range(1, triangulation.NbTriangles() + 1):
+        a, b, c = triangulation.Triangle(index).Get()
+        indices += [a - 1, c - 1, b - 1] if reversed_face else [a - 1, b - 1, c - 1]
+    return positions, normals, indices
+
+
+def _edge_segments(edge, angular: float, linear: float):
+    """Line segments (pairs of points, m) that trace one B-rep edge."""
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.GCPnts import GCPnts_TangentialDeflection
+
+    sampler = GCPnts_TangentialDeflection(BRepAdaptor_Curve(edge.wrapped), angular, linear)
+    points = [sampler.Value(index) for index in range(1, sampler.NbPoints() + 1)]
+    segments = []
+    for start, end in zip(points, points[1:]):
+        segments += [
+            start.X() * MM_TO_M, start.Y() * MM_TO_M, start.Z() * MM_TO_M,
+            end.X() * MM_TO_M, end.Y() * MM_TO_M, end.Z() * MM_TO_M,
+        ]
+    return segments
+
+
+def _write_viewer_glb(path: Path, faces, edge_segments, scene_extras):
+    """Write one glTF node per face and one line node for all edges."""
+    import struct
+
+    import numpy
+
+    buffer = bytearray()
+    buffer_views, accessors = [], []
+
+    def add_accessor(values, dtype, component_type, kind, target, bounds=False):
+        data = numpy.asarray(values, dtype=dtype)
+        while len(buffer) % 4:
+            buffer.append(0)
+        offset = len(buffer)
+        buffer.extend(data.tobytes())
+        buffer_views.append(
+            {"buffer": 0, "byteOffset": offset, "byteLength": data.nbytes, "target": target}
+        )
+        width = {"SCALAR": 1, "VEC3": 3}[kind]
+        accessor = {
+            "bufferView": len(buffer_views) - 1,
+            "componentType": component_type,
+            "count": len(data) // width,
+            "type": kind,
+        }
+        if bounds:
+            grid = data.reshape(-1, 3)
+            accessor["min"] = grid.min(axis=0).tolist()
+            accessor["max"] = grid.max(axis=0).tolist()
+        accessors.append(accessor)
+        return len(accessors) - 1
+
+    meshes, nodes = [], []
+    for face in faces:
+        positions, normals, indices = face["mesh"]
+        meshes.append(
+            {
+                "primitives": [
+                    {
+                        "attributes": {
+                            "POSITION": add_accessor(positions, "<f4", 5126, "VEC3", 34962, True),
+                            "NORMAL": add_accessor(normals, "<f4", 5126, "VEC3", 34962),
+                        },
+                        "indices": add_accessor(indices, "<u4", 5125, "SCALAR", 34963),
+                        "material": 0,
+                    }
+                ]
+            }
+        )
+        nodes.append({"name": face["id"], "mesh": len(meshes) - 1, "extras": face["extras"]})
+    if edge_segments:
+        meshes.append(
+            {
+                "primitives": [
+                    {
+                        "attributes": {
+                            "POSITION": add_accessor(
+                                edge_segments, "<f4", 5126, "VEC3", 34962, True
+                            )
+                        },
+                        "mode": 1,  # LINES
+                        "material": 1,
+                    }
+                ]
+            }
+        )
+        nodes.append({"name": "edges", "mesh": len(meshes) - 1, "extras": {"kind": "edges"}})
+    nodes.append(
+        {"name": "part", "rotation": Z_UP_TO_Y_UP, "children": list(range(len(nodes)))}
+    )
+    document = {
+        "asset": {"version": "2.0", "generator": "nfinit"},
+        "scene": 0,
+        "scenes": [{"nodes": [len(nodes) - 1], "extras": scene_extras}],
+        "nodes": nodes,
+        "meshes": meshes,
+        "materials": [
+            {
+                "name": "body",
+                "pbrMetallicRoughness": {
+                    "baseColorFactor": [0.28, 0.32, 0.39, 1.0],
+                    "metallicFactor": 0.18,
+                    "roughnessFactor": 0.48,
+                },
+            },
+            {"name": "edges", "pbrMetallicRoughness": {"baseColorFactor": [0.08, 0.09, 0.11, 1.0]}},
+        ],
+        "accessors": accessors,
+        "bufferViews": buffer_views,
+        "buffers": [{"byteLength": len(buffer)}],
+    }
+    json_chunk = json.dumps(document, separators=(",", ":")).encode()
+    json_chunk += b" " * (-len(json_chunk) % 4)
+    while len(buffer) % 4:
+        buffer.append(0)
+    with open(path, "wb") as output:
+        output.write(struct.pack("<III", 0x46546C67, 2, 28 + len(json_chunk) + len(buffer)))
+        output.write(struct.pack("<II", len(json_chunk), 0x4E4F534A) + json_chunk)
+        output.write(struct.pack("<II", len(buffer), 0x004E4942) + bytes(buffer))
+
+
+def _export_viewer_glb(result, output_path: Path, feature_records, constraint_records):
+    """A GLB the studio can show as CAD: faces with their IDs, and edges."""
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+
+    entity_records = _entity_records(result)
+    edge_records, face_records = entity_records
+    topology = _topology(
+        result,
+        feature_records=feature_records,
+        constraint_records=constraint_records,
+        entity_records=entity_records,
+    )
+    owner = {
+        face_id: feature["id"]
+        for feature in topology["features"]
+        for face_id in feature["ownedFaceIds"]
+    }
+
+    bounds = result.bounding_box()
+    diagonal = math.dist(tuple(bounds.min), tuple(bounds.max))
+    linear = min(0.5, max(0.01, diagonal / 2000))
+    angular = 0.15
+    BRepMesh_IncrementalMesh(result.wrapped, linear, False, angular, True)
+
+    faces = []
+    seams = []
+    for record in face_records:
+        mesh = _face_mesh(record["shape"])
+        face_shape = record["shape"]
+        seams += [
+            edge for edge in face_shape.edges()
+            if BRep_Tool.IsClosed_s(edge.wrapped, face_shape.wrapped)
+        ]
+        if mesh is None:
+            continue
+        payload = record["payload"]
+        faces.append(
+            {
+                "id": payload["id"],
+                "mesh": mesh,
+                "extras": {
+                    "faceId": payload["id"],
+                    "surfaceType": payload["surface_type"],
+                    "featureId": owner.get(payload["id"]),
+                },
+            }
+        )
+
+    edge_segments = []
+    for record in edge_records:
+        # A seam (where a cylinder closes on itself) is not a real edge.
+        if any(record["shape"].is_same(seam) for seam in seams):
+            continue
+        edge_segments += _edge_segments(record["shape"], angular, linear)
+
+    _write_viewer_glb(
+        output_path,
+        faces,
+        edge_segments,
+        {
+            "format": VIEWER_FORMAT,
+            "topologyVersion": topology["topologyVersion"],
+            "features": [
+                {key: feature[key] for key in ("id", "name", "operation", "parentId", "ownedFaceIds")}
+                for feature in topology["features"]
+            ],
+        },
+    )
+    return {"faces": len(faces), "edgeSegments": len(edge_segments) // 6}
+
+
 def _export(result, operation: str, output_name: str):
-    from build123d.exporters3d import export_brep, export_gltf, export_step, export_stl
+    from build123d.exporters3d import export_brep, export_step, export_stl
 
     output_path = (Path.cwd() / output_name).resolve()
     if output_path.parent != Path.cwd().resolve():
         raise PermissionError("Output path must stay inside the sandbox directory.")
 
     if operation == "glb":
-        success = export_gltf(result, str(output_path), binary=True)
+        success = output_path.is_file()
     elif operation == "step":
         success = export_step(result, str(output_path))
     elif operation == "brep":
@@ -718,6 +946,11 @@ def handle_request(request: dict) -> dict:
             feature_records=feature_records,
             constraint_records=constraint_records,
         )
+    if operation == "glb":
+        output_path = (Path.cwd() / request["output_name"]).resolve()
+        if output_path.parent != Path.cwd().resolve():
+            raise PermissionError("Output path must stay inside the sandbox directory.")
+        _export_viewer_glb(result, output_path, feature_records, constraint_records)
     data = _export(result, operation, request["output_name"])
     if operation == "glb":
         # Geometry facts cost about a millisecond once the shape exists, and

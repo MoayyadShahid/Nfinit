@@ -54,8 +54,13 @@ def read_mesh_token(token: str) -> tuple[str, str, int]:
         raise HTTPException(status_code=404, detail="Mesh link not found.") from error
 
 
+# Bump when the GLB layout changes, so stored meshes are rebuilt once.
+MESH_FORMAT = "nfinit-brep-1"
+
+
 def code_hash(code: str) -> str:
-    return hashlib.sha256(code.encode()).hexdigest()
+    """Names a stored mesh: the code it was built from, in the current format."""
+    return hashlib.sha256(f"{MESH_FORMAT}\n{code}".encode()).hexdigest()
 
 
 def _build(code: str) -> StoredMesh:

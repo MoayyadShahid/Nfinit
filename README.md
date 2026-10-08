@@ -271,6 +271,13 @@ chat messages, model selection, selected-face context, and the latest agent run
 ID. Loading an older revision never overwrites history; save it again to create
 a new revision.
 
+The studio's GLB holds one glTF node per B-rep face, named and tagged with
+its content-addressed face ID, surface type and owning feature, plus one line
+node with the part's edges (seams left out). The scene's extras carry the
+topology version and the feature list. The viewer draws the edges over the
+faces, highlights the face under the pointer, and takes a clicked face's ID
+straight from the mesh, so selecting a face needs no backend call.
+
 Each project keeps its latest built mesh (GLB) and geometry facts. The studio
 asks for `GET /projects/{project_id}/revisions/{n}/mesh` through the Next.js
 proxy and receives a signed link that expires after five minutes. The browser
