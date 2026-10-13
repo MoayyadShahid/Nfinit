@@ -32,20 +32,27 @@ const COPY: Record<PaywallReason, { title: ReactNode; body: string }> = {
 export function Paywall({
   reason,
   onClose,
+  taxAtCheckout = false,
 }: {
   reason: PaywallReason | null;
   onClose: () => void;
+  /** Stripe adds tax at checkout: show the price as "+ tax". */
+  taxAtCheckout?: boolean;
 }) {
   // Remounted on every opening, so a past checkout error never lingers.
-  return reason ? <PaywallPanel reason={reason} onClose={onClose} /> : null;
+  return reason ? (
+    <PaywallPanel reason={reason} onClose={onClose} taxAtCheckout={taxAtCheckout} />
+  ) : null;
 }
 
 function PaywallPanel({
   reason,
   onClose,
+  taxAtCheckout,
 }: {
   reason: PaywallReason;
   onClose: () => void;
+  taxAtCheckout: boolean;
 }) {
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +102,9 @@ function PaywallPanel({
           disabled={isStarting}
           className="wb-btn wb-btn-primary mt-6 w-full justify-center"
         >
-          {isStarting ? "Opening checkout…" : "Start building — $20/mo + tax"}
+          {isStarting
+            ? "Opening checkout…"
+            : `Start building — $20/mo${taxAtCheckout ? " + tax" : ""}`}
         </button>
         {/* Auto-renewal laws require these terms next to the subscribe button. */}
         <p className="mt-3 text-center text-xs leading-5 text-[var(--muted)]">

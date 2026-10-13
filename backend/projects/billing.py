@@ -41,6 +41,18 @@ def billing_enabled() -> bool:
     return bool(os.getenv("STRIPE_SECRET_KEY", "").strip())
 
 
+def automatic_tax_enabled() -> bool:
+    """Stripe Tax adds tax at checkout. Turn it on only after Stripe Tax is
+    set up in the Stripe dashboard (origin address, registrations, and a
+    default tax behavior); otherwise Stripe rejects every checkout."""
+    return os.getenv("STRIPE_AUTOMATIC_TAX", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _setting(name: str) -> str:
     value = os.getenv(name, "").strip()
     if not value:
@@ -82,6 +94,8 @@ class BillingStatus(BaseModel):
     cancel_at_period_end: bool = Field(
         default=False, serialization_alias="cancelAtPeriodEnd"
     )
+    # True when Stripe adds tax at checkout, so the price is shown "+ tax".
+    tax_at_checkout: bool = Field(default=False, serialization_alias="taxAtCheckout")
 
 
 class ReturnTo(BaseModel):
@@ -177,15 +191,19 @@ def _sync_subscription(
 def billing_status(store: Store, user_id: UserId):
     if not billing_enabled():
         return BillingStatus(enabled=False, active=True, status="billing_disabled")
+    tax = automatic_tax_enabled()
     record = store.get_subscription(user_id=user_id)
     if record is None:
-        return BillingStatus(enabled=True, active=False, status="none")
+        return BillingStatus(
+            enabled=True, active=False, status="none", tax_at_checkout=tax
+        )
     return BillingStatus(
         enabled=True,
         active=record.active,
         status=record.status,
         current_period_end=record.current_period_end,
         cancel_at_period_end=record.cancel_at_period_end,
+        tax_at_checkout=tax,
     )
 
 
@@ -210,8 +228,18 @@ def start_checkout(request: ReturnTo, store: Store, user: User):
             record = SubscriptionRecord(stripe_customer_id=customer.id)
             store.save_subscription(record, user_id=user.id)
 
+        tax_params: dict[str, Any] = {}
+        if automatic_tax_enabled():
+            tax_params = {
+                "automatic_tax": {"enabled": True},
+                # Tax depends on where the customer lives; Checkout asks for
+                # the address and saves it on the existing customer.
+                "billing_address_collection": "required",
+                "customer_update": {"address": "auto", "name": "auto"},
+            }
         session = client.v1.checkout.sessions.create(
             params={
+                **tax_params,
                 "mode": "subscription",
                 "customer": record.stripe_customer_id,
                 "client_reference_id": user.id,

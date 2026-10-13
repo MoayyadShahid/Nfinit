@@ -1,19 +1,24 @@
 /**
  * Facts the Terms of Service and Privacy Policy depend on. Change them here,
  * not in the pages. When a value changes in a way that matters to users,
- * update EFFECTIVE_DATE and tell subscribers by email.
+ * update effectiveDate and tell subscribers by email.
  */
 export const LEGAL = {
   serviceName: "Nfinit",
   /** The person or company that runs Nfinit and signs the contract. */
-  operator: "[OPERATOR NAME]",
+  operator: "Moayyad Shahid",
+  /** Where the operator is based. */
+  location: "Toronto, Ontario, Canada",
   /** Where users send privacy requests, billing problems and legal notices. */
-  contactEmail: "[CONTACT EMAIL]",
-  /** The US state whose law governs the Terms, for example "New York". */
-  governingState: "[STATE]",
+  contactEmail: "muayyad.shahid1@gmail.com",
+  /** The person accountable for personal information (PIPEDA, Quebec Law 25). */
+  privacyOfficer: "Moayyad Shahid",
+  /** The law that governs the Terms, and the courts for disputes. */
+  governingLaw: "the Province of Ontario and the federal laws of Canada that apply there",
+  courts: "Toronto, Ontario",
   effectiveDate: "October 13, 2026",
   minimumAge: 13,
-  monthlyPrice: "$20",
+  monthlyPrice: "US$20",
   appUrl: "https://nfinit.dev",
 } as const;
 

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "What data Nfinit collects, why, who receives it, and your rights.",
 };
 
-const { operator, contactEmail, minimumAge } = LEGAL;
+const { operator, location, contactEmail, privacyOfficer, minimumAge } = LEGAL;
 const mail = `mailto:${contactEmail}`;
 
 /** Every service that receives personal data, and what it receives. */
@@ -70,8 +70,11 @@ export default function PrivacyPage() {
             and we do not use your designs to train AI models.
           </li>
           <li>
-            You can delete a project at any time in the studio. To get a copy of your data
-            or delete your account, email{" "}
+            You can delete a project in the studio, and delete your whole account on the{" "}
+            <Link href="/account" className="underline underline-offset-4">
+              Account page
+            </Link>
+            . To get a copy of your data, email{" "}
             <a href={mail} className="underline underline-offset-4">
               {contactEmail}
             </a>
@@ -82,10 +85,14 @@ export default function PrivacyPage() {
     >
       <Section id="who" title="1. Who we are">
         <p>
-          {operator} (&ldquo;Nfinit&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;) runs the
-          Nfinit website and studio and is responsible for your personal data. Contact us
-          about privacy at <a href={mail}>{contactEmail}</a>. This policy is part of our{" "}
+          {operator} (&ldquo;Nfinit&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;), based in{" "}
+          {location}, runs the Nfinit website and studio and is responsible for your
+          personal data. This policy is part of our{" "}
           <Link href="/terms">Terms of Service</Link>.
+        </p>
+        <p>
+          Our privacy officer, {privacyOfficer}, is accountable for how we handle personal
+          data. Contact our privacy officer at <a href={mail}>{contactEmail}</a>.
         </p>
       </Section>
 
@@ -148,6 +155,11 @@ export default function PrivacyPage() {
           <li>to obey the law and protect our rights.</li>
         </ul>
         <p>
+          We send you only emails about your account and the Service, such as receipts and
+          notices of changes. We do not send marketing emails unless you agree to receive
+          them, and you can stop them at any time.
+        </p>
+        <p>
           <strong>We do not sell your personal data. We do not show ads.</strong> We do not
           use your content to train AI models. If we ever want to use your content to
           improve the Service in a new way, we will ask for your permission first, and you
@@ -177,7 +189,13 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section id="legal-bases" title="5. Legal bases (EU and UK users)">
+      <Section id="legal-bases" title="5. Consent and legal bases">
+        <p>
+          When you create an account and use Nfinit, you consent to the collection, use and
+          disclosure of your personal data as this policy describes. You can withdraw your
+          consent at any time by deleting your account. We cannot run the Service for you
+          without the data it needs.
+        </p>
         <p>Where EU or UK data protection law applies, we use your data because:</p>
         <ul>
           <li>
@@ -195,10 +213,16 @@ export default function PrivacyPage() {
 
       <Section id="transfers" title="6. Where your data is processed">
         <p>
-          We and our service providers process data in the United States and possibly in
-          other countries. When we transfer personal data from the EU or the UK, we rely on
-          the safeguards that our providers offer, such as the European Commission&rsquo;s
-          Standard Contractual Clauses.
+          We are in Canada, but we and our service providers store and process your data in
+          the United States and possibly in other countries. While your data is in another
+          country, it is subject to that country&rsquo;s laws, and its courts, police and
+          government can get access to it under those laws.
+        </p>
+        <p>
+          We choose service providers that protect personal data, and we use their
+          contracts to require that protection. When we transfer personal data from the EU
+          or the UK, we rely on the safeguards that our providers offer, such as the
+          European Commission&rsquo;s Standard Contractual Clauses.
         </p>
       </Section>
 
@@ -216,9 +240,11 @@ export default function PrivacyPage() {
             server memory for a short time and are not saved.
           </li>
           <li>
-            <strong>Account deletion:</strong> when you ask us to delete your account, we
-            delete your personal data within 30 days. Copies in backups are deleted when the
-            backups expire.
+            <strong>Account deletion:</strong> when you select{" "}
+            <strong>Delete account</strong> on the <Link href="/account">Account page</Link>,
+            we cancel your subscription and delete your account and all your data at once.
+            If you ask by email instead, we do this within 30 days. Copies in backups are
+            deleted when the backups expire.
           </li>
           <li>
             <strong>Payment and tax records:</strong> Stripe and we keep these for as long
@@ -241,15 +267,25 @@ export default function PrivacyPage() {
           <li>stop or limit some uses of your data, or withdraw consent.</li>
         </ul>
         <p>
-          Email <a href={mail}>{contactEmail}</a> from the email address of your account. We
-          answer within 30 days. We may ask for more information to confirm that the
+          Email our privacy officer at <a href={mail}>{contactEmail}</a> from the email
+          address of your account. We answer within 30 days. We may ask for more information to confirm that the
           request comes from you. We will not treat you differently because you used these
           rights.
         </p>
         <p>
-          You can delete a project yourself in the studio, and cancel your subscription
-          with the <strong>Billing</strong> button. If you live in the EU or the UK, you can
-          also complain to your data protection authority.
+          You can do some of this yourself: delete a project in the studio, cancel your
+          subscription with the <strong>Billing</strong> button, and delete your account on
+          the <Link href="/account">Account page</Link>.
+        </p>
+        <p>
+          <strong>Complaints:</strong> if you are not satisfied with our answer, you can
+          complain to the{" "}
+          <a href="https://www.priv.gc.ca" rel="noopener" target="_blank">
+            Office of the Privacy Commissioner of Canada
+          </a>
+          . If you live in Quebec, you can also contact the Commission d&rsquo;accès à
+          l&rsquo;information du Québec. If you live in the EU or the UK, you can complain
+          to your data protection authority.
         </p>
         <p>
           <strong>California residents:</strong> we do not sell or share your personal
@@ -267,8 +303,10 @@ export default function PrivacyPage() {
         <p>
           We use encrypted connections (HTTPS), database rules that let each user read only
           their own data, and an isolated sandbox for the code that builds your parts. No
-          system is perfectly secure. If a security problem puts your personal data at
-          risk, we will tell you and the authorities as the law requires.
+          system is perfectly secure. If a breach of our security creates a real risk of
+          significant harm to you, we will tell you as soon as possible, report it to the
+          Office of the Privacy Commissioner of Canada, and inform other authorities as
+          the law requires. We keep a record of every breach.
         </p>
       </Section>
 
@@ -290,7 +328,9 @@ export default function PrivacyPage() {
 
       <Section id="contact" title="12. Contact">
         <p>
-          {operator}
+          {operator}, privacy officer
+          <br />
+          {location}
           <br />
           Email: <a href={mail}>{contactEmail}</a>
         </p>

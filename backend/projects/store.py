@@ -87,6 +87,8 @@ class ProjectStoreProtocol(Protocol):
 
     def delete_project(self, project_id: str, *, user_id: str) -> None: ...
 
+    def delete_account(self, *, user_id: str) -> None: ...
+
     def set_thumbnail(
         self, project_id: str, data: bytes, content_type: str, *, user_id: str
     ) -> None: ...
@@ -509,6 +511,19 @@ class ProjectStore:
             )
             if cursor.rowcount == 0:
                 raise ProjectNotFoundError(project_id)
+
+    def delete_account(self, *, user_id: str) -> None:
+        """Delete everything stored for the user, in one transaction."""
+        with self._connect() as connection:
+            connection.execute("DELETE FROM run_events WHERE user_id = ?", (user_id,))
+            connection.execute(
+                "DELETE FROM project_meshes WHERE user_id = ?", (user_id,)
+            )
+            connection.execute("DELETE FROM cad_runs WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM projects WHERE user_id = ?", (user_id,))
+            connection.execute(
+                "DELETE FROM subscriptions WHERE user_id = ?", (user_id,)
+            )
 
     def set_thumbnail(
         self, project_id: str, data: bytes, content_type: str, *, user_id: str

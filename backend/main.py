@@ -29,6 +29,7 @@ from execution import (
 )
 from projects import router as projects_router
 from projects.billing import SubscribedUserId, billing_enabled
+from projects.account import router as account_router
 from projects.billing import router as billing_router
 from projects.meshes import router as meshes_router
 from projects.runs import router as runs_router
@@ -96,6 +97,7 @@ app.add_middleware(
 app.include_router(projects_router)
 app.include_router(runs_router)
 app.include_router(billing_router)
+app.include_router(account_router)
 app.include_router(meshes_router)
 
 

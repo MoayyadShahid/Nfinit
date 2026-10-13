@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   description: "The agreement between you and Nfinit.",
 };
 
-const { operator, contactEmail, governingState, minimumAge, monthlyPrice } = LEGAL;
+const { operator, location, contactEmail, governingLaw, courts, minimumAge, monthlyPrice } =
+  LEGAL;
 const mail = `mailto:${contactEmail}`;
 
 export default function TermsPage() {
@@ -20,7 +21,7 @@ export default function TermsPage() {
           <li>
             Nfinit turns text descriptions into 3D CAD parts with AI. You can look at
             the demo parts for free. Building, editing and exporting parts needs a
-            subscription of {monthlyPrice} per month, plus tax where it applies.
+            subscription of {monthlyPrice} per month, plus applicable taxes.
           </li>
           <li>
             The subscription renews every month until you cancel. You can cancel at
@@ -101,8 +102,10 @@ export default function TermsPage() {
       <Section id="billing" title="5. Subscription, renewal and cancellation">
         <ul>
           <li>
-            <strong>Price:</strong> {monthlyPrice} per month in US dollars, plus sales tax
-            or VAT where the law requires it. The price is shown before you pay.
+            <strong>Price:</strong> {monthlyPrice} per month, charged in US dollars, plus
+            applicable taxes such as GST/HST, sales tax or VAT. Checkout calculates the
+            tax from your billing address and shows the total before you pay. Your bank
+            can charge a fee to convert the currency.
           </li>
           <li>
             <strong>Automatic renewal:</strong> your subscription renews automatically
@@ -134,6 +137,11 @@ export default function TermsPage() {
           <li>
             <strong>Payments:</strong> Stripe processes all payments. We never see or keep
             your full card number.
+          </li>
+          <li>
+            <strong>Your copy:</strong> Stripe emails you a receipt for each payment. These
+            Terms are always available at <Link href="/terms">nfinit.dev/terms</Link>, and
+            we will email you a copy if you ask.
           </li>
         </ul>
       </Section>
@@ -252,8 +260,11 @@ export default function TermsPage() {
 
       <Section id="termination" title="12. Ending this agreement">
         <p>
-          You can stop using the Service at any time. To close your account and delete
-          your data, email us at <a href={mail}>{contactEmail}</a>.
+          You can stop using the Service at any time. To delete your account and all your
+          data, select <strong>Delete account</strong> on the{" "}
+          <Link href="/account">Account page</Link>. This also cancels your subscription
+          at once, without a refund for the rest of the month. You can also email us at{" "}
+          <a href={mail}>{contactEmail}</a>.
         </p>
         <p>
           We can suspend or close your account if you seriously or repeatedly break these
@@ -277,7 +288,9 @@ export default function TermsPage() {
         </p>
         <p>
           Some places do not allow these disclaimers. In those places, they apply only as
-          far as the law allows, and you keep the rights that the law gives you.
+          far as the law allows, and you keep the rights that the law gives you. If you are
+          a consumer, nothing in these Terms limits the rights you have under consumer
+          protection law, including Ontario&rsquo;s consumer protection legislation.
         </p>
       </Section>
 
@@ -327,16 +340,15 @@ export default function TermsPage() {
           solved quickly this way.
         </p>
         <p>
-          These Terms are governed by the laws of the State of {governingState}, United
-          States, without regard to its conflict-of-law rules. Any dispute that we cannot
-          solve together goes to the state or federal courts in {governingState}, and both
-          of us agree to those courts. Either of us can also use a small-claims court where
-          it has jurisdiction.
+          These Terms are governed by the laws of {governingLaw}, without regard to
+          conflict-of-law rules. Any dispute that we cannot solve together goes to the
+          courts in {courts}, and both of us agree to those courts. Either of us can also
+          use a small-claims court where it has jurisdiction.
         </p>
         <p>
-          If you are a consumer who lives in the European Union, the United Kingdom or
-          another place with mandatory consumer law, you keep the protection of that law
-          and can use the courts where you live.
+          If you are a consumer, and the law where you live (for example in Quebec, the
+          European Union or the United Kingdom) gives you mandatory protection or the right
+          to go to your local courts, you keep that protection and that right.
         </p>
       </Section>
 
@@ -354,6 +366,8 @@ export default function TermsPage() {
       <Section id="contact" title="19. Contact">
         <p>
           {operator}
+          <br />
+          {location}
           <br />
           Email: <a href={mail}>{contactEmail}</a>
         </p>
