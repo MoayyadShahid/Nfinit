@@ -97,7 +97,19 @@ function PaywallPanel({
         >
           {isStarting ? "Opening checkout…" : "Start building — $20/mo + tax"}
         </button>
-        <p className="mt-3 text-center text-xs text-[var(--muted)]">Cancel anytime</p>
+        {/* Auto-renewal laws require these terms next to the subscribe button. */}
+        <p className="mt-3 text-center text-xs leading-5 text-[var(--muted)]">
+          Renews every month until you cancel. Cancel anytime with the Billing button.
+          By subscribing, you agree to the{" "}
+          <a href="/terms" target="_blank" rel="noopener" className="underline underline-offset-2">
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <a href="/privacy" target="_blank" rel="noopener" className="underline underline-offset-2">
+            Privacy Policy
+          </a>
+          .
+        </p>
         {error && (
           <p role="alert" className="mt-2 text-center text-xs text-[var(--danger)]">
             {error}

@@ -1,4 +1,5 @@
 import { Wordmark } from "@/components/brand/Wordmark";
+import { LegalLinks } from "@/components/LegalPage";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FlowHook } from "@/components/landing/FlowHook";
 import { HeroDrone } from "@/components/landing/HeroDrone";
@@ -83,7 +84,7 @@ export default function LandingPage() {
 
       <footer className="mx-auto flex max-w-[1264px] flex-wrap items-center justify-between gap-4 border-t border-[var(--hairline)] px-4 py-6 sm:px-8">
         <Wordmark size={18} />
-        <p className="type-label">Terms · Privacy</p>
+        <LegalLinks />
         <p className="type-label">© 2026</p>
       </footer>
     </div>

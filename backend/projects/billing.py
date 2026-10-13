@@ -218,6 +218,19 @@ def start_checkout(request: ReturnTo, store: Store, user: User):
                 "line_items": [{"price": price_id, "quantity": 1}],
                 "subscription_data": {"metadata": {"user_id": user.id}},
                 "allow_promotion_codes": True,
+                # Auto-renewal laws require the renewal and cancellation terms
+                # next to the button that starts the subscription.
+                "custom_text": {
+                    "submit": {
+                        "message": (
+                            "Your subscription renews every month until you "
+                            "cancel. Cancel anytime with the Billing button in "
+                            "the Nfinit studio. By subscribing, you agree to the "
+                            "Terms "
+                            f"of Service: {_setting('APP_URL').rstrip('/')}/terms"
+                        )
+                    }
+                },
                 "success_url": request.url(checkout="success"),
                 "cancel_url": request.url(checkout="cancel"),
             }

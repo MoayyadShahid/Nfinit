@@ -215,6 +215,9 @@ def test_checkout_creates_one_customer_and_returns_to_the_studio(
         "https://nfinit.dev/studio?demo=gear&checkout=success"
     )
     assert params["cancel_url"] == "https://nfinit.dev/studio?demo=gear&checkout=cancel"
+    renewal = params["custom_text"]["submit"]["message"]
+    assert "renews every month until you cancel" in renewal
+    assert renewal.endswith("https://nfinit.dev/terms")
     assert store.get_subscription(user_id=USER_ID).status == "none"
 
 
