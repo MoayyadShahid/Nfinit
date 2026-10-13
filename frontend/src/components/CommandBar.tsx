@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Code2,
   CreditCard,
+  UserRound,
   Download,
   FilePlus2,
   LayoutGrid,
@@ -171,6 +172,17 @@ export function CommandBar({
             <CreditCard className="size-3.5" />
             <span className="hidden xl:inline">Billing</span>
           </button>
+        )}
+        {viewer && (
+          <Link
+            href="/account"
+            title="Account"
+            aria-label="Account"
+            className="theme-control theme-muted flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)]"
+          >
+            <UserRound className="size-3.5" />
+            <span className="hidden xl:inline">Account</span>
+          </Link>
         )}
         {viewer && (
           <form action="/auth/signout" method="post">

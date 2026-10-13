@@ -159,6 +159,7 @@ def test_billing_disabled_lets_everyone_generate(client, monkeypatch):
         "status": "billing_disabled",
         "currentPeriodEnd": None,
         "cancelAtPeriodEnd": False,
+        "taxAtCheckout": False,
     }
     assert billing.require_subscription(None, USER_ID) == USER_ID
 
@@ -215,7 +216,28 @@ def test_checkout_creates_one_customer_and_returns_to_the_studio(
         "https://nfinit.dev/studio?demo=gear&checkout=success"
     )
     assert params["cancel_url"] == "https://nfinit.dev/studio?demo=gear&checkout=cancel"
+    renewal = params["custom_text"]["submit"]["message"]
+    assert "renews every month until you cancel" in renewal
+    assert renewal.endswith("https://nfinit.dev/terms")
     assert store.get_subscription(user_id=USER_ID).status == "none"
+    # Without STRIPE_AUTOMATIC_TAX, Checkout adds no tax.
+    assert "automatic_tax" not in params
+    assert client.get("/billing/status").json()["taxAtCheckout"] is False
+
+
+def test_checkout_adds_tax_when_stripe_tax_is_turned_on(
+    client, store, fake_stripe, monkeypatch
+):
+    monkeypatch.setenv("STRIPE_AUTOMATIC_TAX", "true")
+
+    response = client.post("/billing/checkout", json={"returnPath": "/studio"})
+
+    assert response.status_code == 200, response.text
+    params = fake_stripe.checkout_params[-1]
+    assert params["automatic_tax"] == {"enabled": True}
+    assert params["billing_address_collection"] == "required"
+    assert params["customer_update"] == {"address": "auto", "name": "auto"}
+    assert client.get("/billing/status").json()["taxAtCheckout"] is True
 
 
 def test_checkout_rejects_subscribed_users_and_foreign_return_paths(

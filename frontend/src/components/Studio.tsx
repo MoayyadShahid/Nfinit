@@ -1323,7 +1323,11 @@ export default function Studio({
         </div>
       )}
 
-      <Paywall reason={paywall} onClose={closePaywall} />
+      <Paywall
+        reason={paywall}
+        onClose={closePaywall}
+        taxAtCheckout={billing?.taxAtCheckout ?? false}
+      />
 
       {advancedOpen && (
         <>

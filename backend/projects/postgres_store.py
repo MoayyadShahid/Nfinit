@@ -320,6 +320,11 @@ class PostgresProjectStore:
             if deleted is None:
                 raise ProjectNotFoundError(project_id)
 
+    def delete_account(self, *, user_id: str) -> None:
+        """Delete the auth user; every user table cascades from it."""
+        with self._connect(user_id) as connection:
+            connection.execute("SELECT public.nfinit_delete_my_account()")
+
     def set_thumbnail(
         self, project_id: str, data: bytes, content_type: str, *, user_id: str
     ) -> None:

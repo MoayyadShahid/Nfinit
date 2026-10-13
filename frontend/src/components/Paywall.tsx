@@ -32,20 +32,27 @@ const COPY: Record<PaywallReason, { title: ReactNode; body: string }> = {
 export function Paywall({
   reason,
   onClose,
+  taxAtCheckout = false,
 }: {
   reason: PaywallReason | null;
   onClose: () => void;
+  /** Stripe adds tax at checkout: show the price as "+ tax". */
+  taxAtCheckout?: boolean;
 }) {
   // Remounted on every opening, so a past checkout error never lingers.
-  return reason ? <PaywallPanel reason={reason} onClose={onClose} /> : null;
+  return reason ? (
+    <PaywallPanel reason={reason} onClose={onClose} taxAtCheckout={taxAtCheckout} />
+  ) : null;
 }
 
 function PaywallPanel({
   reason,
   onClose,
+  taxAtCheckout,
 }: {
   reason: PaywallReason;
   onClose: () => void;
+  taxAtCheckout: boolean;
 }) {
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,9 +102,23 @@ function PaywallPanel({
           disabled={isStarting}
           className="wb-btn wb-btn-primary mt-6 w-full justify-center"
         >
-          {isStarting ? "Opening checkout…" : "Start building — $20/mo + tax"}
+          {isStarting
+            ? "Opening checkout…"
+            : `Start building — $20/mo${taxAtCheckout ? " + tax" : ""}`}
         </button>
-        <p className="mt-3 text-center text-xs text-[var(--muted)]">Cancel anytime</p>
+        {/* Auto-renewal laws require these terms next to the subscribe button. */}
+        <p className="mt-3 text-center text-xs leading-5 text-[var(--muted)]">
+          Renews every month until you cancel. Cancel anytime with the Billing button.
+          By subscribing, you agree to the{" "}
+          <a href="/terms" target="_blank" rel="noopener" className="underline underline-offset-2">
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <a href="/privacy" target="_blank" rel="noopener" className="underline underline-offset-2">
+            Privacy Policy
+          </a>
+          .
+        </p>
         {error && (
           <p role="alert" className="mt-2 text-center text-xs text-[var(--danger)]">
             {error}

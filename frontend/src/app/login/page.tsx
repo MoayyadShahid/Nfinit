@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthPlate } from "@/components/landing/AuthPlate";
@@ -94,7 +95,17 @@ export default async function LoginPage({
         </section>
 
         <footer>
-          <p className="type-label">Terms · Privacy</p>
+          <p className="type-caption">
+            By continuing, you agree to the{" "}
+            <Link href="/terms" className="underline underline-offset-4">
+              Terms of Service
+            </Link>{" "}
+            and confirm that you have read the{" "}
+            <Link href="/privacy" className="underline underline-offset-4">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </footer>
       </main>
     </div>

@@ -9,6 +9,8 @@ export type BillingStatus = {
   status: string;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
+  /** Stripe adds tax at checkout, so the price is shown "+ tax". */
+  taxAtCheckout: boolean;
 };
 
 export function getBillingStatus(): Promise<BillingStatus> {
