@@ -16,6 +16,11 @@ BLOCKED_NODES = (
     ast.Import,
     ast.ImportFrom,
     ast.Lambda,
+    # Pattern matching stores requested attribute names as plain strings in
+    # MatchClass.kwd_attrs.  They never pass through visit_Attribute or
+    # visit_Constant, so a class pattern can otherwise recover blocked methods
+    # such as str.format and use them to walk generator frames.
+    ast.Match,
     ast.Nonlocal,
     ast.Raise,
     ast.Try,

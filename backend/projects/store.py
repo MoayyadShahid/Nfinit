@@ -3,7 +3,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
@@ -32,6 +32,15 @@ class RevisionNotFoundError(LookupError):
 
 class RunNotFoundError(LookupError):
     pass
+
+
+class RunQuotaExceededError(RuntimeError):
+    """An atomic run reservation found that one of the user's caps is full."""
+
+    def __init__(self, reason: str, *, running: int = 0):
+        super().__init__(reason)
+        self.reason = reason
+        self.running = running
 
 
 class ThumbnailNotFoundError(LookupError):
@@ -114,6 +123,23 @@ class ProjectStoreProtocol(Protocol):
         model_id: str,
     ) -> CadRunRecord: ...
 
+    def create_run_with_quota(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        project_id: str | None,
+        prompt: str,
+        model_id: str,
+        now: datetime,
+        running_since: datetime,
+        max_concurrent: int,
+        max_hourly: int,
+        max_daily: int,
+    ) -> CadRunRecord:
+        """Check every run cap and insert under one cross-process lock."""
+        ...
+
     def finish_run(
         self,
         run_id: str,
@@ -146,6 +172,17 @@ class ProjectStoreProtocol(Protocol):
     def save_subscription(
         self, subscription: SubscriptionRecord, *, user_id: str
     ) -> None: ...
+
+    def hit_sandbox_rate(
+        self,
+        *,
+        user_id: str,
+        now: datetime,
+        limit: int,
+        window_seconds: int,
+    ) -> float | None:
+        """Atomically consume a shared sandbox allowance, or return wait seconds."""
+        ...
 
 
 def _timestamp() -> str:
@@ -273,7 +310,13 @@ class ProjectStore:
                     created_at TEXT NOT NULL,
                     PRIMARY KEY (run_id, seq)
                 );
-                PRAGMA user_version = 6;
+                CREATE TABLE IF NOT EXISTS sandbox_rate_events (
+                    user_id TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_sandbox_rate_user_time
+                    ON sandbox_rate_events(user_id, occurred_at);
+                PRAGMA user_version = 7;
                 """
             )
 
@@ -652,6 +695,101 @@ class ProjectStore:
                 (run_id, user_id, project_id, prompt, model_id, _timestamp()),
             )
         return self.get_run(run_id, user_id=user_id)
+
+    def create_run_with_quota(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        project_id: str | None,
+        prompt: str,
+        model_id: str,
+        now: datetime,
+        running_since: datetime,
+        max_concurrent: int,
+        max_hourly: int,
+        max_daily: int,
+    ) -> CadRunRecord:
+        now = now.astimezone(timezone.utc)
+        running_since = running_since.astimezone(timezone.utc).isoformat()
+        hourly_since = (now - timedelta(hours=1)).isoformat()
+        daily_since = (now - timedelta(days=1)).isoformat()
+        created_at = now.isoformat()
+        with self._connect() as connection:
+            # A reserved SQLite write transaction serializes separate local
+            # processes, not just coroutines in this interpreter.
+            connection.execute("BEGIN IMMEDIATE")
+            counts = connection.execute(
+                """
+                SELECT
+                    COALESCE(SUM(status = 'running' AND created_at >= ?), 0)
+                        AS running,
+                    COALESCE(SUM(created_at >= ?), 0) AS hourly,
+                    COALESCE(SUM(created_at >= ?), 0) AS daily
+                FROM cad_runs WHERE user_id = ?
+                """,
+                (running_since, hourly_since, daily_since, user_id),
+            ).fetchone()
+            if int(counts["running"]) >= max_concurrent:
+                raise RunQuotaExceededError(
+                    "concurrent", running=int(counts["running"])
+                )
+            if int(counts["daily"]) >= max_daily:
+                raise RunQuotaExceededError("daily")
+            if int(counts["hourly"]) >= max_hourly:
+                raise RunQuotaExceededError("hourly")
+            connection.execute(
+                """
+                INSERT INTO cad_runs (
+                    id, user_id, project_id, status, prompt, model_id, created_at
+                ) VALUES (?, ?, ?, 'running', ?, ?, ?)
+                """,
+                (run_id, user_id, project_id, prompt, model_id, created_at),
+            )
+            row = connection.execute(
+                "SELECT * FROM cad_runs WHERE id = ? AND user_id = ?",
+                (run_id, user_id),
+            ).fetchone()
+        return self._run(row)
+
+    def hit_sandbox_rate(
+        self,
+        *,
+        user_id: str,
+        now: datetime,
+        limit: int,
+        window_seconds: int,
+    ) -> float | None:
+        now = now.astimezone(timezone.utc)
+        cutoff = (now - timedelta(seconds=window_seconds)).isoformat()
+        occurred_at = now.isoformat()
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "DELETE FROM sandbox_rate_events "
+                "WHERE user_id = ? AND occurred_at <= ?",
+                (user_id, cutoff),
+            )
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS calls, MIN(occurred_at) AS oldest
+                FROM sandbox_rate_events WHERE user_id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+            if limit <= 0:
+                return float(window_seconds)
+            if int(row["calls"]) >= limit:
+                oldest = datetime.fromisoformat(row["oldest"])
+                return max(
+                    0.0,
+                    (oldest + timedelta(seconds=window_seconds) - now).total_seconds(),
+                )
+            connection.execute(
+                "INSERT INTO sandbox_rate_events (user_id, occurred_at) VALUES (?, ?)",
+                (user_id, occurred_at),
+            )
+        return None
 
     def finish_run(
         self,

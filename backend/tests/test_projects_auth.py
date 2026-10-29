@@ -109,6 +109,7 @@ PRODUCTION_SETTINGS = {
     "STRIPE_WEBHOOK_SECRET": "whsec_x",
     "STRIPE_PRICE_ID": "price_x",
     "APP_URL": "https://nfinit.dev",
+    "CORS_ORIGINS": "https://nfinit.dev,https://www.nfinit.dev",
 }
 
 
@@ -126,6 +127,22 @@ def test_complete_production_configuration_starts(monkeypatch):
     _production(monkeypatch)
 
     validate_project_configuration()
+
+
+@pytest.mark.parametrize(
+    "origins",
+    [
+        "*",
+        "https://nfinit.dev,http://localhost:3000",
+        "https://*.vercel.app",
+        "https://nfinit.dev/a/path",
+    ],
+)
+def test_production_configuration_rejects_unsafe_cors(monkeypatch, origins):
+    _production(monkeypatch, CORS_ORIGINS=origins)
+
+    with pytest.raises(RuntimeError, match="exact HTTPS production origins"):
+        validate_project_configuration()
 
 
 def test_local_bypass_is_refused_in_production(monkeypatch):

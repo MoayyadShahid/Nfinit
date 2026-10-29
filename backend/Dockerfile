@@ -17,6 +17,7 @@ RUN apt-get update \
         libx11-6 \
         libxext6 \
         libxrender1 \
+        libseccomp2 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir poetry==2.1.1

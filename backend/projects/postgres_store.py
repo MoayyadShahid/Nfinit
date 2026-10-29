@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from uuid import UUID, uuid4
 
@@ -23,6 +23,7 @@ from .store import (
     ProjectNotFoundError,
     RevisionNotFoundError,
     RunNotFoundError,
+    RunQuotaExceededError,
     StoredMesh,
     ThumbnailNotFoundError,
 )
@@ -453,6 +454,118 @@ class PostgresProjectStore:
                 (run_id, user_id, project_id, prompt, model_id),
             ).fetchone()
         return self._run(row)
+
+    def create_run_with_quota(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        project_id: str | None,
+        prompt: str,
+        model_id: str,
+        now: datetime,
+        running_since: datetime,
+        max_concurrent: int,
+        max_hourly: int,
+        max_daily: int,
+    ) -> CadRunRecord:
+        run_id = self._run_uuid(run_id)
+        if project_id is not None:
+            project_id = self._project_uuid(project_id)
+        now = now.astimezone(timezone.utc)
+        with self._connect(user_id) as connection:
+            # Transaction-scoped advisory locks are shared by every backend
+            # replica and disappear automatically on commit, rollback or a
+            # dead connection.  The count and insert therefore form one
+            # reservation rather than a check-then-act race.
+            connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                (f"nfinit-run:{user_id}",),
+            )
+            counts = connection.execute(
+                """
+                SELECT
+                    COUNT(*) FILTER (
+                        WHERE status = 'running' AND created_at >= %s
+                    ) AS running,
+                    COUNT(*) FILTER (WHERE created_at >= %s) AS hourly,
+                    COUNT(*) FILTER (WHERE created_at >= %s) AS daily
+                FROM public.cad_runs WHERE user_id = %s
+                """,
+                (
+                    running_since,
+                    now - timedelta(hours=1),
+                    now - timedelta(days=1),
+                    user_id,
+                ),
+            ).fetchone()
+            if int(counts["running"]) >= max_concurrent:
+                raise RunQuotaExceededError(
+                    "concurrent", running=int(counts["running"])
+                )
+            if int(counts["daily"]) >= max_daily:
+                raise RunQuotaExceededError("daily")
+            if int(counts["hourly"]) >= max_hourly:
+                raise RunQuotaExceededError("hourly")
+            row = connection.execute(
+                """
+                INSERT INTO public.cad_runs (
+                    id, user_id, project_id, status, prompt, model_id, created_at
+                ) VALUES (%s, %s, %s, 'running', %s, %s, %s)
+                RETURNING *
+                """,
+                (run_id, user_id, project_id, prompt, model_id, now),
+            ).fetchone()
+        return self._run(row)
+
+    def hit_sandbox_rate(
+        self,
+        *,
+        user_id: str,
+        now: datetime,
+        limit: int,
+        window_seconds: int,
+    ) -> float | None:
+        now = now.astimezone(timezone.utc)
+        cutoff = now - timedelta(seconds=window_seconds)
+        with self._connect(user_id) as connection:
+            connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                (f"nfinit-sandbox-rate:{user_id}",),
+            )
+            connection.execute(
+                """
+                DELETE FROM public.sandbox_rate_events
+                WHERE user_id = %s AND occurred_at <= %s
+                """,
+                (user_id, cutoff),
+            )
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS calls, MIN(occurred_at) AS oldest
+                FROM public.sandbox_rate_events WHERE user_id = %s
+                """,
+                (user_id,),
+            ).fetchone()
+            if limit <= 0:
+                return float(window_seconds)
+            if int(row["calls"]) >= limit:
+                return max(
+                    0.0,
+                    (
+                        row["oldest"]
+                        + timedelta(seconds=window_seconds)
+                        - now
+                    ).total_seconds(),
+                )
+            connection.execute(
+                """
+                INSERT INTO public.sandbox_rate_events (user_id, occurred_at)
+                VALUES (%s, %s)
+                """,
+                (user_id, now),
+            )
+        return None
 
     def finish_run(
         self,

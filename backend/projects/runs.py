@@ -32,7 +32,7 @@ from execution import BuildSnapshot, inspect_with_snapshots
 from .auth import get_current_user_id
 from .meshes import store_mesh_for_code
 from .billing import SubscribedUserId
-from .limits import check_run_quota, run_lock, validate_run_request
+from .limits import create_run_under_quota, validate_run_request
 from .models import (
     CadRunRecord,
     CadRunResult,
@@ -327,16 +327,15 @@ async def start_run(
             raise HTTPException(status_code=404, detail="Project not found.") from error
 
     run_id = str(uuid4())
-    async with run_lock(user_id):
-        await asyncio.to_thread(check_run_quota, store, user_id)
-        record = await asyncio.to_thread(
-            store.create_run,
-            run_id,
-            user_id=user_id,
-            project_id=request.project_id,
-            prompt=_prompt_of(request)[:2000],
-            model_id=request.model_id,
-        )
+    record = await asyncio.to_thread(
+        create_run_under_quota,
+        store,
+        run_id=run_id,
+        user_id=user_id,
+        project_id=request.project_id,
+        prompt=_prompt_of(request)[:2000],
+        model_id=request.model_id,
+    )
     _spawn(
         _execute_run(run_id, request, user_id=user_id, store=store, api_key=api_key)
     )

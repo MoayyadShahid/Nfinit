@@ -27,6 +27,15 @@ from execution.runner import SandboxError, _run_worker, export_code, inspect_cod
         "t = '{0.gi_frame}'.format((1 for x in [0]))\nresult = Box(1, 1, 1)",
         "k = {'a': 1}['__import__']\nresult = Box(1, 1, 1)",
         "c = Box.mro\nresult = Box(1, 1, 1)",
+        # MatchClass.kwd_attrs used to bypass visit_Attribute and capture the
+        # blocked str.format method.  The constructed format string then read
+        # the real built-ins through a generator frame.
+        'p = "{" + "0.gi_frame.f_back.f_back.f_builtins" + "}"\n'
+        "match p:\n"
+        "    case str(format=fmt):\n"
+        "        g = (fmt(g) for x in [0])\n"
+        "        h = list(g)[0]\n"
+        "result = int(h)",
     ],
 )
 def test_policy_rejects_unsafe_python(code: str):

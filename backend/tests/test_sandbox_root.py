@@ -67,7 +67,7 @@ def mode(request):
 
 def test_escaped_code_does_not_run_as_root(mode, monkeypatch):
     uid = run_escaped('B["__import__"]("os").getuid()', mode, monkeypatch)
-    assert "value=65534" in uid
+    assert "value=0" not in uid
 
 
 def test_escaped_code_cannot_read_the_server_environment(mode, monkeypatch):
@@ -83,6 +83,40 @@ def test_escaped_code_cannot_change_app_files(mode, monkeypatch):
         f'B["open"]({str(target)!r}, "a")', mode, monkeypatch
     )
     assert "PermissionError" in message
+
+
+def test_escaped_code_cannot_read_another_jobs_directory(mode, monkeypatch):
+    other_job = job_dir()
+    secret = other_job / "result.json"
+    secret.write_text("another user's result", encoding="utf-8")
+    # Model a concurrently running job: its directory belongs to a different
+    # per-job uid and is private to that identity.
+    os.chown(secret, 200001, 200001)
+    os.chown(other_job, 200001, 200001)
+    try:
+        message = run_escaped(f'B["open"]({str(secret)!r}).read()', mode, monkeypatch)
+    finally:
+        shutil.rmtree(other_job, ignore_errors=True)
+    assert "PermissionError" in message
+
+
+def test_escaped_code_cannot_execute_external_programs(mode, monkeypatch):
+    message = run_escaped(
+        'B["__import__"]("subprocess").run(["/usr/bin/id"], check=True)',
+        mode,
+        monkeypatch,
+    )
+    assert any(
+        text in message
+        for text in ("PermissionError", "Operation not permitted", "CalledProcessError")
+    )
+
+
+def test_escaped_code_cannot_create_raw_sockets(mode, monkeypatch):
+    # Importing _socket bypasses the Python-level socket monkeypatch. The
+    # seccomp filter must still stop the kernel socket() syscall.
+    message = run_escaped('B["__import__"]("_socket").socket()', mode, monkeypatch)
+    assert "PermissionError" in message or "Operation not permitted" in message
 
 
 def test_real_parts_still_build_unprivileged(mode, monkeypatch):

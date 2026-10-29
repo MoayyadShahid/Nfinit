@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlsplit
 
 
 def _enabled(value: str | None) -> bool:
@@ -22,6 +23,28 @@ BILLING_SETTINGS = (
     "STRIPE_PRICE_ID",
     "APP_URL",
 )
+
+
+def _valid_production_origin(value: str) -> bool:
+    if not value or "*" in value:
+        return False
+    try:
+        parsed = urlsplit(value)
+        host = (parsed.hostname or "").lower()
+        return (
+            parsed.scheme == "https"
+            and bool(host)
+            and host != "localhost"
+            and not host.endswith(".localhost")
+            and host not in {"127.0.0.1", "::1", "0.0.0.0"}
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.path in {"", "/"}
+            and not parsed.query
+            and not parsed.fragment
+        )
+    except ValueError:
+        return False
 
 
 def validate_project_configuration() -> None:
@@ -54,7 +77,7 @@ def validate_project_configuration() -> None:
             "Production project storage is not configured: " + ", ".join(missing)
         )
 
-    required = ["NFNIT_MESH_URL_SECRET"]
+    required = ["NFNIT_MESH_URL_SECRET", "CORS_ORIGINS"]
     # Without Stripe the paywall is off and every user gets paid features, so
     # that must be a deliberate choice, not a missing variable.
     if not _enabled(os.getenv("NFNIT_ALLOW_FREE_ACCESS")):
@@ -65,4 +88,12 @@ def validate_project_configuration() -> None:
             "Required production settings are missing: "
             + ", ".join(unset)
             + ". Set NFNIT_ALLOW_FREE_ACCESS=true to run without billing."
+        )
+
+    origins = [item.strip() for item in os.environ["CORS_ORIGINS"].split(",")]
+    invalid_origins = [origin for origin in origins if not _valid_production_origin(origin)]
+    if invalid_origins:
+        raise RuntimeError(
+            "CORS_ORIGINS must contain only exact HTTPS production origins; "
+            "wildcards, paths and localhost are not allowed."
         )

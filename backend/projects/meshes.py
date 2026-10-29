@@ -104,7 +104,7 @@ def ensure_mesh(
         return stored
 
     if count_build:
-        check_sandbox_rate(user_id)
+        check_sandbox_rate(store, user_id)
     mesh = _build(revision.state.code)
     try:
         store.save_mesh(project_id, mesh, user_id=user_id)

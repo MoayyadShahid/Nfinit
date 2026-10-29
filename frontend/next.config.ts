@@ -22,6 +22,11 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // VERCEL_ENV is server-only by default. Expose only the environment label
+  // so shared auth configuration can fail closed in Preview builds.
+  env: {
+    NEXT_PUBLIC_NFNIT_VERCEL_ENV: process.env.VERCEL_ENV ?? "local",
+  },
   turbopack: {
     root: path.resolve(__dirname, ".."),
   },

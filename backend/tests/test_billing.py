@@ -230,6 +230,24 @@ def test_checkout_creates_one_customer_and_returns_to_the_studio(
     assert client.get("/billing/status").json()["taxAtCheckout"] is False
 
 
+def test_checkout_idempotency_survives_time_and_return_path_changes(
+    client, fake_stripe, monkeypatch
+):
+    first = client.post(
+        "/billing/checkout", json={"returnPath": "/studio?from=first"}
+    )
+    # The old implementation included both the minute and return path, so
+    # these two otherwise equivalent requests opened a second subscription.
+    monkeypatch.setattr(time, "time", lambda: 4_000_000_000)
+    second = client.post(
+        "/billing/checkout", json={"returnPath": "/parts?from=second"}
+    )
+
+    assert first.status_code == second.status_code == 200
+    keys = [options["idempotency_key"] for options in fake_stripe.checkout_options]
+    assert keys[0] == keys[1]
+
+
 def test_checkout_adds_tax_when_stripe_tax_is_turned_on(
     client, store, fake_stripe, monkeypatch
 ):

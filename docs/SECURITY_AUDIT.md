@@ -352,15 +352,15 @@ Each finding was checked against the code before it was fixed. NFI-001 was repro
 
 | ID | Resolution |
 |---|---|
-| NFI-001 | Fixed in two layers. The policy refuses frame, generator, coroutine, code and traceback attributes (`gi_*`, `f_*`, `tb_*`, `co_*`, `cr_*`, `ag_*`), `format`/`format_map`/`mro`, and any string containing `__`. Each job drops root to `nobody` (no new privileges, not dumpable, process limit) before running code, and fails closed if it cannot. Regression tests cover the payload and variants; `tests/test_sandbox_root.py` runs the escape as root in CI and checks it cannot read `/proc/1/environ` or change app files. Remaining: a separate container or microVM with no network (tracked in `docs/SECURITY.md`). |
+| NFI-001 | Fixed in three layers. The policy refuses frame/generator/coroutine/code/traceback attributes, dangerous formatting, dunder strings, and structural pattern matching (which a follow-up review used to bypass the first fix). Every job gets a unique unprivileged uid, secret-free environment and process limits. On Linux, a fail-closed seccomp filter denies sockets, external program execution, ptrace, mounts and namespace changes. Root CI tests verify the original escape cannot read secrets/app files/another job, execute a binary, or create a raw socket. A separate container or microVM remains recommended defense in depth before enterprise use. |
 | NFI-002 | Fixed. Revision comparison requires a subscription and counts against the sandbox limit. |
 | NFI-003 | Fixed. A mesh rebuild through a download link counts against the sandbox limit. |
 | NFI-004 | Fixed. Production startup requires the Stripe settings unless `NFNIT_ALLOW_FREE_ACCESS=true` is set on purpose. |
 | NFI-005 | Fixed. certifi 2026.10.23. |
-| NFI-006 | Fixed. Bodies over `CAD_MAX_REQUEST_BYTES` (16 MB) are refused before any route reads them, by declared size and while streaming. |
-| NFI-007 | Accepted for now: one backend replica. Move quotas to the database before adding a replica. |
-| NFI-008 | Fixed. Checkout uses an idempotency key; account deletion cancels every active subscription of the customer at Stripe. |
-| NFI-009 | Owner decision: previews stay behind Vercel login. Separate preview backend and database before outside collaborators. |
+| NFI-006 | Fixed. The Next.js proxy and backend both stop declared or streamed bodies over `CAD_MAX_REQUEST_BYTES` (20 MiB by default). Decoded images may total 10 MiB, which fits after base64 expansion plus bounded text/code. |
+| NFI-007 | Fixed. Run quota check-and-insert is one transaction under a per-user PostgreSQL advisory lock. Sandbox sliding-window events are stored in an owner-RLS table and updated under the same kind of cross-replica lock. Two-store concurrent tests cover both paths. Apply migration `20261029120000_shared_usage_limits.sql` before deploying the backend. |
+| NFI-008 | Fixed. Checkout idempotency is derived from stable customer/subscription state, not the minute or return path, so concurrent retries resolve to the same Stripe session until a webhook changes billing state. Account deletion cancels every active subscription of the customer at Stripe. |
+| NFI-009 | Fixed in code, with an operational follow-up. Vercel Preview builds disable Supabase auth and backend access by default. Enable them only with `NEXT_PUBLIC_NFNIT_PREVIEW_ISOLATED=true` after Preview has separate Supabase/Railway resources; production variables should still be removed from the Preview target. |
 | NFI-010 | Fixed. Production startup requires `NFNIT_MESH_URL_SECRET`. |
 | NFI-011 | Fixed. The save error is generic; details stay in the log. |
 | NFI-012 | Fixed. Production startup refuses the bypass; the website ignores it on Vercel production. |

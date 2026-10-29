@@ -9,6 +9,7 @@ This file is launched with Python's isolated mode. It runs in one of two ways:
 """
 
 import contextlib
+import errno
 import hashlib
 import json
 import math
@@ -169,9 +170,12 @@ def _apply_resource_limits():
     _set_limit(resource.RLIMIT_NOFILE, 128)
 
 
-# The unprivileged account jobs run as when the server runs as root.
-SANDBOX_UID = int(os.environ.get("CAD_SANDBOX_UID", "65534"))
-SANDBOX_GID = int(os.environ.get("CAD_SANDBOX_GID", "65534"))
+# Each root-launched job receives a different numeric identity. Linux does not
+# require that these IDs exist in /etc/passwd. Distinct IDs make mode-0700 job
+# directories unreadable to concurrent jobs; using one shared "nobody" user
+# would not.
+SANDBOX_UID_BASE = int(os.environ.get("CAD_SANDBOX_UID_BASE", "100000"))
+SANDBOX_GID_BASE = int(os.environ.get("CAD_SANDBOX_GID_BASE", "100000"))
 # Processes the sandbox account may own at once, threads included. It must
 # leave room for OpenCASCADE's thread pool in every concurrent job, and stops a
 # fork bomb.
@@ -190,27 +194,29 @@ def _drop_privileges(work_dir: Path) -> None:
     """Run the job as an unprivileged account when the server runs as root.
 
     The policy check is the first barrier; this one limits what an escape
-    from it can do. As "nobody" the job cannot read the server's environment
-    (where the secrets are) through /proc, cannot change the app's files, and
-    cannot read or write other jobs' directories (each is private to root
-    until its own job takes it). Not "dumpable", it is also hidden from other
-    jobs running as the same account.
+    from it can do. With a unique numeric uid the job cannot read the server's
+    environment (where the secrets are) through /proc, cannot change the app's
+    files, and cannot read or write another job's mode-0700 directory. Marking
+    it non-dumpable also hides its process memory from other jobs.
     """
     if not hasattr(os, "geteuid") or os.geteuid() != 0:
         return  # Local development: already unprivileged.
+    job_offset = os.getpid()
+    sandbox_uid = SANDBOX_UID_BASE + job_offset
+    sandbox_gid = SANDBOX_GID_BASE + job_offset
+    if sandbox_uid >= 2**32 - 1 or sandbox_gid >= 2**32 - 1:
+        raise PermissionError("The CAD sandbox could not allocate a job identity.")
     try:
         for path in (work_dir, *work_dir.iterdir()):
-            os.chown(path, SANDBOX_UID, SANDBOX_GID)
+            os.chown(path, sandbox_uid, sandbox_gid)
         if sys.platform.startswith("linux"):
             _prctl(38, 1)  # PR_SET_NO_NEW_PRIVS: setuid binaries gain nothing.
         os.setgroups([])
-        os.setgid(SANDBOX_GID)
-        os.setuid(SANDBOX_UID)
+        os.setgid(sandbox_gid)
+        os.setuid(sandbox_uid)
         if sys.platform.startswith("linux"):
             _prctl(4, 0)  # PR_SET_DUMPABLE: no /proc access from other jobs.
     except OSError as error:
-        if os.environ.get("CAD_SANDBOX_ALLOW_ROOT", "").lower() in {"1", "true", "yes"}:
-            return
         # Fail closed: running untrusted code as root is worse than no job.
         raise PermissionError(
             f"The CAD sandbox could not drop root privileges: {error}"
@@ -232,6 +238,88 @@ def _disable_network():
 
     socket.socket = DeniedSocket
     socket.create_connection = denied
+
+
+def _apply_syscall_filter() -> None:
+    """Deny OS escape primitives in the Linux kernel, after imports are warm.
+
+    The AST policy and restricted built-ins reduce attack surface, but Python
+    object graphs are not a security boundary. This filter is inherited by
+    any thread or child an escape manages to create. The job may keep using
+    its already-open result socket, but it cannot create a network socket or
+    execute an external binary.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+
+    import ctypes
+
+    try:
+        library = ctypes.CDLL("libseccomp.so.2", use_errno=True)
+    except OSError as error:
+        raise PermissionError("The CAD sandbox requires libseccomp on Linux.") from error
+
+    library.seccomp_init.argtypes = [ctypes.c_uint32]
+    library.seccomp_init.restype = ctypes.c_void_p
+    library.seccomp_release.argtypes = [ctypes.c_void_p]
+    library.seccomp_syscall_resolve_name.argtypes = [ctypes.c_char_p]
+    library.seccomp_syscall_resolve_name.restype = ctypes.c_int
+    library.seccomp_rule_add.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_int,
+        ctypes.c_uint,
+    ]
+    library.seccomp_rule_add.restype = ctypes.c_int
+    library.seccomp_load.argtypes = [ctypes.c_void_p]
+    library.seccomp_load.restype = ctypes.c_int
+
+    allow = 0x7FFF0000
+    deny = 0x00050000 | errno.EPERM
+    context = library.seccomp_init(allow)
+    if not context:
+        raise PermissionError("The CAD sandbox could not initialize seccomp.")
+    blocked = (
+        "socket",
+        "socketpair",
+        "connect",
+        "bind",
+        "listen",
+        "accept",
+        "accept4",
+        "execve",
+        "execveat",
+        "ptrace",
+        "process_vm_readv",
+        "process_vm_writev",
+        "mount",
+        "umount2",
+        "pivot_root",
+        "unshare",
+        "setns",
+        "bpf",
+        "userfaultfd",
+        "open_by_handle_at",
+        "name_to_handle_at",
+        "keyctl",
+        "add_key",
+        "request_key",
+    )
+    try:
+        for name in blocked:
+            syscall = library.seccomp_syscall_resolve_name(name.encode())
+            if syscall < 0:
+                continue
+            result = library.seccomp_rule_add(context, deny, syscall, 0)
+            if result != 0:
+                raise OSError(-result, f"seccomp_rule_add({name}) failed")
+        result = library.seccomp_load(context)
+        if result != 0:
+            raise OSError(-result, "seccomp_load failed")
+    except OSError as error:
+        raise PermissionError(f"The CAD sandbox could not load seccomp: {error}") from error
+    finally:
+        library.seccomp_release(context)
 
 
 def _json_parameters(parameters, label):
@@ -1212,6 +1300,7 @@ def main():
     _apply_resource_limits()
     request = json.loads(sys.stdin.read())
     _disable_network()
+    _apply_syscall_filter()
     data = handle_request(request)
     print(json.dumps({"ok": True, "data": data}), flush=True)
 
@@ -1279,6 +1368,7 @@ def _serve_job(listener, connection):
         _drop_privileges(work_dir)
         _apply_resource_limits()
         _disable_network()
+        _apply_syscall_filter()
         try:
             response = {"ok": True, "data": handle_request(request)}
         except BaseException as error:

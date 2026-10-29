@@ -58,6 +58,9 @@ def _worker_environment(work_dir: Path) -> dict[str, str]:
             "CAD_SANDBOX_CPU_SECONDS",
             "CAD_SANDBOX_MEMORY_BYTES",
             "CAD_SANDBOX_FILE_BYTES",
+            "CAD_SANDBOX_UID_BASE",
+            "CAD_SANDBOX_GID_BASE",
+            "CAD_SANDBOX_MAX_PROCESSES",
         )
         if name in os.environ
     }

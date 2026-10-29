@@ -10,7 +10,6 @@ import asyncio
 import hashlib
 import logging
 import os
-import time
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
@@ -264,18 +263,28 @@ def start_checkout(request: ReturnTo, store: Store, user: User):
                 "success_url": request.url(checkout="success"),
                 "cancel_url": request.url(checkout="cancel"),
             },
-            # A double click or a retry within the same minute returns the same
-            # session instead of opening a second subscription.
-            options={"idempotency_key": _checkout_key(user.id, request.return_path)},
+            # Every retry while the local billing state is unchanged returns
+            # the same Checkout session.  The key changes only after a Stripe
+            # webhook records a subscription state transition, so concurrent
+            # requests, alternate return paths and minute boundaries cannot
+            # create duplicate subscriptions.
+            options={"idempotency_key": _checkout_key(user.id, record)},
         )
     except stripe.StripeError as error:
         raise _stripe_failed(error) from error
     return RedirectUrl(url=session.url)
 
 
-def _checkout_key(user_id: str, return_path: str) -> str:
-    path = hashlib.sha256(return_path.encode()).hexdigest()[:16]
-    return f"nfinit-checkout-{user_id}-{path}-{int(time.time() // 60)}"
+def _checkout_key(user_id: str, record: SubscriptionRecord) -> str:
+    state = ":".join(
+        (
+            record.stripe_customer_id,
+            record.stripe_subscription_id or "initial",
+            record.status,
+        )
+    )
+    generation = hashlib.sha256(state.encode()).hexdigest()[:24]
+    return f"nfinit-checkout-{user_id}-{generation}"
 
 
 @router.post("/portal", response_model=RedirectUrl)

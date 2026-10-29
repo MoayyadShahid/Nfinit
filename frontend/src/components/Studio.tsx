@@ -979,29 +979,35 @@ export default function Studio({
       takePendingAction();
       return;
     }
-    setIsActivating(true);
-    void waitForActiveSubscription().then((status) => {
-      if (!mountedRef.current) return;
-      setIsActivating(false);
-      if (!status) {
-        setError(
-          "Payment received. Your subscription is still activating; refresh in a minute."
-        );
-        return;
-      }
-      setBilling(status);
-      setResumeAction(takePendingAction());
-    });
+    const timer = window.setTimeout(() => {
+      setIsActivating(true);
+      void waitForActiveSubscription().then((status) => {
+        if (!mountedRef.current) return;
+        setIsActivating(false);
+        if (!status) {
+          setError(
+            "Payment received. Your subscription is still activating; refresh in a minute."
+          );
+          return;
+        }
+        setBilling(status);
+        setResumeAction(takePendingAction());
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [hasInitialized]);
 
   useEffect(() => {
     if (!resumeAction || isLocked) return;
-    setResumeAction(null);
-    if (resumeAction.kind === "send") {
-      void handleChatSend(resumeAction.text, resumeAction.images);
-    } else {
-      void handleExport(resumeAction.format);
-    }
+    const timer = window.setTimeout(() => {
+      setResumeAction(null);
+      if (resumeAction.kind === "send") {
+        void handleChatSend(resumeAction.text, resumeAction.images);
+      } else {
+        void handleExport(resumeAction.format);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [resumeAction, isLocked, handleChatSend, handleExport]);
 
   useEffect(() => {
@@ -1056,8 +1062,11 @@ export default function Studio({
       initialDemo ??
       (showWelcome && isLocked && !initialPrompt ? FIRST_DEMO : undefined);
     if (!slug || !demos.some((item) => item.slug === slug)) return;
-    demoOpened.current = true;
-    void openDemo(slug);
+    const timer = window.setTimeout(() => {
+      demoOpened.current = true;
+      void openDemo(slug);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [billing, demos, hasInitialized, initialDemo, initialPrompt, isLocked, openDemo, showWelcome]);
 
   return (

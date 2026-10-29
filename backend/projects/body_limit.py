@@ -9,7 +9,10 @@ before it is authenticated.
 import json
 import os
 
-DEFAULT_MAX_BODY_BYTES = 16 * 1024 * 1024
+# A run may include up to 10 MiB of decoded images (about 13.4 MiB base64),
+# plus bounded text/code and JSON syntax.  Keep this aligned with the Next.js
+# proxy so neither layer buffers an unbounded body or rejects a valid request.
+DEFAULT_MAX_BODY_BYTES = 20 * 1024 * 1024
 
 
 def max_body_bytes() -> int:
