@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from contextlib import contextmanager
 from uuid import UUID, uuid4
 
@@ -411,6 +412,23 @@ class PostgresProjectStore:
             ).fetchone()
             if saved is None:
                 raise ProjectNotFoundError(project_id)
+
+    def count_runs(
+        self, *, user_id: str, since: datetime, running_since: datetime
+    ) -> tuple[int, int]:
+        with self._connect(user_id) as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    COUNT(*) FILTER (
+                        WHERE status = 'running' AND created_at >= %s
+                    ) AS running,
+                    COUNT(*) FILTER (WHERE created_at >= %s) AS recent
+                FROM public.cad_runs WHERE user_id = %s
+                """,
+                (running_since, since, user_id),
+            ).fetchone()
+        return int(row["running"]), int(row["recent"])
 
     def create_run(
         self,

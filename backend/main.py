@@ -28,7 +28,8 @@ from execution import (
     stop_sandbox,
 )
 from projects import router as projects_router
-from projects.billing import SubscribedUserId, billing_enabled
+from projects.billing import billing_enabled
+from projects.limits import MAX_CODE_CHARS, SandboxUserId
 from projects.account import router as account_router
 from projects.billing import router as billing_router
 from projects.meshes import router as meshes_router
@@ -94,6 +95,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# The API serves JSON and binary files only; these headers stop browsers from
+# guessing other content types, framing responses or leaking URLs.
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+}
+
+
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    for name, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    return response
+
+
 app.include_router(projects_router)
 app.include_router(runs_router)
 app.include_router(billing_router)
@@ -108,24 +130,24 @@ def health():
 
 
 class GenerateMeshRequest(BaseModel):
-    code: str
+    code: str = Field(max_length=MAX_CODE_CHARS)
 
 
 class ExportModelRequest(BaseModel):
-    code: str
+    code: str = Field(max_length=MAX_CODE_CHARS)
     format: str  # "step" | "brep" | "stl"
 
 
 class AnalyzeModelRequest(BaseModel):
-    code: str
+    code: str = Field(max_length=MAX_CODE_CHARS)
     selection: FaceSelection | None = None
 
 
 class CompareModelsRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    previous_code: str = Field(alias="previousCode")
-    current_code: str = Field(alias="currentCode")
+    previous_code: str = Field(alias="previousCode", max_length=MAX_CODE_CHARS)
+    current_code: str = Field(alias="currentCode", max_length=MAX_CODE_CHARS)
     previous_face_id: str | None = Field(default=None, alias="previousFaceId")
 
 
@@ -136,7 +158,7 @@ def _inspect_code(code: str) -> ModelInspection:
 
 @app.post("/inspect-model", response_model=ModelInspection)
 async def inspect_model(
-    request: GenerateMeshRequest, _user: SubscribedUserId
+    request: GenerateMeshRequest, _user: SandboxUserId
 ):
     """Execute CAD code and return geometry facts."""
     return await asyncio.to_thread(_inspect_code, request.code)
@@ -144,7 +166,7 @@ async def inspect_model(
 
 @app.post("/analyze-model", response_model=TopologyAnalysis)
 async def analyze_model(
-    request: AnalyzeModelRequest, _user: SubscribedUserId
+    request: AnalyzeModelRequest, _user: SandboxUserId
 ):
     """Index B-rep entities and optionally resolve a geometric face selection."""
     return await asyncio.to_thread(analyze_code, request.code, request.selection)
@@ -152,7 +174,7 @@ async def analyze_model(
 
 @app.post("/compare-models", response_model=RevisionComparison)
 def compare_models(
-    request: CompareModelsRequest, _user: SubscribedUserId
+    request: CompareModelsRequest, _user: SandboxUserId
 ):
     """Match semantic features, constraints, and faces across two revisions."""
     return compare_code(
@@ -166,7 +188,7 @@ def compare_models(
 async def export_model(
     request: ExportModelRequest,
     background_tasks: BackgroundTasks,
-    _user: SubscribedUserId,
+    _user: SandboxUserId,
 ):
     """Execute build123d code in the sandbox and export the requested format."""
     fmt = request.format.lower()
@@ -202,7 +224,7 @@ async def export_model(
 async def generate_mesh(
     request: GenerateMeshRequest,
     background_tasks: BackgroundTasks,
-    _user: SubscribedUserId,
+    _user: SandboxUserId,
 ):
     """Execute build123d code in the sandbox and return a GLB file."""
     try:

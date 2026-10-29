@@ -15,6 +15,22 @@ function localAuthBypassEnabled() {
   return process.env.NODE_ENV !== "production";
 }
 
+/** True when the browser says the request came from this site. */
+function isSameOrigin(request: Request): boolean {
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite) return fetchSite === "same-origin";
+  const origin = request.headers.get("origin");
+  // Requests without either header come from non-browser clients, which do
+  // not carry a victim's cookies.
+  if (!origin) return true;
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}
+
 /** Forward a request to the backend as the signed-in Supabase user. */
 export async function proxyToBackend(
   request: Request,
@@ -23,6 +39,12 @@ export async function proxyToBackend(
   // sandbox routes pass more: a cold OpenCASCADE import alone can take 90s.
   timeoutMs = 30_000
 ): Promise<Response> {
+  // Session cookies ride along on every request to this origin, so a request
+  // that changes data must also come from this origin (CSRF protection).
+  if (!["GET", "HEAD"].includes(request.method) && !isSameOrigin(request)) {
+    return Response.json({ detail: "Cross-site request refused." }, { status: 403 });
+  }
+
   const backendPath = segments.map(encodeURIComponent).join("/");
   const target = new URL(backendPath, `${BACKEND_URL}/`);
   target.search = new URL(request.url).search;

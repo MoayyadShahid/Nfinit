@@ -1,7 +1,9 @@
 {
   "name": "nfinit",
   "private": true,
-  "workspaces": ["frontend"],
+  "workspaces": [
+    "frontend"
+  ],
   "devDependencies": {
     "tailwindcss": "^4"
   },
@@ -9,5 +11,8 @@
     "dev": "npm run dev -w frontend",
     "build": "npm run build -w frontend",
     "start": "npm run start -w frontend"
+  },
+  "overrides": {
+    "dompurify": "3.4.17"
   }
 }

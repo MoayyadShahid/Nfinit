@@ -161,7 +161,9 @@ def test_agent_crash_is_recorded(client, monkeypatch):
     record = wait_for(client, start(client)["runId"])
 
     assert record["status"] == "failed"
-    assert record["error"] == "CAD agent failed: OpenRouter is down"
+    # Internal error text stays in the log, not in what the user sees.
+    assert record["error"] == "The CAD agent failed unexpectedly. Please try again."
+    assert "OpenRouter" not in record["error"]
     assert record["result"] is None
 
 

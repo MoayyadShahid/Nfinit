@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 
 from execution import SandboxError, build_mesh
 
-from .billing import SubscribedUserId
+from .limits import SandboxUserId
 from .models import RevisionMesh
 from .signed_links import read_token, sign_token
 from .store import (
@@ -131,7 +131,7 @@ def store_mesh_for_code(
     response_model=RevisionMesh,
 )
 def get_revision_mesh(
-    project_id: str, revision_number: int, store: Store, user_id: SubscribedUserId
+    project_id: str, revision_number: int, store: Store, user_id: SandboxUserId
 ):
     mesh = ensure_mesh(
         store,

@@ -24,3 +24,11 @@ def _stop_cad_sandbox():
     from execution import stop_sandbox
 
     stop_sandbox()
+
+# Older fixtures name models the studio no longer offers; the run allowlist
+# itself is tested in test_limits.py.
+os.environ.setdefault(
+    "CAD_ALLOWED_MODELS",
+    "anthropic/claude-sonnet-5.5,anthropic/claude-opus-5.5,"
+    "anthropic/claude-opus-5,openai/gpt-6-astra-pro",
+)
