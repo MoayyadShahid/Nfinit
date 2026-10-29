@@ -35,7 +35,8 @@ def escape(expression: str) -> str:
         "g = (g.gi_frame.f_back.f_back.f_builtins for x in [0])\n"
         "B = list(g)[0]\n"
         f"value = {expression}\n"
-        "result = int(str(value))\n"
+        # int() of a non-number fails, and the error carries the value back.
+        "result = int('value=' + str(value))\n"
     )
 
 
@@ -66,7 +67,7 @@ def mode(request):
 
 def test_escaped_code_does_not_run_as_root(mode, monkeypatch):
     uid = run_escaped('B["__import__"]("os").getuid()', mode, monkeypatch)
-    assert "'65534'" in uid
+    assert "value=65534" in uid
 
 
 def test_escaped_code_cannot_read_the_server_environment(mode, monkeypatch):
