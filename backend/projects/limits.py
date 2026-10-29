@@ -178,8 +178,8 @@ class SlidingWindowLimiter:
 _sandbox_limiter = SlidingWindowLimiter(_int_setting("CAD_SANDBOX_CALLS_PER_MINUTE", 60), 60.0)
 
 
-def limit_sandbox_calls(user_id: Annotated[str, Depends(require_subscription)]) -> str:
-    """A subscribed user's id, if they are under their sandbox call limit."""
+def check_sandbox_rate(user_id: str) -> None:
+    """Count one sandbox call for the user; raise 429 when over the limit."""
     wait = _sandbox_limiter.hit(user_id)
     if wait is not None:
         raise HTTPException(
@@ -187,6 +187,11 @@ def limit_sandbox_calls(user_id: Annotated[str, Depends(require_subscription)]) 
             detail="Too many requests. Please slow down.",
             headers={"Retry-After": str(max(1, int(wait) + 1))},
         )
+
+
+def limit_sandbox_calls(user_id: Annotated[str, Depends(require_subscription)]) -> str:
+    """A subscribed user's id, if they are under their sandbox call limit."""
+    check_sandbox_rate(user_id)
     return user_id
 
 

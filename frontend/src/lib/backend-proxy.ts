@@ -9,6 +9,9 @@ const BACKEND_URL = (
 
 function localAuthBypassEnabled() {
   const explicit = process.env.NFNIT_ALLOW_LOCAL_AUTH_BYPASS;
+  // Never on the production deployment, whatever the variable says: the
+  // bypass would sign every visitor in as one shared user.
+  if (process.env.VERCEL_ENV === "production") return false;
   if (explicit !== undefined) {
     return ["1", "true", "yes", "on"].includes(explicit.trim().toLowerCase());
   }

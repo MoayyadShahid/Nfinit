@@ -28,21 +28,31 @@ ENDED_STATUSES = frozenset({"none", "canceled", "incomplete_expired"})
 
 
 def _cancel_subscription(store: ProjectStoreProtocol, user_id: str) -> None:
+    """Cancel every subscription of the user's Stripe customer that can still
+    charge. The local record holds only the latest one, and a double checkout
+    can have created another."""
     if not billing.billing_enabled():
         return
     record = store.get_subscription(user_id=user_id)
-    if (
-        record is None
-        or record.stripe_subscription_id is None
-        or record.status in ENDED_STATUSES
-    ):
+    if record is None:
         return
-    try:
-        billing._client().v1.subscriptions.cancel(record.stripe_subscription_id)
-    except stripe.InvalidRequestError as error:
-        if error.code != "resource_missing":
-            raise
-        # Already gone at Stripe: nothing left to charge.
+    client = billing._client()
+    subscription_ids = {
+        subscription["id"]
+        for subscription in client.v1.subscriptions.list(
+            params={"customer": record.stripe_customer_id, "status": "all", "limit": 100}
+        ).auto_paging_iter()
+        if subscription["status"] not in ENDED_STATUSES
+    }
+    if record.stripe_subscription_id and record.status not in ENDED_STATUSES:
+        subscription_ids.add(record.stripe_subscription_id)
+    for subscription_id in sorted(subscription_ids):
+        try:
+            client.v1.subscriptions.cancel(subscription_id)
+        except stripe.InvalidRequestError as error:
+            if error.code != "resource_missing":
+                raise
+            # Already gone at Stripe: nothing left to charge.
 
 
 @router.delete("", status_code=status.HTTP_204_NO_CONTENT)

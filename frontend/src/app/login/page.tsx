@@ -8,6 +8,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getAuthenticatedUser } from "@/lib/supabase/server";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { safeNextPath } from "@/lib/safe-path";
 
 export const metadata: Metadata = {
   title: "Log in — nfinit",
@@ -16,11 +17,6 @@ export const dynamic = "force-dynamic";
 
 // Thin space before units (spec §3).
 const T = "\u2009";
-
-function safeNextPath(value: string | string[] | undefined): string {
-  const path = Array.isArray(value) ? value[0] : value;
-  return path?.startsWith("/") && !path.startsWith("//") ? path : "/studio";
-}
 
 /** The prompt a visitor typed on the landing page, carried through `next`. */
 function carriedPrompt(nextPath: string): string | null {

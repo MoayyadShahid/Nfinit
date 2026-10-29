@@ -47,6 +47,13 @@ jobs:
       - name: Run backend tests
         working-directory: backend
         run: poetry run python -m pytest -q
+      - name: Run sandbox isolation tests as root
+        working-directory: backend
+        # Production runs as root; jobs must drop to an unprivileged account.
+        # The job's account must be able to read the virtualenv it imports.
+        run: |
+          chmod o+rx "$HOME" "$HOME/work" "$GITHUB_WORKSPACE/.." "$GITHUB_WORKSPACE" || true
+          sudo -E "$(pwd)/.venv/bin/python" -m pytest -q -rs tests/test_sandbox_root.py
 
   cad50:
     name: CAD50 deterministic gate

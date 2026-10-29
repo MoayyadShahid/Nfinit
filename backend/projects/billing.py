@@ -7,8 +7,10 @@ has access, so a deploy before Stripe is set up does not lock users out.
 """
 
 import asyncio
+import hashlib
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
@@ -261,11 +263,19 @@ def start_checkout(request: ReturnTo, store: Store, user: User):
                 },
                 "success_url": request.url(checkout="success"),
                 "cancel_url": request.url(checkout="cancel"),
-            }
+            },
+            # A double click or a retry within the same minute returns the same
+            # session instead of opening a second subscription.
+            options={"idempotency_key": _checkout_key(user.id, request.return_path)},
         )
     except stripe.StripeError as error:
         raise _stripe_failed(error) from error
     return RedirectUrl(url=session.url)
+
+
+def _checkout_key(user_id: str, return_path: str) -> str:
+    path = hashlib.sha256(return_path.encode()).hexdigest()[:16]
+    return f"nfinit-checkout-{user_id}-{path}-{int(time.time() // 60)}"
 
 
 @router.post("/portal", response_model=RedirectUrl)

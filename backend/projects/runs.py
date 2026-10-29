@@ -275,7 +275,8 @@ async def _execute_run(
                     failure,
                     exc_info=True,
                 )
-                error = f"The part was generated but could not be saved: {failure}"
+                # The exception can name tables and hosts; it is already logged above.
+                error = "The part was generated but could not be saved. Please try again."
 
     try:
         await asyncio.to_thread(

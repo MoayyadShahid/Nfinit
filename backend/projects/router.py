@@ -13,6 +13,7 @@ from fastapi import (
 from execution import RevisionComparison, compare_code
 
 from .auth import get_current_user_id
+from .limits import SandboxUserId
 from .models import (
     ProjectCreate,
     ProjectDetail,
@@ -159,7 +160,8 @@ def compare_revisions(
     previous_revision: Annotated[int, Query(alias="previousRevision", ge=1)],
     current_revision: Annotated[int, Query(alias="currentRevision", ge=1)],
     store: Store,
-    user_id: UserId,
+    # Comparing builds both revisions in the sandbox: a paid, rate-limited call.
+    user_id: SandboxUserId,
 ):
     try:
         previous = store.get_revision(

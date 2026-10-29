@@ -29,6 +29,7 @@ from execution import (
 )
 from projects import router as projects_router
 from projects.billing import billing_enabled
+from projects.body_limit import BodySizeLimitMiddleware
 from projects.limits import MAX_CODE_CHARS, SandboxUserId
 from projects.account import router as account_router
 from projects.billing import router as billing_router
@@ -96,6 +97,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Outermost: oversized bodies are refused before anything reads them.
+app.add_middleware(BodySizeLimitMiddleware)
 
 # The API serves JSON and binary files only; these headers stop browsers from
 # guessing other content types, framing responses or leaking URLs.

@@ -130,3 +130,26 @@ def test_runs_lost_by_a_restart_do_not_block_new_runs(client, store, slow_agent,
             (USER_ID,),
         )
     assert start(client).status_code == 202
+
+
+def test_declared_oversized_body_is_refused_before_reading(client, monkeypatch):
+    monkeypatch.setenv("CAD_MAX_REQUEST_BYTES", "2048")
+    response = client.post(
+        "/cad/runs", content=b"x" * 4096, headers={"content-type": "application/json"}
+    )
+    assert response.status_code == 413
+
+
+def test_streamed_oversized_body_is_stopped(client, monkeypatch):
+    monkeypatch.setenv("CAD_MAX_REQUEST_BYTES", "2048")
+
+    def chunks():
+        for _ in range(8):
+            yield b"x" * 1024
+
+    response = client.post(
+        "/cad/runs", content=chunks(), headers={"content-type": "application/json"}
+    )
+    # Stopped either by this limit (413) or by FastAPI reporting the unread
+    # body (400); never parsed as a request.
+    assert response.status_code in (400, 413)

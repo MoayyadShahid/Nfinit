@@ -79,6 +79,14 @@ BLOCKED_ATTRIBUTES = {
 
 BLOCKED_PREFIXES = ("export", "import", "load", "read", "save", "write")
 
+# Interpreter internals: a generator, coroutine, frame, traceback or code
+# object leads to frames, and a frame leads to the real built-ins (f_builtins),
+# which is a full escape. CAD code never needs them.
+BLOCKED_ATTRIBUTE_PREFIXES = ("gi_", "cr_", "ag_", "f_", "tb_", "co_")
+# str.format() and format_map() follow attribute paths inside a string
+# ("{0.gi_frame}"), which this check cannot see.
+BLOCKED_ATTRIBUTES_EXTRA = {"format", "format_map", "mro", "func_globals"}
+
 
 class CodePolicyError(ValueError):
     pass
@@ -111,6 +119,8 @@ class CadCodePolicy(ast.NodeVisitor):
         if (
             node.attr.startswith("_")
             or node.attr in BLOCKED_ATTRIBUTES
+            or node.attr in BLOCKED_ATTRIBUTES_EXTRA
+            or node.attr.startswith(BLOCKED_ATTRIBUTE_PREFIXES)
             or node.attr.lower().startswith(BLOCKED_PREFIXES)
         ):
             raise CodePolicyError(f"Attribute '{node.attr}' is not allowed.")
@@ -121,6 +131,12 @@ class CadCodePolicy(ast.NodeVisitor):
             raise CodePolicyError(
                 f"String literals may not exceed {MAX_STRING_BYTES} bytes."
             )
+        # A dunder name in a string reaches the same internals by subscript
+        # (f_builtins["__import__"]) or by a later lookup.
+        if isinstance(node.value, str) and "__" in node.value:
+            raise CodePolicyError("Strings may not contain '__'.")
+        if isinstance(node.value, bytes) and b"__" in node.value:
+            raise CodePolicyError("Strings may not contain '__'.")
         self.generic_visit(node)
 
 

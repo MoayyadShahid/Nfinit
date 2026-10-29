@@ -25,6 +25,7 @@ class FakeStripe:
         self.subscriptions_by_id: dict[str, dict] = {}
         self.customers_created: list[dict] = []
         self.checkout_params: list[dict] = []
+        self.checkout_options: list[dict] = []
         self.portal_params: list[dict] = []
         real = stripe.StripeClient("sk_test_fake")
         self.construct_event = real.construct_event
@@ -43,8 +44,9 @@ class FakeStripe:
         self.customers_created.append(params)
         return SimpleNamespace(id=f"cus_{len(self.customers_created)}")
 
-    def _create_checkout(self, params):
+    def _create_checkout(self, params, options=None):
         self.checkout_params.append(params)
+        self.checkout_options.append(options or {})
         return SimpleNamespace(url="https://checkout.stripe.test/session")
 
     def _create_portal(self, params):
@@ -220,6 +222,9 @@ def test_checkout_creates_one_customer_and_returns_to_the_studio(
     assert "renews every month until you cancel" in renewal
     assert renewal.endswith("https://nfinit.dev/terms")
     assert store.get_subscription(user_id=USER_ID).status == "none"
+    # A double click reuses one Checkout session.
+    keys = [options["idempotency_key"] for options in fake_stripe.checkout_options]
+    assert keys[0] == keys[1] and USER_ID in keys[0]
     # Without STRIPE_AUTOMATIC_TAX, Checkout adds no tax.
     assert "automatic_tax" not in params
     assert client.get("/billing/status").json()["taxAtCheckout"] is False

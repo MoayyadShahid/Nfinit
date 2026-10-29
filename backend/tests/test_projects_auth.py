@@ -99,3 +99,59 @@ def test_production_configuration_requires_auth_for_postgres(monkeypatch):
 
     with pytest.raises(RuntimeError, match="SUPABASE_URL is required"):
         validate_project_configuration()
+
+
+PRODUCTION_SETTINGS = {
+    "NFNIT_DATABASE_URL": "postgresql://example",
+    "SUPABASE_URL": SUPABASE_URL,
+    "NFNIT_MESH_URL_SECRET": "a" * 64,
+    "STRIPE_SECRET_KEY": "rk_test_x",
+    "STRIPE_WEBHOOK_SECRET": "whsec_x",
+    "STRIPE_PRICE_ID": "price_x",
+    "APP_URL": "https://nfinit.dev",
+}
+
+
+def _production(monkeypatch, **overrides):
+    monkeypatch.delenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", raising=False)
+    monkeypatch.delenv("NFNIT_ALLOW_FREE_ACCESS", raising=False)
+    for name, value in {**PRODUCTION_SETTINGS, **overrides}.items():
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+
+
+def test_complete_production_configuration_starts(monkeypatch):
+    _production(monkeypatch)
+
+    validate_project_configuration()
+
+
+def test_local_bypass_is_refused_in_production(monkeypatch):
+    _production(monkeypatch, NFNIT_ALLOW_LOCAL_AUTH_BYPASS="true")
+    with pytest.raises(RuntimeError, match="must not be set in production"):
+        validate_project_configuration()
+
+    _production(monkeypatch, NFNIT_DATABASE_URL=None, SUPABASE_URL=None)
+    monkeypatch.setenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", "true")
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
+    with pytest.raises(RuntimeError, match="must not be set in production"):
+        validate_project_configuration()
+
+
+@pytest.mark.parametrize(
+    "missing", ["NFNIT_MESH_URL_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
+)
+def test_production_refuses_to_start_without_a_required_secret(monkeypatch, missing):
+    _production(monkeypatch, **{missing: None})
+
+    with pytest.raises(RuntimeError, match=missing):
+        validate_project_configuration()
+
+
+def test_running_without_billing_must_be_explicit(monkeypatch):
+    _production(monkeypatch, STRIPE_SECRET_KEY=None, STRIPE_WEBHOOK_SECRET=None)
+    monkeypatch.setenv("NFNIT_ALLOW_FREE_ACCESS", "true")
+
+    validate_project_configuration()

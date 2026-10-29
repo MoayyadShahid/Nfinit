@@ -17,6 +17,16 @@ from execution.runner import SandboxError, _run_worker, export_code, inspect_cod
         "while True:\n    pass\nresult = Box(1, 1, 1)",
         "def escape():\n    return 1\nresult = escape()",
         "result = export_step(Box(1, 1, 1), '/tmp/model.step')",
+        # Audit NFI-001: a generator's frame reaches the real built-ins.
+        'g = (g.gi_frame.f_back.f_back.f_builtins["vars"](\n'
+        '    g.gi_frame.f_back.f_back.f_builtins["__import__"]("os")\n'
+        ')["popen"]("id") for x in [0])\n'
+        "h = list(g)[0]\nresult = int(''.join(list(h)))",
+        "g = (1 for x in [0])\nf = g.gi_frame\nresult = Box(1, 1, 1)",
+        "f = (1 for x in [0]).gi_code\nresult = Box(1, 1, 1)",
+        "t = '{0.gi_frame}'.format((1 for x in [0]))\nresult = Box(1, 1, 1)",
+        "k = {'a': 1}['__import__']\nresult = Box(1, 1, 1)",
+        "c = Box.mro\nresult = Box(1, 1, 1)",
     ],
 )
 def test_policy_rejects_unsafe_python(code: str):

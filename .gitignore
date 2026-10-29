@@ -1,6 +1,5 @@
-# Root level - prevent accidental tracking of node_modules and package files
+# Root level - prevent accidental tracking of node_modules
 node_modules/
-package-lock.json
 
 # OS files
 .DS_Store

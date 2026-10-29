@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 
 from execution import SandboxError, build_mesh
 
-from .limits import SandboxUserId
+from .limits import SandboxUserId, check_sandbox_rate
 from .models import RevisionMesh
 from .signed_links import read_token, sign_token
 from .store import (
@@ -82,6 +82,7 @@ def ensure_mesh(
     user_id: str,
     project_id: str,
     revision_number: int,
+    count_build: bool = False,
 ) -> StoredMesh:
     """Return the revision's mesh, building and keeping it when needed.
 
@@ -102,6 +103,8 @@ def ensure_mesh(
     if stored is not None and stored.code_hash == code_hash(revision.state.code):
         return stored
 
+    if count_build:
+        check_sandbox_rate(user_id)
     mesh = _build(revision.state.code)
     try:
         store.save_mesh(project_id, mesh, user_id=user_id)
@@ -157,11 +160,14 @@ def get_revision_mesh(
 @router.get("/meshes/{token}")
 def download_mesh(token: str, store: Store):
     user_id, project_id, revision_number = read_mesh_token(token)
+    # A link is reusable until it expires, and alternating two links forces a
+    # rebuild each time, so a rebuild here counts against the sandbox limit.
     mesh = ensure_mesh(
         store,
         user_id=user_id,
         project_id=project_id,
         revision_number=revision_number,
+        count_build=True,
     )
     return Response(
         content=mesh.glb,

@@ -31,7 +31,12 @@ def client(store):
 @pytest.fixture
 def fake_stripe(monkeypatch):
     """Billing on, with a Stripe client whose cancel each test sets."""
-    fake = SimpleNamespace(v1=SimpleNamespace(subscriptions=SimpleNamespace()))
+    fake = SimpleNamespace(
+        v1=SimpleNamespace(subscriptions=SimpleNamespace()), at_stripe=[]
+    )
+    fake.v1.subscriptions.list = lambda params: SimpleNamespace(
+        auto_paging_iter=lambda: iter(fake.at_stripe)
+    )
     monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_fake")
     monkeypatch.setattr(billing, "_client", lambda: fake)
     return fake
@@ -163,3 +168,18 @@ def test_deletion_works_without_billing(client, store):
 
     assert client.delete("/account").status_code == 204
     assert everything_of(store, USER_ID)["projects"] == 0
+
+
+def test_every_active_subscription_at_stripe_is_cancelled(client, store, fake_stripe):
+    cancelled = []
+    fake_stripe.v1.subscriptions.cancel = lambda sub_id: cancelled.append(sub_id)
+    # A double checkout left a second subscription the local record does not know.
+    fake_stripe.at_stripe = [
+        {"id": "sub_1", "status": "active"},
+        {"id": "sub_2", "status": "active"},
+        {"id": "sub_old", "status": "canceled"},
+    ]
+    subscribe(store, status="active")
+
+    assert client.delete("/account").status_code == 204
+    assert cancelled == ["sub_1", "sub_2"]

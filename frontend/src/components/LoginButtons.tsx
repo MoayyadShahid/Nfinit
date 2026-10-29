@@ -3,12 +3,9 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { Provider } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
+import { safeNextPath } from "@/lib/safe-path";
 
 export const AUTH_ERROR_EVENT = "nfinit:auth-error";
-
-function safeNextPath(value: string): string {
-  return value.startsWith("/") && !value.startsWith("//") ? value : "/studio";
-}
 
 function GoogleIcon() {
   return (

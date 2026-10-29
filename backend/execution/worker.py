@@ -169,6 +169,57 @@ def _apply_resource_limits():
     _set_limit(resource.RLIMIT_NOFILE, 128)
 
 
+# The unprivileged account jobs run as when the server runs as root.
+SANDBOX_UID = int(os.environ.get("CAD_SANDBOX_UID", "65534"))
+SANDBOX_GID = int(os.environ.get("CAD_SANDBOX_GID", "65534"))
+# Processes the sandbox account may own at once, threads included. It must
+# leave room for OpenCASCADE's thread pool in every concurrent job, and stops a
+# fork bomb.
+SANDBOX_MAX_PROCESSES = int(os.environ.get("CAD_SANDBOX_MAX_PROCESSES", "256"))
+
+
+def _prctl(option: int, value: int) -> None:
+    import ctypes
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(option, value, 0, 0, 0) != 0:
+        raise OSError(ctypes.get_errno(), f"prctl({option}) failed")
+
+
+def _drop_privileges(work_dir: Path) -> None:
+    """Run the job as an unprivileged account when the server runs as root.
+
+    The policy check is the first barrier; this one limits what an escape
+    from it can do. As "nobody" the job cannot read the server's environment
+    (where the secrets are) through /proc, cannot change the app's files, and
+    cannot read or write other jobs' directories (each is private to root
+    until its own job takes it). Not "dumpable", it is also hidden from other
+    jobs running as the same account.
+    """
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        return  # Local development: already unprivileged.
+    try:
+        for path in (work_dir, *work_dir.iterdir()):
+            os.chown(path, SANDBOX_UID, SANDBOX_GID)
+        if sys.platform.startswith("linux"):
+            _prctl(38, 1)  # PR_SET_NO_NEW_PRIVS: setuid binaries gain nothing.
+        os.setgroups([])
+        os.setgid(SANDBOX_GID)
+        os.setuid(SANDBOX_UID)
+        if sys.platform.startswith("linux"):
+            _prctl(4, 0)  # PR_SET_DUMPABLE: no /proc access from other jobs.
+    except OSError as error:
+        if os.environ.get("CAD_SANDBOX_ALLOW_ROOT", "").lower() in {"1", "true", "yes"}:
+            return
+        # Fail closed: running untrusted code as root is worse than no job.
+        raise PermissionError(
+            f"The CAD sandbox could not drop root privileges: {error}"
+        ) from error
+    if os.getuid() == 0 or os.geteuid() == 0:
+        raise PermissionError("The CAD sandbox is still running as root.")
+    _set_limit(resource.RLIMIT_NPROC, SANDBOX_MAX_PROCESSES)
+
+
 def _disable_network():
     def denied(*_args, **_kwargs):
         raise PermissionError("Network access is disabled in the CAD sandbox.")
@@ -1157,6 +1208,7 @@ def _failure(error: BaseException) -> dict:
 
 def main():
     os.umask(0o077)
+    _drop_privileges(Path.cwd())
     _apply_resource_limits()
     request = json.loads(sys.stdin.read())
     _disable_network()
@@ -1224,6 +1276,7 @@ def _serve_job(listener, connection):
         os.close(null)
         os.close(log)
 
+        _drop_privileges(work_dir)
         _apply_resource_limits()
         _disable_network()
         try:

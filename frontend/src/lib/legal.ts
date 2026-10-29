@@ -16,7 +16,7 @@ export const LEGAL = {
   /** The law that governs the Terms, and the courts for disputes. */
   governingLaw: "the Province of Ontario and the federal laws of Canada that apply there",
   courts: "Toronto, Ontario",
-  effectiveDate: "October 13, 2026",
+  effectiveDate: "October 28, 2026",
   minimumAge: 13,
   monthlyPrice: "US$20",
   appUrl: "https://nfinit.dev",
