@@ -3,6 +3,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
@@ -125,6 +126,14 @@ class ProjectStoreProtocol(Protocol):
     ) -> CadRunRecord: ...
 
     def get_run(self, run_id: str, *, user_id: str) -> CadRunRecord: ...
+
+    def count_runs(
+        self, *, user_id: str, since: datetime, running_since: datetime
+    ) -> tuple[int, int]:
+        """(runs still running that started after ``running_since``, and runs
+        started at or after ``since``). An older "running" run died with its
+        server and must not count."""
+        ...
 
     def add_run_event(self, run_id: str, event: RunEvent, *, user_id: str) -> None: ...
 
@@ -603,6 +612,26 @@ class ProjectStore:
             )
             if cursor.rowcount == 0:
                 raise ProjectNotFoundError(project_id)
+
+    def count_runs(
+        self, *, user_id: str, since: datetime, running_since: datetime
+    ) -> tuple[int, int]:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    COALESCE(SUM(status = 'running' AND created_at >= ?), 0)
+                        AS running,
+                    COALESCE(SUM(created_at >= ?), 0) AS recent
+                FROM cad_runs WHERE user_id = ?
+                """,
+                (
+                    running_since.astimezone(timezone.utc).isoformat(),
+                    since.astimezone(timezone.utc).isoformat(),
+                    user_id,
+                ),
+            ).fetchone()
+        return int(row["running"]), int(row["recent"])
 
     def create_run(
         self,

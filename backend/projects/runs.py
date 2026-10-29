@@ -32,6 +32,7 @@ from execution import BuildSnapshot, inspect_with_snapshots
 from .auth import get_current_user_id
 from .meshes import store_mesh_for_code
 from .billing import SubscribedUserId
+from .limits import check_run_quota, run_lock, validate_run_request
 from .models import (
     CadRunRecord,
     CadRunResult,
@@ -227,7 +228,8 @@ async def _execute_run(
         error = str(timeout)
     except Exception as failure:
         logger.error("CAD agent run %s failed: %s", run_id, failure, exc_info=True)
-        error = f"CAD agent failed: {failure}"
+        # The exception text can name internal services; keep it in the log.
+        error = "The CAD agent failed unexpectedly. Please try again."
     else:
         if state["validation_error"]:
             result = _result_of(state)
@@ -308,6 +310,7 @@ async def start_run(
             status_code=400,
             detail="A non-empty message list ending with a user message is required.",
         )
+    validate_run_request(request)
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -323,14 +326,16 @@ async def start_run(
             raise HTTPException(status_code=404, detail="Project not found.") from error
 
     run_id = str(uuid4())
-    record = await asyncio.to_thread(
-        store.create_run,
-        run_id,
-        user_id=user_id,
-        project_id=request.project_id,
-        prompt=_prompt_of(request)[:2000],
-        model_id=request.model_id,
-    )
+    async with run_lock(user_id):
+        await asyncio.to_thread(check_run_quota, store, user_id)
+        record = await asyncio.to_thread(
+            store.create_run,
+            run_id,
+            user_id=user_id,
+            project_id=request.project_id,
+            prompt=_prompt_of(request)[:2000],
+            model_id=request.model_id,
+        )
     _spawn(
         _execute_run(run_id, request, user_id=user_id, store=store, api_key=api_key)
     )
