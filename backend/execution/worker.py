@@ -226,6 +226,124 @@ def _drop_privileges(work_dir: Path) -> None:
     _set_limit(resource.RLIMIT_NPROC, SANDBOX_MAX_PROCESSES)
 
 
+def _restrict_filesystem(work_dir: Path) -> None:
+    """Allow filesystem changes only beneath this job's private directory.
+
+    A unique uid protects the application and other jobs, but directories such
+    as /tmp are intentionally writable by every uid. Landlock makes the kernel
+    reject escaped code that tries to leave artifacts there. Read access is
+    deliberately not restricted: OpenCASCADE and font handling still need the
+    installed, read-only runtime files after the restriction is installed.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+
+    import ctypes
+
+    # Landlock's three syscalls use the same numbers on the Linux
+    # architectures supported by the production Python image (x86_64/arm64).
+    create_ruleset = 444
+    add_rule = 445
+    restrict_self = 446
+    create_ruleset_version = 1
+    rule_path_beneath = 1
+
+    write_file = 1 << 1
+    remove_dir = 1 << 4
+    remove_file = 1 << 5
+    make_char = 1 << 6
+    make_dir = 1 << 7
+    make_reg = 1 << 8
+    make_sock = 1 << 9
+    make_fifo = 1 << 10
+    make_block = 1 << 11
+    make_sym = 1 << 12
+    refer = 1 << 13  # Landlock ABI 2
+    truncate = 1 << 14  # Landlock ABI 3
+
+    class RulesetAttr(ctypes.Structure):
+        _fields_ = [("handled_access_fs", ctypes.c_uint64)]
+
+    class PathBeneathAttr(ctypes.Structure):
+        _pack_ = 1
+        _fields_ = [
+            ("allowed_access", ctypes.c_uint64),
+            ("parent_fd", ctypes.c_int32),
+        ]
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.syscall.restype = ctypes.c_long
+
+    abi = libc.syscall(create_ruleset, None, 0, create_ruleset_version)
+    if abi < 1:
+        error = ctypes.get_errno()
+        raise PermissionError(
+            f"The CAD sandbox requires Landlock on Linux: {os.strerror(error)}"
+        )
+
+    handled = (
+        write_file
+        | remove_dir
+        | remove_file
+        | make_char
+        | make_dir
+        | make_reg
+        | make_sock
+        | make_fifo
+        | make_block
+        | make_sym
+    )
+    if abi >= 2:
+        handled |= refer
+    if abi >= 3:
+        handled |= truncate
+
+    ruleset_attr = RulesetAttr(handled)
+    ruleset_fd = libc.syscall(
+        create_ruleset,
+        ctypes.byref(ruleset_attr),
+        ctypes.sizeof(ruleset_attr),
+        0,
+    )
+    if ruleset_fd < 0:
+        error = ctypes.get_errno()
+        raise PermissionError(
+            f"The CAD sandbox could not create a Landlock ruleset: {os.strerror(error)}"
+        )
+
+    directory_fd = -1
+    try:
+        directory_fd = os.open(
+            work_dir,
+            os.O_PATH | os.O_CLOEXEC,
+        )
+        path_rule = PathBeneathAttr(handled, directory_fd)
+        result = libc.syscall(
+            add_rule,
+            ruleset_fd,
+            rule_path_beneath,
+            ctypes.byref(path_rule),
+            0,
+        )
+        if result != 0:
+            error = ctypes.get_errno()
+            raise OSError(error, "landlock_add_rule failed")
+        # Required even when the process already dropped root.
+        _prctl(38, 1)  # PR_SET_NO_NEW_PRIVS
+        result = libc.syscall(restrict_self, ruleset_fd, 0)
+        if result != 0:
+            error = ctypes.get_errno()
+            raise OSError(error, "landlock_restrict_self failed")
+    except OSError as error:
+        raise PermissionError(
+            f"The CAD sandbox could not confine its filesystem: {error}"
+        ) from error
+    finally:
+        if directory_fd >= 0:
+            os.close(directory_fd)
+        os.close(ruleset_fd)
+
+
 def _disable_network():
     def denied(*_args, **_kwargs):
         raise PermissionError("Network access is disabled in the CAD sandbox.")
@@ -271,11 +389,20 @@ def _apply_syscall_filter() -> None:
         ctypes.c_uint,
     ]
     library.seccomp_rule_add.restype = ctypes.c_int
+    library.seccomp_rule_add_array.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_int,
+        ctypes.c_uint,
+        ctypes.c_void_p,
+    ]
+    library.seccomp_rule_add_array.restype = ctypes.c_int
     library.seccomp_load.argtypes = [ctypes.c_void_p]
     library.seccomp_load.restype = ctypes.c_int
 
     allow = 0x7FFF0000
     deny = 0x00050000 | errno.EPERM
+    not_supported = 0x00050000 | errno.ENOSYS
     context = library.seccomp_init(allow)
     if not context:
         raise PermissionError("The CAD sandbox could not initialize seccomp.")
@@ -304,6 +431,15 @@ def _apply_syscall_filter() -> None:
         "keyctl",
         "add_key",
         "request_key",
+        # io_uring performs operations in a kernel worker and has bypassed
+        # syscall-oriented sandboxes in the past. The CAD worker does not use
+        # it, so deny the whole interface instead of trying to mirror every
+        # socket/filesystem rule there.
+        "io_uring_setup",
+        "io_uring_enter",
+        "io_uring_register",
+        "fork",
+        "vfork",
     )
     try:
         for name in blocked:
@@ -313,6 +449,40 @@ def _apply_syscall_filter() -> None:
             result = library.seccomp_rule_add(context, deny, syscall, 0)
             if result != 0:
                 raise OSError(-result, f"seccomp_rule_add({name}) failed")
+
+        # Modern libc tries clone3() for pthreads and falls back to clone()
+        # only on ENOSYS. Seccomp cannot inspect clone3's pointed-to argument,
+        # so make that fallback happen and allow clone() only when it creates
+        # a thread in this process. New processes would multiply the per-job
+        # CPU and address-space limits.
+        clone3 = library.seccomp_syscall_resolve_name(b"clone3")
+        if clone3 >= 0:
+            result = library.seccomp_rule_add(context, not_supported, clone3, 0)
+            if result != 0:
+                raise OSError(-result, "seccomp_rule_add(clone3) failed")
+
+        class ScmpArgCmp(ctypes.Structure):
+            _fields_ = [
+                ("arg", ctypes.c_uint),
+                ("op", ctypes.c_uint),
+                ("datum_a", ctypes.c_uint64),
+                ("datum_b", ctypes.c_uint64),
+            ]
+
+        clone = library.seccomp_syscall_resolve_name(b"clone")
+        if clone >= 0:
+            clone_thread = 0x00010000
+            masked_equal = 7
+            comparison = ScmpArgCmp(0, masked_equal, clone_thread, 0)
+            result = library.seccomp_rule_add_array(
+                context,
+                deny,
+                clone,
+                1,
+                ctypes.byref(comparison),
+            )
+            if result != 0:
+                raise OSError(-result, "seccomp_rule_add_array(clone) failed")
         result = library.seccomp_load(context)
         if result != 0:
             raise OSError(-result, "seccomp_load failed")
@@ -1299,6 +1469,7 @@ def main():
     _drop_privileges(Path.cwd())
     _apply_resource_limits()
     request = json.loads(sys.stdin.read())
+    _restrict_filesystem(Path.cwd())
     _disable_network()
     _apply_syscall_filter()
     data = handle_request(request)
@@ -1367,6 +1538,7 @@ def _serve_job(listener, connection):
 
         _drop_privileges(work_dir)
         _apply_resource_limits()
+        _restrict_filesystem(work_dir)
         _disable_network()
         _apply_syscall_filter()
         try:

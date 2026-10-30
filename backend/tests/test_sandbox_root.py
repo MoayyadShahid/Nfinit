@@ -119,6 +119,40 @@ def test_escaped_code_cannot_create_raw_sockets(mode, monkeypatch):
     assert "PermissionError" in message or "Operation not permitted" in message
 
 
+def test_escaped_code_cannot_create_io_uring(mode, monkeypatch):
+    # io_uring_setup is syscall 425 on Linux x86_64 and arm64. A NULL params
+    # pointer would normally produce EFAULT (14); seccomp must return EPERM (1)
+    # before the kernel worker can be used to bypass socket/file syscall rules.
+    message = run_escaped(
+        '((C := B["__import__"]("ctypes")), '
+        '(L := C.CDLL(None, use_errno=True)), '
+        'L.syscall(425, 1, 0), C.get_errno())[-1]',
+        mode,
+        monkeypatch,
+    )
+    assert "value=1" in message
+
+
+def test_escaped_code_cannot_fork_another_process(mode, monkeypatch):
+    message = run_escaped('B["__import__"]("os").fork()', mode, monkeypatch)
+    assert "PermissionError" in message or "Operation not permitted" in message
+
+
+def test_escaped_code_cannot_write_outside_its_job(mode, monkeypatch):
+    target = Path(tempfile.gettempdir()) / f"nfinit-outside-{os.getpid()}-{mode}"
+    target.unlink(missing_ok=True)
+    try:
+        message = run_escaped(
+            f'B["open"]({str(target)!r}, "w").write("escaped")',
+            mode,
+            monkeypatch,
+        )
+        assert "PermissionError" in message or "Permission denied" in message
+        assert not target.exists()
+    finally:
+        target.unlink(missing_ok=True)
+
+
 def test_real_parts_still_build_unprivileged(mode, monkeypatch):
     monkeypatch.setenv("CAD_SANDBOX_MODE", mode)
     work_dir = job_dir()

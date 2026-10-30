@@ -137,15 +137,21 @@ export async function proxyToBackend(
       signal: AbortSignal.timeout(timeoutMs),
     });
     const responseHeaders = new Headers();
-    for (const name of ["content-type", "cache-control", "content-disposition"]) {
+    for (const name of [
+      "content-type",
+      "content-length",
+      "cache-control",
+      "content-disposition",
+    ]) {
       const value = response.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
-    // 204/304 must not carry a body, or the Response constructor throws.
+    // Stream model files instead of copying up to hundreds of megabytes into
+    // the Vercel function's heap. 204/304 must not carry a body.
     const responseBody =
       response.status === 204 || response.status === 304
         ? null
-        : await response.arrayBuffer();
+        : response.body;
     return new Response(responseBody, {
       status: response.status,
       headers: responseHeaders,
@@ -154,14 +160,10 @@ export async function proxyToBackend(
     if (error instanceof RangeError && error.message === "request_body_too_large") {
       return Response.json({ detail: "The request is too large." }, { status: 413 });
     }
-    return Response.json(
-      {
-        detail:
-          error instanceof Error
-            ? `Could not reach the backend: ${error.message}`
-            : "Could not reach the backend.",
-      },
-      { status: 502 }
+    console.error(
+      "Backend proxy request failed:",
+      error instanceof Error ? error.name : "unknown error"
     );
+    return Response.json({ detail: "Could not reach the backend." }, { status: 502 });
   }
 }

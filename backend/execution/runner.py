@@ -19,6 +19,7 @@ from .forkserver import (
     ForkedJobTimeout,
     ForkServer,
     ForkServerUnavailable,
+    MAX_WORKER_RESPONSE_BYTES,
     bootstrap_command,
 )
 from .policy import CodePolicyError, validate_cad_code
@@ -187,33 +188,54 @@ def _run_forked(payload: dict, work_dir: Path, timeout: float) -> dict:
 def _run_spawned(
     payload: dict, worker: Path, work_dir: Path, timeout: float
 ) -> dict:
+    response_path = work_dir / ".worker-response.json"
+    error_path = work_dir / ".worker-stderr.log"
     try:
-        process = subprocess.run(
-            [
-                sys.executable,
-                "-I",
-                "-c",
-                ISOLATED_BOOTSTRAP,
-                str(worker),
-                json.dumps(_trusted_package_paths()),
-            ],
-            input=json.dumps(payload),
-            text=True,
-            capture_output=True,
-            cwd=work_dir,
-            env=_worker_environment(work_dir),
-            timeout=timeout,
-            check=False,
-        )
+        # Files keep a compromised worker's output out of the API process's
+        # memory. The worker's RLIMIT_FSIZE bounds the files; below we refuse
+        # to read more than the much smaller protocol limit.
+        with response_path.open("wb") as stdout, error_path.open("wb") as stderr:
+            process = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    "-c",
+                    ISOLATED_BOOTSTRAP,
+                    str(worker),
+                    json.dumps(_trusted_package_paths()),
+                ],
+                input=json.dumps(payload),
+                text=True,
+                stdout=stdout,
+                stderr=stderr,
+                cwd=work_dir,
+                env=_worker_environment(work_dir),
+                timeout=timeout,
+                check=False,
+            )
     except subprocess.TimeoutExpired as error:
         raise SandboxError(
             "sandbox_timeout", f"CAD execution exceeded {timeout:g} seconds."
         ) from error
 
-    detail = process.stderr.strip()[-2_000:] or (
+    try:
+        if response_path.stat().st_size > MAX_WORKER_RESPONSE_BYTES:
+            raise SandboxError(
+                "sandbox_protocol_error", "Worker response exceeded its size limit."
+            )
+        stdout = response_path.read_text(errors="replace")
+    except OSError as error:
+        raise SandboxError(
+            "sandbox_protocol_error", "Worker response was not available."
+        ) from error
+    try:
+        detail = error_path.read_text(errors="replace").strip()[-2_000:]
+    except OSError:
+        detail = ""
+    detail = detail or (
         f"Worker exited with status {process.returncode}."
     )
-    return _decode_worker_response(process.stdout, detail)
+    return _decode_worker_response(stdout, detail)
 
 
 def _run_worker(

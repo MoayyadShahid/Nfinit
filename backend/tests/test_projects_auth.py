@@ -134,6 +134,10 @@ def test_complete_production_configuration_starts(monkeypatch):
     [
         "*",
         "https://nfinit.dev,http://localhost:3000",
+        "https://127.1",
+        "https://2130706433",
+        "https://0x7f000001",
+        "https://[::1]",
         "https://*.vercel.app",
         "https://nfinit.dev/a/path",
     ],
@@ -172,3 +176,18 @@ def test_running_without_billing_must_be_explicit(monkeypatch):
     monkeypatch.setenv("NFNIT_ALLOW_FREE_ACCESS", "true")
 
     validate_project_configuration()
+
+
+def test_production_rejects_a_weak_link_secret(monkeypatch):
+    _production(monkeypatch, NFNIT_MESH_URL_SECRET="short")
+
+    with pytest.raises(RuntimeError, match="at least 32 bytes"):
+        validate_project_configuration()
+
+
+@pytest.mark.parametrize("app_url", ["http://nfinit.dev", "https://nfinit.dev/path"])
+def test_production_rejects_an_unsafe_app_url(monkeypatch, app_url):
+    _production(monkeypatch, APP_URL=app_url)
+
+    with pytest.raises(RuntimeError, match="exact HTTPS production origin"):
+        validate_project_configuration()

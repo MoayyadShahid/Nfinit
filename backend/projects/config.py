@@ -1,3 +1,4 @@
+import ipaddress
 import os
 from urllib.parse import urlsplit
 
@@ -31,12 +32,25 @@ def _valid_production_origin(value: str) -> bool:
     try:
         parsed = urlsplit(value)
         host = (parsed.hostname or "").lower()
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            address = None
+        # WHATWG URL parsers accept historical IPv4 spellings such as 127.1,
+        # 2130706433 and 0x7f000001 even though ipaddress deliberately does
+        # not. Do not let those spellings smuggle a loopback CORS origin into
+        # production configuration.
+        noncanonical_number = address is None and (
+            all(character in "0123456789." for character in host)
+            or any(label.startswith("0x") for label in host.split("."))
+        )
         return (
             parsed.scheme == "https"
             and bool(host)
             and host != "localhost"
             and not host.endswith(".localhost")
-            and host not in {"127.0.0.1", "::1", "0.0.0.0"}
+            and not (address and (address.is_loopback or address.is_unspecified))
+            and not noncanonical_number
             and parsed.username is None
             and parsed.password is None
             and parsed.path in {"", "/"}
@@ -89,6 +103,16 @@ def validate_project_configuration() -> None:
             + ", ".join(unset)
             + ". Set NFNIT_ALLOW_FREE_ACCESS=true to run without billing."
         )
+
+    signing_secret = os.environ["NFNIT_MESH_URL_SECRET"].strip().encode()
+    if len(signing_secret) < 32:
+        raise RuntimeError(
+            "NFNIT_MESH_URL_SECRET must contain at least 32 bytes in production."
+        )
+
+    app_url = os.getenv("APP_URL", "").strip()
+    if app_url and not _valid_production_origin(app_url):
+        raise RuntimeError("APP_URL must be one exact HTTPS production origin.")
 
     origins = [item.strip() for item in os.environ["CORS_ORIGINS"].split(",")]
     invalid_origins = [origin for origin in origins if not _valid_production_origin(origin)]
