@@ -83,6 +83,27 @@ def test_project_auth_rejects_invalid_subject(monkeypatch):
     assert error.value.status_code == 401
 
 
+def test_project_auth_requires_an_expiry(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", SUPABASE_URL)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
+    token = jwt.encode(
+        {
+            "sub": USER_ID,
+            "aud": "authenticated",
+            "iss": f"{SUPABASE_URL}/auth/v1",
+        },
+        JWT_SECRET,
+        algorithm="HS256",
+    )
+
+    with pytest.raises(HTTPException) as error:
+        get_current_user_id(
+            HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+        )
+
+    assert error.value.status_code == 401
+
+
 def test_production_configuration_fails_closed(monkeypatch):
     monkeypatch.delenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", raising=False)
 
@@ -98,4 +119,96 @@ def test_production_configuration_requires_auth_for_postgres(monkeypatch):
     monkeypatch.setenv("NFNIT_DATABASE_URL", "postgresql://example")
 
     with pytest.raises(RuntimeError, match="SUPABASE_URL is required"):
+        validate_project_configuration()
+
+
+PRODUCTION_SETTINGS = {
+    "NFNIT_DATABASE_URL": "postgresql://example",
+    "SUPABASE_URL": SUPABASE_URL,
+    "NFNIT_MESH_URL_SECRET": "a" * 64,
+    "STRIPE_SECRET_KEY": "rk_test_x",
+    "STRIPE_WEBHOOK_SECRET": "whsec_x",
+    "STRIPE_PRICE_ID": "price_x",
+    "APP_URL": "https://nfinit.dev",
+    "CORS_ORIGINS": "https://nfinit.dev,https://www.nfinit.dev",
+}
+
+
+def _production(monkeypatch, **overrides):
+    monkeypatch.delenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", raising=False)
+    monkeypatch.delenv("NFNIT_ALLOW_FREE_ACCESS", raising=False)
+    for name, value in {**PRODUCTION_SETTINGS, **overrides}.items():
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+
+
+def test_complete_production_configuration_starts(monkeypatch):
+    _production(monkeypatch)
+
+    validate_project_configuration()
+
+
+@pytest.mark.parametrize(
+    "origins",
+    [
+        "*",
+        "https://nfinit.dev,http://localhost:3000",
+        "https://127.1",
+        "https://2130706433",
+        "https://0x7f000001",
+        "https://[::1]",
+        "https://*.vercel.app",
+        "https://nfinit.dev/a/path",
+    ],
+)
+def test_production_configuration_rejects_unsafe_cors(monkeypatch, origins):
+    _production(monkeypatch, CORS_ORIGINS=origins)
+
+    with pytest.raises(RuntimeError, match="exact HTTPS production origins"):
+        validate_project_configuration()
+
+
+def test_local_bypass_is_refused_in_production(monkeypatch):
+    _production(monkeypatch, NFNIT_ALLOW_LOCAL_AUTH_BYPASS="true")
+    with pytest.raises(RuntimeError, match="must not be set in production"):
+        validate_project_configuration()
+
+    _production(monkeypatch, NFNIT_DATABASE_URL=None, SUPABASE_URL=None)
+    monkeypatch.setenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", "true")
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
+    with pytest.raises(RuntimeError, match="must not be set in production"):
+        validate_project_configuration()
+
+
+@pytest.mark.parametrize(
+    "missing", ["NFNIT_MESH_URL_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
+)
+def test_production_refuses_to_start_without_a_required_secret(monkeypatch, missing):
+    _production(monkeypatch, **{missing: None})
+
+    with pytest.raises(RuntimeError, match=missing):
+        validate_project_configuration()
+
+
+def test_running_without_billing_must_be_explicit(monkeypatch):
+    _production(monkeypatch, STRIPE_SECRET_KEY=None, STRIPE_WEBHOOK_SECRET=None)
+    monkeypatch.setenv("NFNIT_ALLOW_FREE_ACCESS", "true")
+
+    validate_project_configuration()
+
+
+def test_production_rejects_a_weak_link_secret(monkeypatch):
+    _production(monkeypatch, NFNIT_MESH_URL_SECRET="short")
+
+    with pytest.raises(RuntimeError, match="at least 32 bytes"):
+        validate_project_configuration()
+
+
+@pytest.mark.parametrize("app_url", ["http://nfinit.dev", "https://nfinit.dev/path"])
+def test_production_rejects_an_unsafe_app_url(monkeypatch, app_url):
+    _production(monkeypatch, APP_URL=app_url)
+
+    with pytest.raises(RuntimeError, match="exact HTTPS production origin"):
         validate_project_configuration()

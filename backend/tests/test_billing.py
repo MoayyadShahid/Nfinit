@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 import main
 from projects import billing
 from projects.auth import CurrentUser, get_current_user, get_current_user_id
-from projects.models import SubscriptionRecord
+from projects.models import ProjectCreate, ProjectState, SubscriptionRecord
 from projects.store import ProjectStore, get_project_store
 
 USER_ID = "00000000-0000-4000-8000-000000000010"
@@ -25,6 +25,7 @@ class FakeStripe:
         self.subscriptions_by_id: dict[str, dict] = {}
         self.customers_created: list[dict] = []
         self.checkout_params: list[dict] = []
+        self.checkout_options: list[dict] = []
         self.portal_params: list[dict] = []
         real = stripe.StripeClient("sk_test_fake")
         self.construct_event = real.construct_event
@@ -43,8 +44,9 @@ class FakeStripe:
         self.customers_created.append(params)
         return SimpleNamespace(id=f"cus_{len(self.customers_created)}")
 
-    def _create_checkout(self, params):
+    def _create_checkout(self, params, options=None):
         self.checkout_params.append(params)
+        self.checkout_options.append(options or {})
         return SimpleNamespace(url="https://checkout.stripe.test/session")
 
     def _create_portal(self, params):
@@ -180,6 +182,28 @@ def test_unsubscribed_user_cannot_generate_or_export(client, fake_stripe):
     assert client.get("/billing/status").json()["active"] is False
 
 
+def test_unsubscribed_user_cannot_increase_project_storage(client, store, fake_stripe):
+    state = {"code": "result = Box(1, 1, 1)", "messages": []}
+    assert client.post("/projects", json={"name": "Part", "state": state}).status_code == 402
+
+    # Existing data remains readable/deletable after cancellation, but adding
+    # a revision or thumbnail would increase paid database storage.
+    project = store.create_project(
+        ProjectCreate(name="Existing", state=ProjectState.model_validate(state)),
+        user_id=USER_ID,
+    )
+    assert client.post(
+        f"/projects/{project.id}/revisions", json={"state": state}
+    ).status_code == 402
+    assert client.put(
+        f"/projects/{project.id}/thumbnail",
+        content=b"image",
+        headers={"content-type": "image/png"},
+    ).status_code == 402
+    assert client.get(f"/projects/{project.id}").status_code == 200
+    assert client.delete(f"/projects/{project.id}").status_code == 204
+
+
 def test_canceled_subscription_loses_access(client, store, fake_stripe):
     subscribe(store, status="canceled")
     assert start_run(client).status_code == 402
@@ -220,9 +244,30 @@ def test_checkout_creates_one_customer_and_returns_to_the_studio(
     assert "renews every month until you cancel" in renewal
     assert renewal.endswith("https://nfinit.dev/terms")
     assert store.get_subscription(user_id=USER_ID).status == "none"
+    # A double click reuses one Checkout session.
+    keys = [options["idempotency_key"] for options in fake_stripe.checkout_options]
+    assert keys[0] == keys[1] and USER_ID in keys[0]
     # Without STRIPE_AUTOMATIC_TAX, Checkout adds no tax.
     assert "automatic_tax" not in params
     assert client.get("/billing/status").json()["taxAtCheckout"] is False
+
+
+def test_checkout_idempotency_survives_time_and_return_path_changes(
+    client, fake_stripe, monkeypatch
+):
+    first = client.post(
+        "/billing/checkout", json={"returnPath": "/studio?from=first"}
+    )
+    # The old implementation included both the minute and return path, so
+    # these two otherwise equivalent requests opened a second subscription.
+    monkeypatch.setattr(time, "time", lambda: 4_000_000_000)
+    second = client.post(
+        "/billing/checkout", json={"returnPath": "/parts?from=second"}
+    )
+
+    assert first.status_code == second.status_code == 200
+    keys = [options["idempotency_key"] for options in fake_stripe.checkout_options]
+    assert keys[0] == keys[1]
 
 
 def test_checkout_adds_tax_when_stripe_tax_is_turned_on(

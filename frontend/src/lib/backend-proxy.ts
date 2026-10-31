@@ -7,8 +7,58 @@ const BACKEND_URL = (
   "http://localhost:8000"
 ).replace(/\/$/, "");
 
+const DEFAULT_MAX_REQUEST_BYTES = 20 * 1024 * 1024;
+
+function maxRequestBytes(): number {
+  const configured = Number.parseInt(process.env.CAD_MAX_REQUEST_BYTES ?? "", 10);
+  return Number.isFinite(configured) && configured >= 1024
+    ? configured
+    : DEFAULT_MAX_REQUEST_BYTES;
+}
+
+async function readLimitedBody(request: Request): Promise<ArrayBuffer> {
+  const limit = maxRequestBytes();
+  const declared = request.headers.get("content-length");
+  if (declared !== null) {
+    const parsed = Number(declared);
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > limit) {
+      throw new RangeError("request_body_too_large");
+    }
+  }
+  if (!request.body) return new ArrayBuffer(0);
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > limit) {
+        await reader.cancel();
+        throw new RangeError("request_body_too_large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body.buffer;
+}
+
 function localAuthBypassEnabled() {
   const explicit = process.env.NFNIT_ALLOW_LOCAL_AUTH_BYPASS;
+  // Never on the production deployment, whatever the variable says: the
+  // bypass would sign every visitor in as one shared user.
+  if (process.env.VERCEL_ENV === "production") return false;
   if (explicit !== undefined) {
     return ["1", "true", "yes", "on"].includes(explicit.trim().toLowerCase());
   }
@@ -75,39 +125,45 @@ export async function proxyToBackend(
   }
 
   try {
+    const requestBody =
+      request.method === "GET" || request.method === "HEAD"
+        ? undefined
+        : await readLimitedBody(request);
     const response = await fetch(target, {
       method: request.method,
       headers,
-      body:
-        request.method === "GET" || request.method === "HEAD"
-          ? undefined
-          : await request.arrayBuffer(),
+      body: requestBody,
       cache: "no-store",
       signal: AbortSignal.timeout(timeoutMs),
     });
     const responseHeaders = new Headers();
-    for (const name of ["content-type", "cache-control", "content-disposition"]) {
+    for (const name of [
+      "content-type",
+      "content-length",
+      "cache-control",
+      "content-disposition",
+    ]) {
       const value = response.headers.get(name);
       if (value) responseHeaders.set(name, value);
     }
-    // 204/304 must not carry a body, or the Response constructor throws.
-    const body =
+    // Stream model files instead of copying up to hundreds of megabytes into
+    // the Vercel function's heap. 204/304 must not carry a body.
+    const responseBody =
       response.status === 204 || response.status === 304
         ? null
-        : await response.arrayBuffer();
-    return new Response(body, {
+        : response.body;
+    return new Response(responseBody, {
       status: response.status,
       headers: responseHeaders,
     });
   } catch (error) {
-    return Response.json(
-      {
-        detail:
-          error instanceof Error
-            ? `Could not reach the backend: ${error.message}`
-            : "Could not reach the backend.",
-      },
-      { status: 502 }
+    if (error instanceof RangeError && error.message === "request_body_too_large") {
+      return Response.json({ detail: "The request is too large." }, { status: 413 });
+    }
+    console.error(
+      "Backend proxy request failed:",
+      error instanceof Error ? error.name : "unknown error"
     );
+    return Response.json({ detail: "Could not reach the backend." }, { status: 502 });
   }
 }

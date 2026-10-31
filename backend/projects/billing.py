@@ -7,6 +7,7 @@ has access, so a deploy before Stripe is set up does not lock users out.
 """
 
 import asyncio
+import hashlib
 import logging
 import os
 from datetime import datetime, timezone
@@ -209,6 +210,16 @@ def billing_status(store: Store, user_id: UserId):
 
 @router.post("/checkout", response_model=RedirectUrl)
 def start_checkout(request: ReturnTo, store: Store, user: User):
+    # Account deletion takes the same cross-replica lock. A Checkout Session
+    # therefore cannot be created in the gap between listing/expiring pending
+    # sessions and deleting the local account.
+    with store.billing_operation_lock(user.id):
+        return _start_checkout_locked(request, store, user)
+
+
+def _start_checkout_locked(
+    request: ReturnTo, store: ProjectStoreProtocol, user: CurrentUser
+) -> RedirectUrl:
     client = _client()
     price_id = _setting("STRIPE_PRICE_ID")
     record = store.get_subscription(user_id=user.id)
@@ -261,11 +272,29 @@ def start_checkout(request: ReturnTo, store: Store, user: User):
                 },
                 "success_url": request.url(checkout="success"),
                 "cancel_url": request.url(checkout="cancel"),
-            }
+            },
+            # Every retry while the local billing state is unchanged returns
+            # the same Checkout session.  The key changes only after a Stripe
+            # webhook records a subscription state transition, so concurrent
+            # requests, alternate return paths and minute boundaries cannot
+            # create duplicate subscriptions.
+            options={"idempotency_key": _checkout_key(user.id, record)},
         )
     except stripe.StripeError as error:
         raise _stripe_failed(error) from error
     return RedirectUrl(url=session.url)
+
+
+def _checkout_key(user_id: str, record: SubscriptionRecord) -> str:
+    state = ":".join(
+        (
+            record.stripe_customer_id,
+            record.stripe_subscription_id or "initial",
+            record.status,
+        )
+    )
+    generation = hashlib.sha256(state.encode()).hexdigest()[:24]
+    return f"nfinit-checkout-{user_id}-{generation}"
 
 
 @router.post("/portal", response_model=RedirectUrl)

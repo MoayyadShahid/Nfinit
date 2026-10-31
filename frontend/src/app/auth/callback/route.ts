@@ -1,10 +1,7 @@
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-
-function safeNextPath(value: string | null): string {
-  return value?.startsWith("/") && !value.startsWith("//") ? value : "/studio";
-}
+import { safeNextPath } from "@/lib/safe-path";
 
 function nextPathFromCookie(request: Request): string | null {
   const cookie = request.headers.get("cookie") ?? "";

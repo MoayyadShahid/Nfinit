@@ -25,6 +25,8 @@ import { useRef, useEffect, useState, useCallback, type ReactNode } from "react"
 export type { ChatMessage } from "@/lib/types";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+const MAX_TOTAL_IMAGE_SIZE = 10 * 1024 * 1024;
+const MAX_IMAGES = 8;
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -40,6 +42,11 @@ function fileToDataUrl(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function dataUrlBytes(url: string): number {
+  const encoded = url.slice(url.indexOf(",") + 1).replace(/\s/g, "");
+  return Math.floor((encoded.replace(/=+$/, "").length * 3) / 4);
 }
 
 interface ChatPaneProps {
@@ -90,14 +97,25 @@ export function ChatPane({
     const list = Array.from(files).filter((f) =>
       ACCEPTED_TYPES.includes(f.type)
     );
+    const converted: string[] = [];
     for (const file of list) {
       try {
-        const url = await fileToDataUrl(file);
-        setImages((prev) => [...prev, url]);
+        converted.push(await fileToDataUrl(file));
       } catch {
         /* skip unsupported / too-large files */
       }
     }
+    setImages((previous) => {
+      const next = [...previous];
+      let bytes = next.reduce((total, url) => total + dataUrlBytes(url), 0);
+      for (const url of converted) {
+        const size = dataUrlBytes(url);
+        if (next.length >= MAX_IMAGES || bytes + size > MAX_TOTAL_IMAGE_SIZE) break;
+        next.push(url);
+        bytes += size;
+      }
+      return next;
+    });
   }, []);
 
   const handleSend = () => {

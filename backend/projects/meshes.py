@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 
 from execution import SandboxError, build_mesh
 
-from .limits import SandboxUserId
+from .limits import SandboxUserId, check_sandbox_rate, sandbox_execution_slot
 from .models import RevisionMesh
 from .signed_links import read_token, sign_token
 from .store import (
@@ -157,12 +157,17 @@ def get_revision_mesh(
 @router.get("/meshes/{token}")
 def download_mesh(token: str, store: Store):
     user_id, project_id, revision_number = read_mesh_token(token)
-    mesh = ensure_mesh(
-        store,
-        user_id=user_id,
-        project_id=project_id,
-        revision_number=revision_number,
-    )
+    # A link is reusable until it expires. Count every direct download, not
+    # only cache misses, so a leaked/replayed URL cannot create unbounded
+    # Railway egress. This one allowance also covers a rebuild when needed.
+    with sandbox_execution_slot(store, user_id):
+        check_sandbox_rate(store, user_id)
+        mesh = ensure_mesh(
+            store,
+            user_id=user_id,
+            project_id=project_id,
+            revision_number=revision_number,
+        )
     return Response(
         content=mesh.glb,
         media_type="model/gltf-binary",

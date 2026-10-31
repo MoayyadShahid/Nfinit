@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 # A cold OpenCASCADE import on a fresh container can take far longer than a
 # warm one; jobs that arrive meanwhile wait for it instead of failing.
 STARTUP_TIMEOUT_SECONDS = 180
+# Inspection/topology JSON is small; leave ample space for semantic metadata
+# while ensuring an escaped child cannot make the API process buffer an
+# unbounded line from its private job socket.
+MAX_WORKER_RESPONSE_BYTES = 8 * 1024 * 1024
 
 
 class ForkServerUnavailable(RuntimeError):
@@ -142,7 +146,13 @@ class ForkServer:
             if remaining <= 0:
                 raise socket.timeout
             connection.settimeout(remaining)
-            response = reader.readline()
+            response = reader.readline(MAX_WORKER_RESPONSE_BYTES + 1)
+            if len(response) > MAX_WORKER_RESPONSE_BYTES or (
+                response and not response.endswith(b"\n")
+            ):
+                if pid is not None:
+                    _kill(pid)
+                raise ForkedJobDied("The CAD worker response exceeded its limit.")
         except socket.timeout as error:
             if pid is not None:
                 _kill(pid)

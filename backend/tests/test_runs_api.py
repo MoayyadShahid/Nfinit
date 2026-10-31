@@ -122,6 +122,29 @@ def test_run_for_an_existing_project_appends_a_revision(client, monkeypatch):
     assert latest["state"]["code"] == "result = Box(20, 10, 10)"
 
 
+def test_finished_run_does_not_resurrect_a_deleted_project(store):
+    project = store.create_project(runs.ProjectCreate(name="Private"), user_id=USER_ID)
+    request = runs.CadRunStart.model_validate(
+        {
+            "messages": [{"role": "user", "content": "private design"}],
+            "modelId": "anthropic/claude-opus-5",
+            "projectId": project.id,
+        }
+    )
+    store.delete_project(project.id, user_id=USER_ID)
+
+    with pytest.raises(runs.ProjectNotFoundError):
+        runs._save_to_project(
+            store,
+            run_id="00000000-0000-4000-8000-000000000103",
+            request=request,
+            result=runs._result_of(agent_state()),
+            user_id=USER_ID,
+        )
+
+    assert store.list_projects(user_id=USER_ID) == []
+
+
 def test_failed_repairs_keep_the_last_attempt(client, monkeypatch):
     async def fake_agent(*_args, **_kwargs):
         return agent_state(

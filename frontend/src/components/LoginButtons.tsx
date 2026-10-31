@@ -3,12 +3,9 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type { Provider } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
+import { safeNextPath } from "@/lib/safe-path";
 
 export const AUTH_ERROR_EVENT = "nfinit:auth-error";
-
-function safeNextPath(value: string): string {
-  return value.startsWith("/") && !value.startsWith("//") ? value : "/studio";
-}
 
 function GoogleIcon() {
   return (
@@ -70,7 +67,16 @@ export function LoginButtons({
     setPendingProvider(provider);
     setError(null);
     const next = safeNextPath(nextPath);
-    document.cookie = `nfinit-auth-next=${encodeURIComponent(next)}; Path=/; Max-Age=600; SameSite=Lax`;
+    const saved = await fetch("/auth/next", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ next }),
+    });
+    if (!saved.ok) {
+      setError("Could not prepare sign-in. Please try again.");
+      setPendingProvider(null);
+      return;
+    }
     // Keep this URL query-free so it matches the Supabase allow list exactly.
     // A ?next= query that is not listed gets replaced with the Site URL (Vercel).
     const redirectTo = new URL("/auth/callback", window.location.origin).toString();

@@ -120,6 +120,21 @@ def test_link_is_refused_when_tampered_or_expired(client, store, builds):
     assert client.get(f"/meshes/{expired}").status_code == 410
 
 
+def test_replayed_mesh_downloads_are_rate_limited(client, store, builds, monkeypatch):
+    project_id = project_with(store, CUBE)
+    token = meshes.sign_mesh_token(
+        user_id=USER_ID,
+        project_id=project_id,
+        revision_number=1,
+        expires_at=int(time.time()) + 60,
+    )
+    monkeypatch.setenv("CAD_SANDBOX_CALLS_PER_MINUTE", "2")
+
+    assert client.get(f"/meshes/{token}").status_code == 200
+    assert client.get(f"/meshes/{token}").status_code == 200
+    assert client.get(f"/meshes/{token}").status_code == 429
+
+
 def test_other_users_cannot_get_a_link_or_a_mesh(client, store, builds):
     project_id = project_with(store, CUBE, user_id=OTHER_USER_ID)
 

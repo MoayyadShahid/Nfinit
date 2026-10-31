@@ -1,12 +1,13 @@
 import json
 import os
 import sqlite3
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Protocol
+from typing import ContextManager, Protocol
 from uuid import uuid4
 
 from .models import (
@@ -34,6 +35,24 @@ class RunNotFoundError(LookupError):
     pass
 
 
+class RunQuotaExceededError(RuntimeError):
+    """An atomic run reservation found that one of the user's caps is full."""
+
+    def __init__(self, reason: str, *, running: int = 0):
+        super().__init__(reason)
+        self.reason = reason
+        self.running = running
+
+
+class StorageQuotaExceededError(RuntimeError):
+    """A write would take one user's persisted content over its hard cap."""
+
+    def __init__(self, user_id: str, reason: str = "bytes"):
+        super().__init__(reason)
+        self.user_id = user_id
+        self.reason = reason
+
+
 class ThumbnailNotFoundError(LookupError):
     pass
 
@@ -52,9 +71,44 @@ PROJECT_COLUMNS = "p.id, p.name, p.created_at, p.updated_at, p.thumbnail_updated
 
 
 LEGACY_LOCAL_USER_ID = "00000000-0000-4000-8000-000000000001"
+DEFAULT_MAX_STORAGE_BYTES_PER_USER = 128 * 1024 * 1024
+
+
+def max_storage_bytes_per_user() -> int:
+    try:
+        return max(
+            1024 * 1024,
+            int(
+                os.getenv(
+                    "CAD_MAX_STORAGE_BYTES_PER_USER",
+                    str(DEFAULT_MAX_STORAGE_BYTES_PER_USER),
+                )
+            ),
+        )
+    except ValueError:
+        return DEFAULT_MAX_STORAGE_BYTES_PER_USER
+
+
+def _positive_setting(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.getenv(name, str(default))))
+    except ValueError:
+        return default
+
+
+def max_projects_per_user() -> int:
+    return _positive_setting("CAD_MAX_PROJECTS_PER_USER", 100)
+
+
+def max_revisions_per_user() -> int:
+    return _positive_setting("CAD_MAX_REVISIONS_PER_USER", 1000)
 
 
 class ProjectStoreProtocol(Protocol):
+    def billing_operation_lock(self, user_id: str) -> ContextManager[None]:
+        """Serialize checkout creation and destructive billing changes."""
+        ...
+
     def create_project(
         self, request: ProjectCreate, *, user_id: str
     ) -> ProjectDetail: ...
@@ -114,6 +168,23 @@ class ProjectStoreProtocol(Protocol):
         model_id: str,
     ) -> CadRunRecord: ...
 
+    def create_run_with_quota(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        project_id: str | None,
+        prompt: str,
+        model_id: str,
+        now: datetime,
+        running_since: datetime,
+        max_concurrent: int,
+        max_hourly: int,
+        max_daily: int,
+    ) -> CadRunRecord:
+        """Check every run cap and insert under one cross-process lock."""
+        ...
+
     def finish_run(
         self,
         run_id: str,
@@ -147,6 +218,32 @@ class ProjectStoreProtocol(Protocol):
         self, subscription: SubscriptionRecord, *, user_id: str
     ) -> None: ...
 
+    def hit_sandbox_rate(
+        self,
+        *,
+        user_id: str,
+        now: datetime,
+        limit: int,
+        window_seconds: int,
+    ) -> float | None:
+        """Atomically consume a shared sandbox allowance, or return wait seconds."""
+        ...
+
+    def acquire_concurrency_lease(
+        self,
+        *,
+        lease_id: str,
+        user_id: str,
+        kind: str,
+        now: datetime,
+        expires_at: datetime,
+        limit: int,
+    ) -> bool:
+        """Atomically reserve one shared sandbox execution slot."""
+        ...
+
+    def release_concurrency_lease(self, *, lease_id: str, user_id: str) -> None: ...
+
 
 def _timestamp() -> str:
     from datetime import datetime, timezone
@@ -155,6 +252,9 @@ def _timestamp() -> str:
 
 
 class ProjectStore:
+    _billing_locks_guard = threading.Lock()
+    _billing_locks: dict[tuple[str, str], threading.RLock] = {}
+
     def __init__(self, path: Path):
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -174,6 +274,19 @@ class ProjectStore:
             raise
         finally:
             connection.close()
+
+    @contextmanager
+    def billing_operation_lock(self, user_id: str):
+        """Local equivalent of the PostgreSQL per-user advisory lock.
+
+        The key includes the resolved database path so separately constructed
+        store objects in the same local process still serialize one account.
+        """
+        key = (str(self.path.resolve()), user_id)
+        with self._billing_locks_guard:
+            lock = self._billing_locks.setdefault(key, threading.RLock())
+        with lock:
+            yield
 
     def _initialize(self):
         with self._connect() as connection:
@@ -273,8 +386,37 @@ class ProjectStore:
                     created_at TEXT NOT NULL,
                     PRIMARY KEY (run_id, seq)
                 );
-                PRAGMA user_version = 6;
+                CREATE TABLE IF NOT EXISTS sandbox_rate_events (
+                    user_id TEXT NOT NULL,
+                    occurred_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_sandbox_rate_user_time
+                    ON sandbox_rate_events(user_id, occurred_at);
+                CREATE TABLE IF NOT EXISTS sandbox_active_leases (
+                    lease_id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    kind TEXT NOT NULL DEFAULT 'sandbox',
+                    expires_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_sandbox_leases_user_expiry
+                    ON sandbox_active_leases(user_id, expires_at);
+                PRAGMA user_version = 8;
                 """
+            )
+            lease_columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(sandbox_active_leases)"
+                ).fetchall()
+            }
+            if "kind" not in lease_columns:
+                connection.execute(
+                    "ALTER TABLE sandbox_active_leases "
+                    "ADD COLUMN kind TEXT NOT NULL DEFAULT 'sandbox'"
+                )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_sandbox_leases_user_kind_expiry "
+                "ON sandbox_active_leases(user_id, kind, expires_at)"
             )
 
     @staticmethod
@@ -283,6 +425,63 @@ class ProjectStore:
             state.model_dump(mode="json", by_alias=True),
             separators=(",", ":"),
         )
+
+    @staticmethod
+    def _storage_bytes(connection: sqlite3.Connection, user_id: str) -> int:
+        row = connection.execute(
+            """
+            SELECT
+              (SELECT COALESCE(SUM(LENGTH(name) +
+                  COALESCE(LENGTH(thumbnail), 0)), 0)
+               FROM projects WHERE user_id = ?) +
+              (SELECT COALESCE(SUM(LENGTH(r.state_json)), 0)
+               FROM project_revisions r
+               JOIN projects p ON p.id = r.project_id
+               WHERE p.user_id = ?) +
+              (SELECT COALESCE(SUM(LENGTH(glb) + LENGTH(inspection_json)), 0)
+               FROM project_meshes WHERE user_id = ?) +
+              (SELECT COALESCE(SUM(LENGTH(prompt) + LENGTH(model_id) +
+                  COALESCE(LENGTH(result_json), 0) +
+                  COALESCE(LENGTH(error), 0)), 0)
+               FROM cad_runs WHERE user_id = ?) +
+              (SELECT COALESCE(SUM(LENGTH(stage) + LENGTH(status) +
+                  LENGTH(message)), 0)
+               FROM run_events WHERE user_id = ?) AS bytes
+            """,
+            (user_id, user_id, user_id, user_id, user_id),
+        ).fetchone()
+        return int(row["bytes"])
+
+    @classmethod
+    def _assert_storage_available(
+        cls, connection: sqlite3.Connection, user_id: str, additional: int
+    ) -> None:
+        if additional > 0 and (
+            cls._storage_bytes(connection, user_id) + additional
+            > max_storage_bytes_per_user()
+        ):
+            raise StorageQuotaExceededError(user_id)
+
+    @staticmethod
+    def _assert_project_count(connection: sqlite3.Connection, user_id: str) -> None:
+        count = connection.execute(
+            "SELECT COUNT(*) FROM projects WHERE user_id = ?", (user_id,)
+        ).fetchone()[0]
+        if int(count) >= max_projects_per_user():
+            raise StorageQuotaExceededError(user_id, "projects")
+
+    @staticmethod
+    def _assert_revision_count(connection: sqlite3.Connection, user_id: str) -> None:
+        count = connection.execute(
+            """
+            SELECT COUNT(*) FROM project_revisions r
+            JOIN projects p ON p.id = r.project_id
+            WHERE p.user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()[0]
+        if int(count) >= max_revisions_per_user():
+            raise StorageQuotaExceededError(user_id, "revisions")
 
     @staticmethod
     def _revision(row: sqlite3.Row) -> ProjectRevision:
@@ -329,8 +528,14 @@ class ProjectStore:
         project_id = str(uuid4())
         revision_id = str(uuid4())
         now = _timestamp()
+        state_json = self._state_json(request.state)
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            self._assert_project_count(connection, user_id)
+            self._assert_revision_count(connection, user_id)
+            self._assert_storage_available(
+                connection, user_id, len(request.name.encode()) + len(state_json.encode())
+            )
             connection.execute(
                 """
                 INSERT INTO projects (id, user_id, name, created_at, updated_at)
@@ -344,7 +549,7 @@ class ProjectStore:
                     id, project_id, revision_number, state_json, created_at
                 ) VALUES (?, ?, 1, ?, ?)
                 """,
-                (revision_id, project_id, self._state_json(request.state), now),
+                (revision_id, project_id, state_json, now),
             )
         return self.get_project(project_id, user_id=user_id)
 
@@ -405,6 +610,18 @@ class ProjectStore:
         self, project_id: str, name: str, *, user_id: str
     ) -> ProjectDetail:
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            current = connection.execute(
+                "SELECT name FROM projects WHERE id = ? AND user_id = ?",
+                (project_id, user_id),
+            ).fetchone()
+            if current is None:
+                raise ProjectNotFoundError(project_id)
+            self._assert_storage_available(
+                connection,
+                user_id,
+                max(0, len(name.encode()) - len(current["name"].encode())),
+            )
             cursor = connection.execute(
                 """
                 UPDATE projects SET name = ?, updated_at = ?
@@ -421,6 +638,7 @@ class ProjectStore:
     ) -> ProjectRevision:
         revision_id = str(uuid4())
         now = _timestamp()
+        state_json = self._state_json(state)
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             project = connection.execute(
@@ -429,6 +647,8 @@ class ProjectStore:
             ).fetchone()
             if project is None:
                 raise ProjectNotFoundError(project_id)
+            self._assert_revision_count(connection, user_id)
+            self._assert_storage_available(connection, user_id, len(state_json.encode()))
             next_number = connection.execute(
                 """
                 SELECT COALESCE(MAX(revision_number), 0) + 1
@@ -447,7 +667,7 @@ class ProjectStore:
                     revision_id,
                     project_id,
                     next_number,
-                    self._state_json(state),
+                    state_json,
                     now,
                 ),
             )
@@ -514,6 +734,14 @@ class ProjectStore:
 
     def delete_project(self, project_id: str, *, user_id: str):
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            # Runs are part of the project's history and can carry prompts and
+            # generated source. Delete even in-flight records: their worker
+            # may finish, but it must not preserve or recreate deleted data.
+            connection.execute(
+                "DELETE FROM cad_runs WHERE project_id = ? AND user_id = ?",
+                (project_id, user_id),
+            )
             cursor = connection.execute(
                 "DELETE FROM projects WHERE id = ? AND user_id = ?",
                 (project_id, user_id),
@@ -533,11 +761,28 @@ class ProjectStore:
             connection.execute(
                 "DELETE FROM subscriptions WHERE user_id = ?", (user_id,)
             )
+            connection.execute(
+                "DELETE FROM sandbox_rate_events WHERE user_id = ?", (user_id,)
+            )
+            connection.execute(
+                "DELETE FROM sandbox_active_leases WHERE user_id = ?", (user_id,)
+            )
 
     def set_thumbnail(
         self, project_id: str, data: bytes, content_type: str, *, user_id: str
     ) -> None:
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                "SELECT LENGTH(thumbnail) AS bytes FROM projects "
+                "WHERE id = ? AND user_id = ?",
+                (project_id, user_id),
+            ).fetchone()
+            if existing is None:
+                raise ProjectNotFoundError(project_id)
+            self._assert_storage_available(
+                connection, user_id, max(0, len(data) - int(existing["bytes"] or 0))
+            )
             cursor = connection.execute(
                 """
                 UPDATE projects
@@ -587,7 +832,26 @@ class ProjectStore:
     def save_mesh(
         self, project_id: str, mesh: StoredMesh, *, user_id: str
     ) -> None:
+        inspection_json = json.dumps(mesh.inspection, separators=(",", ":"))
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            project = connection.execute(
+                "SELECT 1 FROM projects WHERE id = ? AND user_id = ?",
+                (project_id, user_id),
+            ).fetchone()
+            if project is None:
+                raise ProjectNotFoundError(project_id)
+            existing = connection.execute(
+                "SELECT LENGTH(glb) + LENGTH(inspection_json) AS bytes "
+                "FROM project_meshes WHERE project_id = ? AND user_id = ?",
+                (project_id, user_id),
+            ).fetchone()
+            new_bytes = len(mesh.glb) + len(inspection_json.encode())
+            self._assert_storage_available(
+                connection,
+                user_id,
+                max(0, new_bytes - int(existing["bytes"] if existing else 0)),
+            )
             cursor = connection.execute(
                 """
                 INSERT INTO project_meshes
@@ -604,7 +868,7 @@ class ProjectStore:
                 (
                     mesh.code_hash,
                     mesh.glb,
-                    json.dumps(mesh.inspection, separators=(",", ":")),
+                    inspection_json,
                     _timestamp(),
                     project_id,
                     user_id,
@@ -643,6 +907,10 @@ class ProjectStore:
         model_id: str,
     ) -> CadRunRecord:
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._assert_storage_available(
+                connection, user_id, len(prompt.encode()) + len(model_id.encode())
+            )
             connection.execute(
                 """
                 INSERT INTO cad_runs (
@@ -652,6 +920,145 @@ class ProjectStore:
                 (run_id, user_id, project_id, prompt, model_id, _timestamp()),
             )
         return self.get_run(run_id, user_id=user_id)
+
+    def create_run_with_quota(
+        self,
+        run_id: str,
+        *,
+        user_id: str,
+        project_id: str | None,
+        prompt: str,
+        model_id: str,
+        now: datetime,
+        running_since: datetime,
+        max_concurrent: int,
+        max_hourly: int,
+        max_daily: int,
+    ) -> CadRunRecord:
+        now = now.astimezone(timezone.utc)
+        running_since = running_since.astimezone(timezone.utc).isoformat()
+        hourly_since = (now - timedelta(hours=1)).isoformat()
+        daily_since = (now - timedelta(days=1)).isoformat()
+        created_at = now.isoformat()
+        with self._connect() as connection:
+            # A reserved SQLite write transaction serializes separate local
+            # processes, not just coroutines in this interpreter.
+            connection.execute("BEGIN IMMEDIATE")
+            self._assert_storage_available(
+                connection, user_id, len(prompt.encode()) + len(model_id.encode())
+            )
+            counts = connection.execute(
+                """
+                SELECT
+                    COALESCE(SUM(status = 'running' AND created_at >= ?), 0)
+                        AS running,
+                    COALESCE(SUM(created_at >= ?), 0) AS hourly,
+                    COALESCE(SUM(created_at >= ?), 0) AS daily
+                FROM cad_runs WHERE user_id = ?
+                """,
+                (running_since, hourly_since, daily_since, user_id),
+            ).fetchone()
+            if int(counts["running"]) >= max_concurrent:
+                raise RunQuotaExceededError(
+                    "concurrent", running=int(counts["running"])
+                )
+            if int(counts["daily"]) >= max_daily:
+                raise RunQuotaExceededError("daily")
+            if int(counts["hourly"]) >= max_hourly:
+                raise RunQuotaExceededError("hourly")
+            connection.execute(
+                """
+                INSERT INTO cad_runs (
+                    id, user_id, project_id, status, prompt, model_id, created_at
+                ) VALUES (?, ?, ?, 'running', ?, ?, ?)
+                """,
+                (run_id, user_id, project_id, prompt, model_id, created_at),
+            )
+            row = connection.execute(
+                "SELECT * FROM cad_runs WHERE id = ? AND user_id = ?",
+                (run_id, user_id),
+            ).fetchone()
+        return self._run(row)
+
+    def hit_sandbox_rate(
+        self,
+        *,
+        user_id: str,
+        now: datetime,
+        limit: int,
+        window_seconds: int,
+    ) -> float | None:
+        now = now.astimezone(timezone.utc)
+        cutoff = (now - timedelta(seconds=window_seconds)).isoformat()
+        occurred_at = now.isoformat()
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "DELETE FROM sandbox_rate_events "
+                "WHERE user_id = ? AND occurred_at <= ?",
+                (user_id, cutoff),
+            )
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS calls, MIN(occurred_at) AS oldest
+                FROM sandbox_rate_events WHERE user_id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+            if limit <= 0:
+                return float(window_seconds)
+            if int(row["calls"]) >= limit:
+                oldest = datetime.fromisoformat(row["oldest"])
+                return max(
+                    0.0,
+                    (oldest + timedelta(seconds=window_seconds) - now).total_seconds(),
+                )
+            connection.execute(
+                "INSERT INTO sandbox_rate_events (user_id, occurred_at) VALUES (?, ?)",
+                (user_id, occurred_at),
+            )
+        return None
+
+    def acquire_concurrency_lease(
+        self,
+        *,
+        lease_id: str,
+        user_id: str,
+        kind: str,
+        now: datetime,
+        expires_at: datetime,
+        limit: int,
+    ) -> bool:
+        now_value = now.astimezone(timezone.utc).isoformat()
+        expiry_value = expires_at.astimezone(timezone.utc).isoformat()
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "DELETE FROM sandbox_active_leases "
+                "WHERE user_id = ? AND kind = ? AND expires_at <= ?",
+                (user_id, kind, now_value),
+            )
+            active = connection.execute(
+                "SELECT COUNT(*) AS count FROM sandbox_active_leases "
+                "WHERE user_id = ? AND kind = ?",
+                (user_id, kind),
+            ).fetchone()["count"]
+            if limit <= 0 or int(active) >= limit:
+                return False
+            connection.execute(
+                "INSERT INTO sandbox_active_leases "
+                "(lease_id, user_id, kind, expires_at) VALUES (?, ?, ?, ?)",
+                (lease_id, user_id, kind, expiry_value),
+            )
+        return True
+
+    def release_concurrency_lease(self, *, lease_id: str, user_id: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "DELETE FROM sandbox_active_leases "
+                "WHERE lease_id = ? AND user_id = ?",
+                (lease_id, user_id),
+            )
 
     def finish_run(
         self,
@@ -663,7 +1070,24 @@ class ProjectStore:
         error: str | None,
         project_id: str | None,
     ) -> CadRunRecord:
+        result_json = result.model_dump_json(by_alias=True) if result else None
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                "SELECT LENGTH(result_json) AS result_bytes, "
+                "LENGTH(error) AS error_bytes FROM cad_runs "
+                "WHERE id = ? AND user_id = ? AND status = 'running'",
+                (run_id, user_id),
+            ).fetchone()
+            if existing is None:
+                raise RunNotFoundError(run_id)
+            old_bytes = int(existing["result_bytes"] or 0) + int(
+                existing["error_bytes"] or 0
+            )
+            new_bytes = len((result_json or "").encode()) + len((error or "").encode())
+            self._assert_storage_available(
+                connection, user_id, max(0, new_bytes - old_bytes)
+            )
             cursor = connection.execute(
                 """
                 UPDATE cad_runs
@@ -673,7 +1097,7 @@ class ProjectStore:
                 """,
                 (
                     status,
-                    result.model_dump_json(by_alias=True) if result else None,
+                    result_json,
                     error,
                     project_id,
                     _timestamp(),
@@ -687,6 +1111,14 @@ class ProjectStore:
 
     def add_run_event(self, run_id: str, event: RunEvent, *, user_id: str) -> None:
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            self._assert_storage_available(
+                connection,
+                user_id,
+                len(event.stage.encode())
+                + len(event.status.encode())
+                + len(event.message.encode()),
+            )
             cursor = connection.execute(
                 """
                 INSERT INTO run_events

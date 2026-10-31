@@ -136,6 +136,23 @@ def test_spawn_mode_never_contacts_the_fork_server(monkeypatch, tmp_path: Path):
     }
 
 
+def test_spawned_worker_response_is_bounded(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("CAD_SANDBOX_MODE", "spawn")
+    monkeypatch.setattr(runner, "MAX_WORKER_RESPONSE_BYTES", 1024)
+    noisy_worker = tmp_path / "noisy-worker.py"
+    noisy_worker.write_text("print('x' * 2048)\n", encoding="utf-8")
+
+    with pytest.raises(SandboxError) as error:
+        _run_worker(
+            "result = Box(1, 1, 1)",
+            "inspect",
+            tmp_path,
+            worker_path=noisy_worker,
+        )
+
+    assert error.value.kind == "sandbox_protocol_error"
+
+
 def test_busy_sandbox_times_out_instead_of_queueing_forever(
     monkeypatch, tmp_path: Path
 ):

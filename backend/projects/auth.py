@@ -48,6 +48,9 @@ def _decode_access_token(token: str) -> dict:
         decode_options = {
             "algorithms": [algorithm],
             "audience": "authenticated",
+            # Supabase access tokens are short-lived. Do not turn a malformed
+            # but correctly signed legacy token into a permanent session.
+            "options": {"require": ["exp", "sub", "aud"]},
         }
         if issuer:
             decode_options["issuer"] = issuer
