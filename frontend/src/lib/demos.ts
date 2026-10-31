@@ -68,6 +68,11 @@ export function demoFile(slug: string, file: string): string {
   return `${DEMO_ROOT}/${encodeURIComponent(slug)}/${encodeURIComponent(file)}`;
 }
 
+/** The gallery image of a demo, from scripts/render-demo-thumbnails.mjs. */
+export function demoThumbnail(slug: string): string {
+  return demoFile(slug, "thumbnail.webp");
+}
+
 /** A recorded event in the shape the progress list shows. */
 export function toRunEvent(event: DemoEvent, seq: number, startedAt: number): RunEvent {
   return {

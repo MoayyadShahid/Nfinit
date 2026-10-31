@@ -33,12 +33,14 @@ def test_every_listed_demo_is_complete_and_safe():
             for preview in step["previews"]:
                 assert (DEMOS / item["slug"] / preview["file"]).read_bytes()[:4] == b"glTF"
             assert all(event["at_ms"] >= 0 for event in step["events"])
+        # The Parts gallery shows this picture on the demo's card.
+        assert (DEMOS / item["slug"] / "thumbnail.webp").read_bytes()[8:12] == b"WEBP"
 
 
 def test_no_unused_demo_files_ship():
     for folder in (path for path in DEMOS.iterdir() if path.is_dir()):
         demo = json.loads((folder / "demo.json").read_text())
-        used = {"demo.json"}
+        used = {"demo.json", "thumbnail.webp"}
         for step in demo["steps"]:
             used.add(step["glb"])
             used.update(preview["file"] for preview in step["previews"])
