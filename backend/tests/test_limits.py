@@ -169,6 +169,47 @@ def test_sandbox_limit_is_shared_across_store_instances(tmp_path):
     assert sum(accepted) == 3
 
 
+def test_sandbox_concurrency_is_shared_across_store_instances(tmp_path):
+    path = tmp_path / "shared.db"
+    stores = [ProjectStore(path), ProjectStore(path)]
+    now = datetime.now(timezone.utc)
+
+    def acquire(index: int) -> bool:
+        return stores[index % 2].acquire_concurrency_lease(
+            lease_id=str(uuid4()),
+            user_id=USER_ID,
+            kind="sandbox",
+            now=now,
+            expires_at=now + timedelta(minutes=4),
+            limit=2,
+        )
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        accepted = list(pool.map(acquire, range(6)))
+    assert sum(accepted) == 2
+
+
+def test_expired_sandbox_lease_does_not_hold_a_slot(tmp_path):
+    store = ProjectStore(tmp_path / "leases.db")
+    now = datetime.now(timezone.utc)
+    expired_id = str(uuid4())
+    with store._connect() as connection:
+        connection.execute(
+            "INSERT INTO sandbox_active_leases "
+            "(lease_id, user_id, kind, expires_at) VALUES (?, ?, ?, ?)",
+            (expired_id, USER_ID, "sandbox", (now - timedelta(seconds=1)).isoformat()),
+        )
+
+    assert store.acquire_concurrency_lease(
+        lease_id=str(uuid4()),
+        user_id=USER_ID,
+        kind="sandbox",
+        now=now,
+        expires_at=now + timedelta(minutes=4),
+        limit=1,
+    )
+
+
 def test_sandbox_code_size_is_capped(client):
     response = client.post("/generate-mesh", json={"code": "x" * (limits.MAX_CODE_CHARS + 1)})
     assert response.status_code == 422

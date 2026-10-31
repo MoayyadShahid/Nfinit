@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 import main
 from projects import billing
 from projects.auth import CurrentUser, get_current_user, get_current_user_id
-from projects.models import SubscriptionRecord
+from projects.models import ProjectCreate, ProjectState, SubscriptionRecord
 from projects.store import ProjectStore, get_project_store
 
 USER_ID = "00000000-0000-4000-8000-000000000010"
@@ -180,6 +180,28 @@ def test_unsubscribed_user_cannot_generate_or_export(client, fake_stripe):
         response = client.post(path, json=body)
         assert response.status_code == 402, path
     assert client.get("/billing/status").json()["active"] is False
+
+
+def test_unsubscribed_user_cannot_increase_project_storage(client, store, fake_stripe):
+    state = {"code": "result = Box(1, 1, 1)", "messages": []}
+    assert client.post("/projects", json={"name": "Part", "state": state}).status_code == 402
+
+    # Existing data remains readable/deletable after cancellation, but adding
+    # a revision or thumbnail would increase paid database storage.
+    project = store.create_project(
+        ProjectCreate(name="Existing", state=ProjectState.model_validate(state)),
+        user_id=USER_ID,
+    )
+    assert client.post(
+        f"/projects/{project.id}/revisions", json={"state": state}
+    ).status_code == 402
+    assert client.put(
+        f"/projects/{project.id}/thumbnail",
+        content=b"image",
+        headers={"content-type": "image/png"},
+    ).status_code == 402
+    assert client.get(f"/projects/{project.id}").status_code == 200
+    assert client.delete(f"/projects/{project.id}").status_code == 204
 
 
 def test_canceled_subscription_loses_access(client, store, fake_stripe):

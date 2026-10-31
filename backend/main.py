@@ -5,9 +5,9 @@ import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -36,6 +36,12 @@ from projects.billing import router as billing_router
 from projects.meshes import router as meshes_router
 from projects.runs import router as runs_router
 from projects.config import validate_project_configuration
+from projects.store import (
+    StorageQuotaExceededError,
+    max_projects_per_user,
+    max_revisions_per_user,
+    max_storage_bytes_per_user,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -88,6 +94,30 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="Nfinit Geometry Engine", lifespan=lifespan)
 
+
+@app.exception_handler(StorageQuotaExceededError)
+async def storage_quota_exceeded(_request: Request, _error: StorageQuotaExceededError):
+    limit_mib = max_storage_bytes_per_user() // (1024 * 1024)
+    if _error.reason == "projects":
+        detail = (
+            f"Your account has reached its {max_projects_per_user()} project limit. "
+            "Delete an old project and try again."
+        )
+    elif _error.reason == "revisions":
+        detail = (
+            f"Your account has reached its {max_revisions_per_user()} revision limit. "
+            "Delete an old project and try again."
+        )
+    else:
+        detail = (
+            f"Your saved projects have reached the {limit_mib} MiB storage limit. "
+            "Delete an old project and try again."
+        )
+    return JSONResponse(
+        status_code=413,
+        content={"detail": detail},
+    )
+
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
@@ -129,7 +159,10 @@ app.include_router(meshes_router)
 @app.get("/")
 @app.get("/health")
 def health():
-    return {"status": "ok", "services": _optional_service_status()}
+    # Keep operator configuration in startup logs. A public health probe need
+    # only say whether the process can answer; service inventory is useful
+    # reconnaissance and should not be exposed anonymously.
+    return {"status": "ok"}
 
 
 class GenerateMeshRequest(BaseModel):

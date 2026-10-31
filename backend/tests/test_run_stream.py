@@ -1,6 +1,8 @@
 import asyncio
 import json
 import time
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -163,6 +165,30 @@ def test_expired_stream_link_is_refused(client, monkeypatch):
         "run-events", {"u": USER_ID, "r": run_id}, expires_at=int(time.time()) - 1
     )
     assert client.get(f"/cad/runs/{run_id}/events?token={expired}").status_code == 410
+
+
+def test_stream_link_has_a_cross_replica_concurrency_limit(
+    client, store, monkeypatch
+):
+    monkeypatch.setattr(runs, "run_cad_agent", agent_that_takes(1.0))
+    monkeypatch.setenv("CAD_MAX_EVENT_STREAMS_PER_USER", "2")
+    run_id = start(client)
+    url = stream_url(client, run_id)
+    now = datetime.now(timezone.utc)
+    for _ in range(2):
+        assert store.acquire_concurrency_lease(
+            lease_id=str(uuid4()),
+            user_id=USER_ID,
+            kind="run-stream",
+            now=now,
+            expires_at=now + timedelta(minutes=10),
+            limit=2,
+        )
+
+    response = client.get(url)
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "5"
 
 
 def test_build_previews_become_events_with_fetchable_meshes(client, store, monkeypatch):

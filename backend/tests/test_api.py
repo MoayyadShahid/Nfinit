@@ -5,16 +5,13 @@ from execution import RevisionComparison, SandboxArtifact, TopologyAnalysis
 from execution.topology import ResolvedFaceSelection
 
 
-def test_health_reports_optional_services():
+def test_health_does_not_expose_service_configuration():
     client = TestClient(main.app)
     for path in ("/", "/health"):
         response = client.get(path)
         assert response.status_code == 200
         payload = response.json()
-        assert payload["status"] == "ok"
-        assert {"openrouter", "langfuse", "pinecone", "supabase"} <= set(
-            payload["services"]
-        )
+        assert payload == {"status": "ok"}
 
 
 def test_inspection_rejects_code_that_accesses_files():

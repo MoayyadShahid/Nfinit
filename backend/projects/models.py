@@ -114,9 +114,9 @@ class RunEvent(BaseModel):
     model_config = ConfigDict(populate_by_name=True, serialize_by_alias=True)
 
     seq: int
-    stage: str
-    status: str
-    message: str = ""
+    stage: str = Field(max_length=100)
+    status: str = Field(max_length=100)
+    message: str = Field(default="", max_length=10_000)
     attempt: int | None = None
     duration_ms: int | None = Field(default=None, alias="durationMs")
     created_at: datetime = Field(alias="createdAt")

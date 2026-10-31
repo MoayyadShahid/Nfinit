@@ -19,6 +19,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
+from starlette.background import BackgroundTask
 
 from agent import (
     MAX_REPAIR_ATTEMPTS,
@@ -46,6 +47,7 @@ from .store import (
     ProjectNotFoundError,
     ProjectStoreProtocol,
     RunNotFoundError,
+    StorageQuotaExceededError,
     get_project_store,
 )
 
@@ -151,12 +153,14 @@ def _save_to_project(
             revision = store.add_revision(request.project_id, state, user_id=user_id)
             return request.project_id, revision.revision_number
         except ProjectNotFoundError:
-            # Deleted while the run was in flight: keep the paid result anyway.
+            # The user deleted the project while the run was in flight. Never
+            # resurrect data they explicitly removed as a new project.
             logger.warning(
-                "Project %s vanished during run %s; saving as a new project.",
+                "Project %s vanished during run %s; discarding the result.",
                 request.project_id,
                 run_id,
             )
+            raise
     project = store.create_project(
         ProjectCreate(name=_prompt_of(request)[:60] or "Untitled part", state=state),
         user_id=user_id,
@@ -288,6 +292,25 @@ async def _execute_run(
             error=error,
             project_id=project_id,
         )
+    except StorageQuotaExceededError:
+        # The quota is checked before model spend, but another request can
+        # consume the remaining space while this run is executing. Always
+        # close the run; omit the large result when it no longer fits.
+        logger.warning("Run %s finished after user %s filled storage.", run_id, user_id)
+        try:
+            await asyncio.to_thread(
+                store.finish_run,
+                run_id,
+                user_id=user_id,
+                status="failed",
+                result=None,
+                # Do not add even a small error string when the hard byte cap
+                # is full. The HTTP layer already reports failed status.
+                error=None,
+                project_id=project_id,
+            )
+        except Exception:
+            logger.exception("Could not close storage-limited run %s.", run_id)
     except RunNotFoundError:
         logger.warning("Run %s was already closed before it finished.", run_id)
     except Exception:
@@ -478,12 +501,35 @@ async def stream_run_events(
         await asyncio.to_thread(store.get_run, run_id, user_id=user_id)
     except RunNotFoundError as error:
         raise HTTPException(status_code=404, detail="Run not found.") from error
+    lease_id = str(uuid4())
+    now = datetime.now(timezone.utc)
+    acquired = await asyncio.to_thread(
+        store.acquire_concurrency_lease,
+        lease_id=lease_id,
+        user_id=user_id,
+        kind="run-stream",
+        now=now,
+        expires_at=now
+        + timedelta(seconds=_stream_deadline_seconds() + STREAM_HEARTBEAT_SECONDS),
+        limit=max(1, int(os.getenv("CAD_MAX_EVENT_STREAMS_PER_USER", "4"))),
+    )
+    if not acquired:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many event streams are already open.",
+            headers={"Retry-After": "5"},
+        )
     if last_event_id and last_event_id.isdigit():
         after = max(after, int(last_event_id))
     return StreamingResponse(
         _event_stream(request, store, run_id=run_id, user_id=user_id, cursor=after),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        background=BackgroundTask(
+            store.release_concurrency_lease,
+            lease_id=lease_id,
+            user_id=user_id,
+        ),
     )
 
 

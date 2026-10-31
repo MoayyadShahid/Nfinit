@@ -24,6 +24,7 @@ BLOCKED_NODES = (
     ast.Nonlocal,
     ast.Raise,
     ast.Try,
+    getattr(ast, "TryStar", ast.Try),
     ast.While,
     ast.Yield,
     ast.YieldFrom,

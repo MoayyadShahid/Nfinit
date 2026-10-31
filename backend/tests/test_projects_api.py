@@ -132,3 +132,50 @@ def test_project_api_validates_limits_and_missing_resources(client):
         json={"state": {"code": "result = Box(1, 1, 1)"}},
     ).status_code == 404
     assert client.get("/projects/missing/revisions/1").status_code == 404
+
+
+def test_project_storage_has_a_hard_per_user_cap(client, monkeypatch):
+    monkeypatch.setenv("CAD_MAX_STORAGE_BYTES_PER_USER", str(1024 * 1024))
+    large_state = {
+        "code": "result = Box(1, 1, 1)",
+        "messages": [{"role": "user", "content": "x" * 600_000}],
+    }
+    created = client.post(
+        "/projects", json={"name": "Large project", "state": large_state}
+    )
+    assert created.status_code == 201
+    project_id = created.json()["id"]
+
+    response = client.post(
+        f"/projects/{project_id}/revisions", json={"state": large_state}
+    )
+
+    assert response.status_code == 413
+    assert "storage limit" in response.json()["detail"]
+    # Reaching the cap never locks the user out of retrieval or cleanup.
+    assert client.get(f"/projects/{project_id}").status_code == 200
+    assert client.delete(f"/projects/{project_id}").status_code == 204
+
+
+def test_project_and_revision_counts_are_bounded(client, monkeypatch):
+    monkeypatch.setenv("CAD_MAX_PROJECTS_PER_USER", "1")
+    monkeypatch.setenv("CAD_MAX_REVISIONS_PER_USER", "2")
+    state = {"code": "result = Box(1, 1, 1)", "messages": []}
+    first = client.post("/projects", json={"name": "First", "state": state})
+    assert first.status_code == 201
+    project_id = first.json()["id"]
+
+    assert client.post(
+        f"/projects/{project_id}/revisions", json={"state": state}
+    ).status_code == 201
+    too_many_revisions = client.post(
+        f"/projects/{project_id}/revisions", json={"state": state}
+    )
+    assert too_many_revisions.status_code == 413
+    assert "revision limit" in too_many_revisions.json()["detail"]
+
+    too_many_projects = client.post(
+        "/projects", json={"name": "Second", "state": state}
+    )
+    assert too_many_projects.status_code == 413
+    assert "project limit" in too_many_projects.json()["detail"]

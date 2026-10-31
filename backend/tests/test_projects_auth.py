@@ -83,6 +83,27 @@ def test_project_auth_rejects_invalid_subject(monkeypatch):
     assert error.value.status_code == 401
 
 
+def test_project_auth_requires_an_expiry(monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", SUPABASE_URL)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
+    token = jwt.encode(
+        {
+            "sub": USER_ID,
+            "aud": "authenticated",
+            "iss": f"{SUPABASE_URL}/auth/v1",
+        },
+        JWT_SECRET,
+        algorithm="HS256",
+    )
+
+    with pytest.raises(HTTPException) as error:
+        get_current_user_id(
+            HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+        )
+
+    assert error.value.status_code == 401
+
+
 def test_production_configuration_fails_closed(monkeypatch):
     monkeypatch.delenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", raising=False)
 

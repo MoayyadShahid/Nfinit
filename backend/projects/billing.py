@@ -210,6 +210,16 @@ def billing_status(store: Store, user_id: UserId):
 
 @router.post("/checkout", response_model=RedirectUrl)
 def start_checkout(request: ReturnTo, store: Store, user: User):
+    # Account deletion takes the same cross-replica lock. A Checkout Session
+    # therefore cannot be created in the gap between listing/expiring pending
+    # sessions and deleting the local account.
+    with store.billing_operation_lock(user.id):
+        return _start_checkout_locked(request, store, user)
+
+
+def _start_checkout_locked(
+    request: ReturnTo, store: ProjectStoreProtocol, user: CurrentUser
+) -> RedirectUrl:
     client = _client()
     price_id = _setting("STRIPE_PRICE_ID")
     record = store.get_subscription(user_id=user.id)

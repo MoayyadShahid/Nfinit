@@ -16,6 +16,7 @@ from execution.runner import SandboxError, _run_worker, export_code, inspect_cod
         "result = getattr(Box, 'x')",
         "while True:\n    pass\nresult = Box(1, 1, 1)",
         "def escape():\n    return 1\nresult = escape()",
+        "try:\n    result = Box(1, 1, 1)\nexcept* Exception:\n    pass",
         "result = export_step(Box(1, 1, 1), '/tmp/model.step')",
         # Audit NFI-001: a generator's frame reaches the real built-ins.
         'g = (g.gi_frame.f_back.f_back.f_builtins["vars"](\n'

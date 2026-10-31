@@ -5,7 +5,12 @@ import pytest
 from projects import models as project_models
 from projects.models import ProjectCreate, ProjectState
 from projects.postgres_store import PostgresProjectStore
-from projects.store import LEGACY_LOCAL_USER_ID, ProjectNotFoundError, ProjectStore
+from projects.store import (
+    LEGACY_LOCAL_USER_ID,
+    ProjectNotFoundError,
+    ProjectStore,
+    RunNotFoundError,
+)
 
 USER_ID = "00000000-0000-4000-8000-000000000010"
 OTHER_USER_ID = "00000000-0000-4000-8000-000000000020"
@@ -79,6 +84,40 @@ def test_project_store_renames_lists_and_cascades_delete(tmp_path):
     assert store.list_projects(user_id=USER_ID) == []
     with pytest.raises(ProjectNotFoundError):
         store.get_project(created.id, user_id=USER_ID)
+
+
+def test_project_delete_removes_completed_and_active_runs(tmp_path):
+    store = ProjectStore(tmp_path / "projects.db")
+    project = store.create_project(ProjectCreate(name="Part"), user_id=USER_ID)
+    completed = store.create_run(
+        "00000000-0000-4000-8000-000000000101",
+        user_id=USER_ID,
+        project_id=project.id,
+        prompt="private prompt",
+        model_id="model",
+    )
+    store.finish_run(
+        completed.id,
+        user_id=USER_ID,
+        status="failed",
+        result=None,
+        error="failed",
+        project_id=project.id,
+    )
+    active = store.create_run(
+        "00000000-0000-4000-8000-000000000102",
+        user_id=USER_ID,
+        project_id=project.id,
+        prompt="still working",
+        model_id="model",
+    )
+
+    store.delete_project(project.id, user_id=USER_ID)
+
+    with pytest.raises(RunNotFoundError):
+        store.get_run(completed.id, user_id=USER_ID)
+    with pytest.raises(RunNotFoundError):
+        store.get_run(active.id, user_id=USER_ID)
 
 
 def test_project_store_isolates_projects_by_user(tmp_path):

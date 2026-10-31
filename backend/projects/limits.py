@@ -13,8 +13,10 @@ valid access token, so the limits are enforced here, not in the browser:
 import base64
 import os
 import re
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Iterator
+from uuid import uuid4
 
 from fastapi import Depends, HTTPException, status
 
@@ -191,13 +193,47 @@ def check_sandbox_rate(store: ProjectStoreProtocol, user_id: str) -> None:
         )
 
 
+@contextmanager
+def sandbox_execution_slot(
+    store: ProjectStoreProtocol, user_id: str
+) -> Iterator[None]:
+    """Hold one cross-replica execution slot for this user.
+
+    Leases expire if a process dies before the dependency's finally block. The
+    default covers two sequential 90-second builds (revision comparison) plus
+    queue/response overhead.
+    """
+    lease_id = str(uuid4())
+    now = datetime.now(timezone.utc)
+    lease_seconds = max(1, _int_setting("CAD_SANDBOX_LEASE_SECONDS", 240))
+    acquired = store.acquire_concurrency_lease(
+        lease_id=lease_id,
+        user_id=user_id,
+        kind="sandbox",
+        now=now,
+        expires_at=now + timedelta(seconds=lease_seconds),
+        limit=_int_setting("CAD_SANDBOX_MAX_CONCURRENT_PER_USER", 2),
+    )
+    if not acquired:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="You already have too many CAD operations running.",
+            headers={"Retry-After": "5"},
+        )
+    try:
+        yield
+    finally:
+        store.release_concurrency_lease(lease_id=lease_id, user_id=user_id)
+
+
 def limit_sandbox_calls(
     user_id: Annotated[str, Depends(require_subscription)],
     store: Annotated[ProjectStoreProtocol, Depends(get_project_store)],
-) -> str:
+) -> Iterator[str]:
     """A subscribed user's id, if they are under their sandbox call limit."""
-    check_sandbox_rate(store, user_id)
-    return user_id
+    with sandbox_execution_slot(store, user_id):
+        check_sandbox_rate(store, user_id)
+        yield user_id
 
 
 SandboxUserId = Annotated[str, Depends(limit_sandbox_calls)]

@@ -24,8 +24,12 @@ from .store import (
     RevisionNotFoundError,
     RunNotFoundError,
     RunQuotaExceededError,
+    StorageQuotaExceededError,
     StoredMesh,
     ThumbnailNotFoundError,
+    max_projects_per_user,
+    max_revisions_per_user,
+    max_storage_bytes_per_user,
 )
 
 
@@ -45,9 +49,89 @@ class PostgresProjectStore:
             connection.execute("SET LOCAL ROLE nfinit_backend")
             yield connection
 
+    @contextmanager
+    def billing_operation_lock(self, user_id: str):
+        """Hold a transaction-scoped lock across Stripe and database calls.
+
+        Checkout creation and account deletion use the same key, including
+        across backend replicas. The connection is intentionally kept open
+        while the caller talks to Stripe; losing it releases the lock.
+        """
+        with self._connect(user_id) as connection:
+            connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                (f"nfinit-billing:{user_id}",),
+            )
+            yield
+
     @staticmethod
     def _state_value(state: ProjectState) -> dict:
         return state.model_dump(mode="json", by_alias=True)
+
+    @staticmethod
+    def _lock_storage(connection, user_id: str) -> None:
+        connection.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            (f"nfinit-storage:{user_id}",),
+        )
+
+    @staticmethod
+    def _storage_bytes(connection, user_id: str) -> int:
+        row = connection.execute(
+            """
+            SELECT
+              (SELECT COALESCE(SUM(octet_length(name) +
+                  COALESCE(octet_length(thumbnail), 0)), 0)
+               FROM public.projects WHERE user_id = %s) +
+              (SELECT COALESCE(SUM(pg_column_size(r.state_json)), 0)
+               FROM public.project_revisions r
+               JOIN public.projects p ON p.id = r.project_id
+               WHERE p.user_id = %s) +
+              (SELECT COALESCE(SUM(octet_length(glb) +
+                  pg_column_size(inspection_json)), 0)
+               FROM public.project_meshes WHERE user_id = %s) +
+              (SELECT COALESCE(SUM(octet_length(prompt) +
+                  octet_length(model_id) +
+                  COALESCE(pg_column_size(result_json), 0) +
+                  COALESCE(octet_length(error), 0)), 0)
+               FROM public.cad_runs WHERE user_id = %s) +
+              (SELECT COALESCE(SUM(octet_length(stage) +
+                  octet_length(status) + octet_length(message)), 0)
+               FROM public.run_events WHERE user_id = %s) AS bytes
+            """,
+            (user_id, user_id, user_id, user_id, user_id),
+        ).fetchone()
+        return int(row["bytes"])
+
+    @classmethod
+    def _assert_storage_available(cls, connection, user_id: str, additional: int):
+        if additional > 0 and (
+            cls._storage_bytes(connection, user_id) + additional
+            > max_storage_bytes_per_user()
+        ):
+            raise StorageQuotaExceededError(user_id)
+
+    @staticmethod
+    def _assert_project_count(connection, user_id: str) -> None:
+        count = connection.execute(
+            "SELECT COUNT(*) AS count FROM public.projects WHERE user_id = %s",
+            (user_id,),
+        ).fetchone()["count"]
+        if int(count) >= max_projects_per_user():
+            raise StorageQuotaExceededError(user_id, "projects")
+
+    @staticmethod
+    def _assert_revision_count(connection, user_id: str) -> None:
+        count = connection.execute(
+            """
+            SELECT COUNT(*) AS count FROM public.project_revisions r
+            JOIN public.projects p ON p.id = r.project_id
+            WHERE p.user_id = %s
+            """,
+            (user_id,),
+        ).fetchone()["count"]
+        if int(count) >= max_revisions_per_user():
+            raise StorageQuotaExceededError(user_id, "revisions")
 
     @staticmethod
     def _project_uuid(project_id: str) -> str:
@@ -145,7 +229,15 @@ class PostgresProjectStore:
     ) -> ProjectDetail:
         project_id = str(uuid4())
         revision_id = str(uuid4())
+        state_value = self._state_value(request.state)
+        state_bytes = len(json.dumps(state_value, separators=(",", ":")).encode())
         with self._connect(user_id) as connection:
+            self._lock_storage(connection, user_id)
+            self._assert_project_count(connection, user_id)
+            self._assert_revision_count(connection, user_id)
+            self._assert_storage_available(
+                connection, user_id, len(request.name.encode()) + state_bytes
+            )
             connection.execute(
                 """
                 INSERT INTO public.projects (id, user_id, name)
@@ -159,7 +251,7 @@ class PostgresProjectStore:
                     id, project_id, revision_number, state_json
                 ) VALUES (%s, %s, 1, %s)
                 """,
-                (revision_id, project_id, Jsonb(self._state_value(request.state))),
+                (revision_id, project_id, Jsonb(state_value)),
             )
             return self._get_project(connection, project_id, user_id)
 
@@ -191,6 +283,18 @@ class PostgresProjectStore:
     ) -> ProjectDetail:
         project_id = self._project_uuid(project_id)
         with self._connect(user_id) as connection:
+            self._lock_storage(connection, user_id)
+            current = connection.execute(
+                "SELECT name FROM public.projects WHERE id = %s AND user_id = %s",
+                (project_id, user_id),
+            ).fetchone()
+            if current is None:
+                raise ProjectNotFoundError(project_id)
+            self._assert_storage_available(
+                connection,
+                user_id,
+                max(0, len(name.encode()) - len(current["name"].encode())),
+            )
             updated = connection.execute(
                 """
                 UPDATE public.projects
@@ -209,7 +313,10 @@ class PostgresProjectStore:
     ) -> ProjectRevision:
         project_id = self._project_uuid(project_id)
         revision_id = str(uuid4())
+        state_value = self._state_value(state)
+        state_bytes = len(json.dumps(state_value, separators=(",", ":")).encode())
         with self._connect(user_id) as connection:
+            self._lock_storage(connection, user_id)
             project = connection.execute(
                 """
                 SELECT id FROM public.projects
@@ -220,6 +327,8 @@ class PostgresProjectStore:
             ).fetchone()
             if project is None:
                 raise ProjectNotFoundError(project_id)
+            self._assert_revision_count(connection, user_id)
+            self._assert_storage_available(connection, user_id, state_bytes)
             next_number = connection.execute(
                 """
                 SELECT COALESCE(MAX(revision_number), 0) + 1 AS next_number
@@ -239,7 +348,7 @@ class PostgresProjectStore:
                     revision_id,
                     project_id,
                     next_number,
-                    Jsonb(self._state_value(state)),
+                    Jsonb(state_value),
                 ),
             ).fetchone()
             connection.execute(
@@ -311,6 +420,15 @@ class PostgresProjectStore:
     def delete_project(self, project_id: str, *, user_id: str) -> None:
         project_id = self._project_uuid(project_id)
         with self._connect(user_id) as connection:
+            # Runs contain prompts/results and are project history. Delete
+            # even in-flight records so a worker cannot retain deleted data.
+            connection.execute(
+                """
+                DELETE FROM public.cad_runs
+                WHERE project_id = %s AND user_id = %s
+                """,
+                (project_id, user_id),
+            )
             deleted = connection.execute(
                 """
                 DELETE FROM public.projects
@@ -332,6 +450,17 @@ class PostgresProjectStore:
     ) -> None:
         project_id = self._project_uuid(project_id)
         with self._connect(user_id) as connection:
+            self._lock_storage(connection, user_id)
+            existing = connection.execute(
+                "SELECT octet_length(thumbnail) AS bytes FROM public.projects "
+                "WHERE id = %s AND user_id = %s",
+                (project_id, user_id),
+            ).fetchone()
+            if existing is None:
+                raise ProjectNotFoundError(project_id)
+            self._assert_storage_available(
+                connection, user_id, max(0, len(data) - int(existing["bytes"] or 0))
+            )
             updated = connection.execute(
                 """
                 UPDATE public.projects
@@ -388,7 +517,30 @@ class PostgresProjectStore:
         self, project_id: str, mesh: StoredMesh, *, user_id: str
     ) -> None:
         project_id = self._project_uuid(project_id)
+        inspection_bytes = len(json.dumps(mesh.inspection, separators=(",", ":")).encode())
         with self._connect(user_id) as connection:
+            self._lock_storage(connection, user_id)
+            project = connection.execute(
+                "SELECT 1 FROM public.projects WHERE id = %s AND user_id = %s",
+                (project_id, user_id),
+            ).fetchone()
+            if project is None:
+                raise ProjectNotFoundError(project_id)
+            existing = connection.execute(
+                "SELECT octet_length(glb) + pg_column_size(inspection_json) AS bytes "
+                "FROM public.project_meshes WHERE project_id = %s AND user_id = %s",
+                (project_id, user_id),
+            ).fetchone()
+            self._assert_storage_available(
+                connection,
+                user_id,
+                max(
+                    0,
+                    len(mesh.glb)
+                    + inspection_bytes
+                    - int(existing["bytes"] if existing else 0),
+                ),
+            )
             saved = connection.execute(
                 """
                 INSERT INTO public.project_meshes
@@ -444,6 +596,10 @@ class PostgresProjectStore:
         if project_id is not None:
             project_id = self._project_uuid(project_id)
         with self._connect(user_id) as connection:
+            self._lock_storage(connection, user_id)
+            self._assert_storage_available(
+                connection, user_id, len(prompt.encode()) + len(model_id.encode())
+            )
             row = connection.execute(
                 """
                 INSERT INTO public.cad_runs (
@@ -481,6 +637,10 @@ class PostgresProjectStore:
             connection.execute(
                 "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
                 (f"nfinit-run:{user_id}",),
+            )
+            self._lock_storage(connection, user_id)
+            self._assert_storage_available(
+                connection, user_id, len(prompt.encode()) + len(model_id.encode())
             )
             counts = connection.execute(
                 """
@@ -567,6 +727,61 @@ class PostgresProjectStore:
             )
         return None
 
+    def acquire_concurrency_lease(
+        self,
+        *,
+        lease_id: str,
+        user_id: str,
+        kind: str,
+        now: datetime,
+        expires_at: datetime,
+        limit: int,
+    ) -> bool:
+        lease_id = str(UUID(lease_id))
+        now = now.astimezone(timezone.utc)
+        expires_at = expires_at.astimezone(timezone.utc)
+        with self._connect(user_id) as connection:
+            connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                (f"nfinit-active:{kind}:{user_id}",),
+            )
+            connection.execute(
+                """
+                DELETE FROM public.sandbox_active_leases
+                WHERE user_id = %s AND kind = %s AND expires_at <= %s
+                """,
+                (user_id, kind, now),
+            )
+            active = connection.execute(
+                """
+                SELECT COUNT(*) AS count FROM public.sandbox_active_leases
+                WHERE user_id = %s AND kind = %s
+                """,
+                (user_id, kind),
+            ).fetchone()["count"]
+            if limit <= 0 or int(active) >= limit:
+                return False
+            connection.execute(
+                """
+                INSERT INTO public.sandbox_active_leases
+                    (lease_id, user_id, kind, expires_at)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (lease_id, user_id, kind, expires_at),
+            )
+        return True
+
+    def release_concurrency_lease(self, *, lease_id: str, user_id: str) -> None:
+        lease_id = str(UUID(lease_id))
+        with self._connect(user_id) as connection:
+            connection.execute(
+                """
+                DELETE FROM public.sandbox_active_leases
+                WHERE lease_id = %s AND user_id = %s
+                """,
+                (lease_id, user_id),
+            )
+
     def finish_run(
         self,
         run_id: str,
@@ -580,7 +795,28 @@ class PostgresProjectStore:
         run_id = self._run_uuid(run_id)
         if project_id is not None:
             project_id = self._project_uuid(project_id)
+        result_value = result.model_dump(mode="json", by_alias=True) if result else None
         with self._connect(user_id) as connection:
+            self._lock_storage(connection, user_id)
+            existing = connection.execute(
+                "SELECT COALESCE(pg_column_size(result_json), 0) AS result_bytes, "
+                "COALESCE(octet_length(error), 0) AS error_bytes "
+                "FROM public.cad_runs "
+                "WHERE id = %s AND user_id = %s AND status = 'running'",
+                (run_id, user_id),
+            ).fetchone()
+            if existing is None:
+                raise RunNotFoundError(run_id)
+            old_bytes = int(existing["result_bytes"]) + int(existing["error_bytes"])
+            result_bytes = (
+                len(json.dumps(result_value, separators=(",", ":")).encode())
+                if result_value is not None
+                else 0
+            )
+            new_bytes = result_bytes + len((error or "").encode())
+            self._assert_storage_available(
+                connection, user_id, max(0, new_bytes - old_bytes)
+            )
             row = connection.execute(
                 """
                 UPDATE public.cad_runs
@@ -591,9 +827,7 @@ class PostgresProjectStore:
                 """,
                 (
                     status,
-                    Jsonb(result.model_dump(mode="json", by_alias=True))
-                    if result
-                    else None,
+                    Jsonb(result_value) if result_value is not None else None,
                     error,
                     project_id,
                     run_id,
@@ -621,6 +855,14 @@ class PostgresProjectStore:
     def add_run_event(self, run_id: str, event: RunEvent, *, user_id: str) -> None:
         run_id = self._run_uuid(run_id)
         with self._connect(user_id) as connection:
+            self._lock_storage(connection, user_id)
+            self._assert_storage_available(
+                connection,
+                user_id,
+                len(event.stage.encode())
+                + len(event.status.encode())
+                + len(event.message.encode()),
+            )
             added = connection.execute(
                 """
                 INSERT INTO public.run_events
