@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+from collections import Counter
 import os
 from pathlib import Path
 
@@ -122,6 +123,7 @@ async def run(args: argparse.Namespace) -> int:
             f"{summary.mean_total_tokens:.0f} mean tokens, "
             f"${summary.total_cost_usd:.2f} total"
         )
+    print_run_errors(results)
 
     if args.publish_langfuse:
         assert dataset_name is not None
@@ -132,6 +134,17 @@ async def run(args: argparse.Namespace) -> int:
             f"{published.scores_created} score(s) to LangFuse."
         )
     return 0 if all(result.passed for result in results) else 1
+
+
+def print_run_errors(results, limit: int = 5) -> None:
+    """Print the most common agent errors, so a failed CI run shows why."""
+    errors = Counter(
+        (result.model_id, str(result.scores["agent_run"].value)[:300])
+        for result in results
+        if "agent_run" in result.scores
+    )
+    for (model_id, error), count in errors.most_common(limit):
+        print(f"{model_id}: {count} run(s) raised {error}")
 
 
 def main() -> int:
