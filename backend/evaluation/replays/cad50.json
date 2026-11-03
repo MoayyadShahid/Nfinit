@@ -58,6 +58,11 @@
     {"case_id":"manufacturing_cnc_pocket","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 50, 8)\n    with Locations((0, 0, 5)):\n        Box(40, 25, 3, mode=Mode.SUBTRACT)\nresult = part.part"},
     {"case_id":"manufacturing_sheet_tray","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 50, 2)\n    with Locations((0, -22.5, 10), (0, 22.5, 10)):\n        Box(80, 5, 18)\n    with Locations((-37.5, 0, 10), (37.5, 0, 10)):\n        Box(5, 40, 18)\nresult = part.part"},
     {"case_id":"manufacturing_lamp_base","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(50, 12)\n    Cylinder(6, 12, mode=Mode.SUBTRACT)\nresult = part.part"},
-    {"case_id":"manufacturing_phone_cradle","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 70, 5)\n    with Locations((0, -32.5, 30)):\n        Box(80, 5, 55)\n    with Locations((0, 29, 8.5)):\n        Box(80, 12, 12)\nresult = part.part"}
+    {"case_id":"manufacturing_phone_cradle","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(80, 70, 5)\n    with Locations((0, -32.5, 30)):\n        Box(80, 5, 55)\n    with Locations((0, 29, 8.5)):\n        Box(80, 12, 12)\nresult = part.part"},
+    {"case_id":"reading_box_overall_height","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(60, 40, 25)\n    with Locations((0, 0, 1.5)):\n        Box(54, 34, 22, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"reading_standoff_on_plate","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(50, 50, 4)\n    with Locations((0, 0, 8)):\n        Cylinder(5, 12)\nresult = part.part"},
+    {"case_id":"reading_stepped_shaft","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(10, 30)\n    with Locations((0, 0, 22.5)):\n        Cylinder(6, 15)\nresult = part.part"},
+    {"case_id":"reading_cup_wall_height","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Cylinder(35, 43)\n    with Locations((0, 0, 1.5)):\n        Cylinder(33, 40, mode=Mode.SUBTRACT)\nresult = part.part"},
+    {"case_id":"reading_bracket_total_height","model_id":"recorded/reference","code":"with BuildPart() as part:\n    Box(60, 30, 5)\n    with Locations((0, -12.5, 20)):\n        Box(60, 5, 35)\nresult = part.part"}
   ]
 }

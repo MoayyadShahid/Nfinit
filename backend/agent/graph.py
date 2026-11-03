@@ -12,6 +12,7 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from openai import AsyncOpenAI
 
+from .expectations import PlanExpectations, check_geometry, describe, split_plan
 from .models import CadRunRequest, ModelInspection
 from .prompts import CAD_SYSTEM_PROMPT, PLANNER_PROMPT
 from .retrieval import (
@@ -74,6 +75,13 @@ class AgentState(TypedDict):
     code: str
     inspection: dict[str, Any] | None
     validation_error: str | None
+    # What the plan says the part must measure, from its expectations block.
+    expectations: PlanExpectations | None
+    # Set when the part built but differs from the plan's expectations.
+    geometry_mismatch: str | None
+    # The most recent code that built, kept so that a failed repair cannot
+    # replace a usable part with an error.
+    last_valid: dict[str, Any] | None
     repair_attempts: int
     trace: list[dict[str, Any]]
     usage: dict[str, int]
@@ -256,6 +264,18 @@ def _usage_of(completion: Any) -> dict[str, Any]:
         "total_tokens": getattr(completion_usage, "total_tokens", 0) or 0,
         "cost_usd": float(cost or 0),
     }
+
+
+def _failure_of(state: AgentState) -> str | None:
+    return state["validation_error"] or state.get("geometry_mismatch")
+
+
+def _expectation_note(state: AgentState) -> str:
+    expectations = state.get("expectations")
+    summary = describe(expectations) if expectations else ""
+    if not summary:
+        return ""
+    return f"\n\nThe built part will be checked for: {summary}."
 
 
 def _model_for(state: AgentState, operation: str) -> str:
@@ -446,15 +466,17 @@ def create_cad_graph(
             span.update(output=summarize_text(raw))
         if not raw:
             raise ValueError("The planning model returned an empty response.")
+        plan_text, expectations = split_plan(raw)
         duration_ms = round((perf_counter() - started) * 1000)
         return {
-            "plan": raw,
+            "plan": plan_text or raw,
+            "expectations": expectations,
             "usage": _add_usage(state, completion["usage"]),
             "trace": _append_trace(
                 state,
                 "plan",
                 "complete",
-                plan_summary(raw)
+                plan_summary(plan_text or raw)
                 or "Translated the request into geometry and manufacturing constraints.",
                 duration_ms,
             ),
@@ -470,7 +492,10 @@ def create_cad_graph(
             *_conversation_messages(state),
             {
                 "role": "user",
-                "content": f"Implement this approved design plan:\n\n{state['plan']}",
+                "content": (
+                    f"Implement this approved design plan:\n\n{state['plan']}"
+                    + _expectation_note(state)
+                ),
             },
         ]
         with tracer.observation(
@@ -504,6 +529,30 @@ def create_cad_graph(
             ),
         }
 
+    def _failed_build(
+        state: AgentState, error: str, duration_ms: int, extra: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Report a failed build, or fall back to the last part that built."""
+        last_valid = state.get("last_valid")
+        if last_valid and state["repair_attempts"] >= MAX_REPAIR_ATTEMPTS:
+            mismatch = last_valid.get("geometry_mismatch")
+            detail = "The last repair did not build, so the previous part was kept."
+            if mismatch:
+                detail += " " + mismatch
+            return {
+                "code": last_valid["code"],
+                "inspection": last_valid["inspection"],
+                "validation_error": None,
+                "geometry_mismatch": mismatch,
+                "trace": _append_trace(state, "inspect", "failed", detail, duration_ms),
+            }
+        return {
+            **extra,
+            "validation_error": error,
+            "geometry_mismatch": None,
+            "trace": _append_trace(state, "inspect", "failed", error, duration_ms),
+        }
+
     async def inspect(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
         _announce("inspect", "Building the part and checking its geometry.")
@@ -520,15 +569,16 @@ def create_cad_graph(
                     level="WARNING",
                     status_message="CAD code failed policy validation.",
                 )
-                return {
-                    "validation_error": static_error,
-                    "inspection": {"valid": False, "error": static_error},
-                    "trace": _append_trace(
-                        state, "inspect", "failed", static_error, duration_ms
-                    ),
-                }
+                return _failed_build(
+                    state,
+                    static_error,
+                    duration_ms,
+                    {"inspection": {"valid": False, "error": static_error}},
+                )
 
             inspection = await asyncio.to_thread(inspect_code, state["code"])
+            measured = inspection.model_dump()
+            mismatch = check_geometry(state.get("expectations"), measured)
             span.update(
                 output={
                     "valid": inspection.valid,
@@ -536,27 +586,40 @@ def create_cad_graph(
                     "solid_count": inspection.solid_count,
                     "volume_mm3": inspection.volume_mm3,
                     "bounding_box_mm": inspection.bounding_box_mm,
-                    "error_type": "execution" if inspection.error else None,
+                    "error_type": (
+                        "execution"
+                        if inspection.error
+                        else "geometry_mismatch" if mismatch else None
+                    ),
                 },
-                level="DEFAULT" if inspection.valid else "WARNING",
+                level="DEFAULT" if inspection.valid and not mismatch else "WARNING",
             )
-        error = None if inspection.valid else inspection.error or "Geometry execution failed."
+        duration_ms = round((perf_counter() - started) * 1000)
+        if not inspection.valid:
+            error = inspection.error or "Geometry execution failed."
+            return _failed_build(state, error, duration_ms, {"inspection": measured})
+
         dimensions = inspection.bounding_box_mm or {}
         detail = (
             f"Built {inspection.solid_count or 0} solid(s); bounds "
             f"{dimensions.get('x', '?')} × {dimensions.get('y', '?')} × "
             f"{dimensions.get('z', '?')} mm."
-            if inspection.valid
-            else error
         )
-        duration_ms = round((perf_counter() - started) * 1000)
+        if mismatch:
+            detail += " " + mismatch
         return {
-            "inspection": inspection.model_dump(),
-            "validation_error": error,
+            "inspection": measured,
+            "validation_error": None,
+            "geometry_mismatch": mismatch,
+            "last_valid": {
+                "code": state["code"],
+                "inspection": measured,
+                "geometry_mismatch": mismatch,
+            },
             "trace": _append_trace(
                 state,
                 "inspect",
-                "passed" if inspection.valid else "failed",
+                "failed" if mismatch else "passed",
                 detail,
                 duration_ms,
             ),
@@ -564,9 +627,14 @@ def create_cad_graph(
 
     async def repair(state: AgentState) -> dict[str, Any]:
         started = perf_counter()
+        target = (
+            "the size to match the plan"
+            if state.get("geometry_mismatch") and not state["validation_error"]
+            else "the error"
+        )
         _announce(
             "repair",
-            "Fixing the error (attempt "
+            f"Fixing {target} (attempt "
             f"{state['repair_attempts'] + 1} of {MAX_REPAIR_ATTEMPTS}).",
             attempt=state["repair_attempts"] + 1,
         )
@@ -577,9 +645,10 @@ def create_cad_graph(
             {
                 "role": "user",
                 "content": (
-                    f"Design plan:\n{state['plan']}\n\n"
-                    "The following build123d code failed execution or validation:\n\n"
-                    f"{state['code']}\n\nFailure:\n{state['validation_error']}\n\n"
+                    f"Design plan:\n{state['plan']}{_expectation_note(state)}\n\n"
+                    "The following build123d code failed execution, validation, "
+                    "or the geometry check:\n\n"
+                    f"{state['code']}\n\nFailure:\n{_failure_of(state)}\n\n"
                     "Repair the code while preserving the design intent. "
                     "Return the complete corrected code."
                 ),
@@ -615,14 +684,16 @@ def create_cad_graph(
                 state,
                 "repair",
                 "complete",
-                f"Repaired geometry after validation failure "
+                f"Repaired geometry after a failed check "
                 f"(attempt {attempt}/{MAX_REPAIR_ATTEMPTS}).",
                 duration_ms,
             ),
         }
 
     def after_inspection(state: AgentState) -> str:
-        if not state["validation_error"]:
+        # A part that built but differs from the plan is repaired while
+        # attempts remain, and is otherwise returned as it is.
+        if not _failure_of(state):
             return END
         return "repair" if state["repair_attempts"] < MAX_REPAIR_ATTEMPTS else END
 
@@ -686,6 +757,9 @@ async def run_cad_agent(
         "code": "",
         "inspection": None,
         "validation_error": None,
+        "expectations": None,
+        "geometry_mismatch": None,
+        "last_valid": None,
         "repair_attempts": 0,
         "trace": [],
         "usage": {key: 0 for key in USAGE_KEYS},
@@ -734,6 +808,7 @@ async def run_cad_agent(
         root.update(
             output={
                 "valid": not bool(result["validation_error"]),
+                "matches_plan": not result.get("geometry_mismatch"),
                 "repair_attempts": result["repair_attempts"],
                 "inspection": result["inspection"],
             },

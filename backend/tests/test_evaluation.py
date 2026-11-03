@@ -232,6 +232,7 @@ def test_cad50_benchmark_has_balanced_complete_coverage():
     replays = load_replays(root / "replays" / "cad50.json")
 
     expected_categories = {
+        "dimension_reading",
         "primitive",
         "subtractive",
         "pattern",
@@ -247,12 +248,12 @@ def test_cad50_benchmark_has_balanced_complete_coverage():
     case_ids = {case.id for case in cases}
     replay_ids = {replay.case_id for replay in replays}
 
-    assert len(cases) == 50
-    assert len(replays) == 50
+    assert len(cases) == 55
+    assert len(replays) == 55
     assert set(category_counts) == expected_categories
     assert set(category_counts.values()) == {5}
     assert replay_ids == case_ids
-    assert len({case.messages[-1].content for case in cases}) == 50
+    assert len({case.messages[-1].content for case in cases}) == 55
     assert all(case.expected.solid_count is not None for case in cases)
     assert all(case.expected.bounding_box_mm for case in cases)
     assert all(case.tags for case in cases)

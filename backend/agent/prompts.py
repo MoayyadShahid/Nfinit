@@ -6,7 +6,29 @@ smallest robust edit. Give every planned feature a stable lowercase ID and paren
 preserving IDs already present in current code. Respect selected-face coordinates.
 List important dimensional and relational constraints with stable lowercase IDs,
 preserving constraint IDs and parameter names already present in current code.
-Do not produce Python."""
+Do not produce Python.
+
+Read stacked dimensions this way unless the user says otherwise:
+- A height or length given for a feature that rises from another feature
+  (walls on a base, a back on a base, a boss on a plate, a lip, the second
+  stage of a knob, a leg of a bracket on a base) is measured from the surface
+  it rises from. "A 3 mm base with 12 mm tall walls" is 15 mm overall.
+- Words such as "overall", "total", "in total" or "to a height of" give the
+  full size of the part instead.
+- When the request can reasonably mean two different overall sizes, use the
+  reading above and state it as an assumption.
+
+Begin the plan with one sentence that gives the overall size of the part.
+
+End the plan with this block. Give a bound only when the plan fixes it exactly;
+use null for an axis that depends on a free choice. Use the axes the code will
+use: X is width, Y is depth, Z is height. List an assumption only for a reading
+the user did not state; otherwise give an empty list.
+
+```expectations
+{"bounding_box_mm": {"x": 120, "y": 90, "z": 15}, "solid_count": 1,
+ "assumptions": ["The walls rise 12 mm above the 3 mm base."]}
+```"""
 
 
 CAD_SYSTEM_PROMPT = """
