@@ -77,59 +77,69 @@ Stripe lives in the backend, which already owns the database.
 
 ## Demo parts
 
-Six recorded build stories, served as static files from
-`frontend/public/demos/` (6.4 MB):
+Six example builds, served as static files from `frontend/public/demos/`
+(27 MB; the studio downloads only the versions a visitor opens):
 
-| Demo | Steps |
+| Demo | Versions |
 | --- | --- |
-| 5-inch drone frame (first for free users) | body and arms → motor holes → flight-controller holes → weight-saving slots → corner fillets |
-| Desk phone stand | base, lip and back support → cable slot → edge fillets |
-| Desk cable clip | plate and cradles → countersunk holes → corner fillets |
-| Under-desk headphone hook | plate, drop and arm → retaining lip → countersunk holes |
-| Raspberry Pi base tray | tray → standoffs → floor vents → port openings |
-| L-bracket | legs → countersunk holes → gusset |
+| 5-inch FPV drone frame (first for free users) | bottom plate → motor mounts → stack, standoff and strap holes → arm weight relief → standoffs and top plate → camera cage |
+| Robot gripper | base plate → micro servo → spur gears → cranks and idler links → fingers |
+| Miniature glider | fuselage → main wing → horizontal stabilizer → vertical fin → nose pocket and launch hook |
+| Model rocket | body tube → nose cone → fin can → launch lug → motor mount and retainer |
+| Desk catapult | ladder frame → A-frame uprights → axle and throwing arm → bucket → stop bar → wheels |
+| Electronics enclosure | shell → board standoffs → USB-C and button openings → vent slots → lid → screw bosses and lid holes |
 
-Each folder has `demo.json` (for every step: the prompt, the agent's plan,
-trace and recorded progress events, the code, the finished GLB and the
-previews of the features that step adds) and the GLB files. `index.json`
-lists the demos.
+**Where they come from.** Each demo is a design file in
+`backend/demos/designs/<slug>.cad`: build123d code with comment markers
+that split it into steps, each with the request, the reply and the code it
+adds (`backend/demos/authored.py` documents the format). The code of a
+version is the complete script of steps 1 to N, so every version is a real,
+runnable script, and the next version only adds to it. The demos are written
+by hand, not recorded agent runs, so `demo.json` says `"source": "example"`
+and the studio labels them "Example build". The progress steps in a replay
+show the plan and the real build result, without timings.
 
-**Replay.** The studio plays a step like a live run: the prompt appears in the
-chat, the recorded progress events play in the step list (compressed to at
-most 7 seconds; the durations shown are the recorded ones), the step's new
-features grow in the viewport, and then the finished part appears. "Next
-step", "Replay step" and "Watch again" move through the story. Replays make no
-backend calls.
+Each folder has `demo.json` (for every version: the request, the reply,
+the trace, the code, the finished GLB and the previews of the features that
+version adds) and the GLB files. `index.json` lists the demos in order.
+
+**Replay as a version history.** The replay panel shows a timeline with one
+point per version, named after the features it adds. "Build next version"
+plays the next version like a live run: the request appears in the chat, the
+progress steps play, the new features grow in the viewport (new faces
+highlighted), and then the finished part appears. Clicking a point on the
+timeline, or a reply in the chat history, shows that version at once; later
+turns stay in the chat, dimmed, like the rest of a CAD timeline. "Replay this
+version" plays the shown version again, and "Watch again" plays the whole
+story from version 1. Replays make no backend calls.
 
 **Who sees what.**
 
-- A free user with nothing open lands in the drone-frame demo.
+- A free user with nothing open lands in the FPV drone demo.
 - Everyone sees "See how it's built" cards under the prompt box on the
   welcome screen, and `/studio?demo=<slug>` opens a demo directly.
 - Sending a prompt, selecting a face and exporting open the paywall for free
-  users. For subscribers, a prompt builds on the demo part as a new project,
-  and export works as for any part.
+  users. For subscribers, a prompt builds on the shown version as a new
+  project, and export works as for any part.
 
-**Regenerate.** From `backend/`, with `OPENROUTER_API_KEY` set:
+**Rebuild.** From `backend/` (no model calls, so no key and no cost):
 
 ```bash
-CAD_SANDBOX_MODE=fork poetry run python -m demos.build [--only drone-frame]
+poetry run python -m demos.build [--only fpv-drone]
 ```
 
-The script runs the production agent on the prompts in `backend/demos/specs.json`,
-step by step, as the studio would. Each first step asks for the base shape
-only ("no holes, slots, cutouts or fillets yet") and each later step for one
-change ("keep everything else exactly as it is"): without this the agent adds
-most features in step 1 and the later steps show nothing new. A demo whose
-step fails or times out is left out. The 2026-10-08 builds cost about $4 in
-total with Claude Sonnet 5.5.
+The script runs every version of each design through the CAD sandbox, writes
+the GLBs, the previews and `demo.json`, and removes demo folders that are no
+longer listed. A demo with a step that does not build is left out. The tests
+in `backend/tests/test_demos.py` check that the shipped code is exactly the
+design's code for each version and that every version builds on the one
+before it.
 
-The phone stand's fillet step first timed out twice. With `effort: "high"`,
-OpenRouter reserves 80% of `max_tokens` for an Anthropic model's reasoning,
-which left about 1,600 of 8,192 tokens for the code, so calls ended with
-`finish_reason=length` and no content. The agent now gives Anthropic models an
-explicit reasoning budget and 32,000 tokens of output room; with that, the
-step built on its first try.
+**Next: version history for projects.** Projects should get the same
+behaviour: each assistant turn in a project's chat is a revision, and
+clicking it opens that revision. `ChatPane` already takes a `versions` prop
+for this, and the studio already loads revisions (`loadRevision`), so the
+remaining work is to map each assistant message to its revision number.
 
 ## Build order
 
@@ -138,7 +148,7 @@ step built on its first try.
 2. Frontend: proxy routes for sandbox endpoints, billing client, paywall
    panel, gate on send / face select / editor / export, resume after Checkout,
    "Manage subscription" in the account menu.
-3. Demo gallery and replay; generate and commit the demo parts (done).
+3. Demo gallery and replay; build and commit the demo parts (done).
 4. End-to-end in Stripe test mode, then switch to live keys.
 
 ## Setup the owner does in Stripe (test mode first)

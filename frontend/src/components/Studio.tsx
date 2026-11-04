@@ -116,7 +116,7 @@ const DEFAULT_CODE = [
 // A replayed demo step lasts at most this long before its previews play.
 const DEMO_REPLAY_MS = 7_000;
 
-/** The chat of a demo's first `steps` steps, as the agent recorded it. */
+/** The chat of a demo's first `steps` versions: each request and its reply. */
 function demoHistory(target: Demo, steps: number): ChatMessage[] {
   return target.steps.slice(0, steps).flatMap((recorded): ChatMessage[] => [
     { role: "user", content: recorded.prompt },
@@ -134,7 +134,7 @@ export default function Studio({
   viewer?: Viewer | null;
   initialPrompt?: string;
   initialProjectId?: string;
-  /** Open this recorded demo, e.g. from /studio?demo=drone-frame. */
+  /** Open this demo, e.g. from /studio?demo=fpv-drone. */
   initialDemo?: string;
   startNew?: boolean;
 }) {
@@ -171,6 +171,10 @@ export default function Studio({
   const [demos, setDemos] = useState<DemoSummary[]>([]);
   const [demo, setDemo] = useState<Demo | null>(null);
   const [demoStep, setDemoStep] = useState(0);
+  // The furthest version built in this replay; its chat stays visible when an
+  // earlier version is shown, like a CAD timeline.
+  const [demoReached, setDemoReached] = useState(0);
+  const demoReachedRef = useRef(0);
   const [demoPlaying, setDemoPlaying] = useState(false);
   const demoTimers = useRef<number[]>([]);
   const demoGeneration = useRef(0);
@@ -582,10 +586,13 @@ export default function Studio({
     setDemoPlaying(false);
   }, [clearPreview]);
 
-  /** Show a demo step's finished part and the chat that led to it. */
+  /** Show one version of a demo, with the chat of every version built so far. */
   const showDemoStep = useCallback((target: Demo, step: number) => {
     const recorded = target.steps[step - 1];
-    setMessages(demoHistory(target, step));
+    const reached = Math.max(demoReachedRef.current, step);
+    demoReachedRef.current = reached;
+    setDemoReached(reached);
+    setMessages(demoHistory(target, reached));
     setCode(recorded.code);
     setInspection(recorded.agent.inspection.valid ? recorded.agent.inspection : null);
     setGlbUrl((previous) => {
@@ -664,11 +671,25 @@ export default function Studio({
     [clearPreview, enqueuePreviewFiles, settlePreview, showDemoStep, stopDemoPlayback]
   );
 
+  /** Jump to a version without replaying it, e.g. from the timeline. */
+  const selectDemoStep = useCallback(
+    (target: Demo, step: number) => {
+      stopDemoPlayback();
+      setIsLoading(false);
+      setRunEvents([]);
+      setRunStartedAt(null);
+      showDemoStep(target, step);
+    },
+    [showDemoStep, stopDemoPlayback]
+  );
+
   const openDemo = useCallback(
     async (slug: string) => {
       try {
         const target = await getDemo(slug);
         if (!mountedRef.current) return;
+        demoReachedRef.current = 0;
+        setDemoReached(0);
         setProjectId(null);
         setRevisions([]);
         setCurrentRevision(null);
@@ -687,6 +708,8 @@ export default function Studio({
   const exitDemo = useCallback(() => {
     stopDemoPlayback();
     setDemo(null);
+    demoReachedRef.current = 0;
+    setDemoReached(0);
     setIsLoading(false);
     setRunEvents([]);
     setRunStartedAt(null);
@@ -1275,16 +1298,37 @@ export default function Studio({
                 selection={selectedFace}
                 runEvents={isLoading ? runEvents : undefined}
                 runStartedAt={runStartedAt}
+                versions={
+                  demo
+                    ? {
+                        selected: demoPlaying ? null : demoStep,
+                        onSelect: (step) => selectDemoStep(demo, step),
+                      }
+                    : undefined
+                }
                 header={
                   demo ? (
                     <DemoReplay
                       demo={demo}
                       step={demoStep}
+                      reached={demoReached}
                       playing={demoPlaying}
-                      onNext={() => playDemoStep(demo, demoStep + 1)}
-                      onReplay={() =>
-                        playDemoStep(demo, demoStep >= demo.steps.length ? 1 : demoStep)
+                      onSelect={(step) => selectDemoStep(demo, step)}
+                      onNext={() =>
+                        demoStep < demoReached
+                          ? selectDemoStep(demo, demoStep + 1)
+                          : playDemoStep(demo, demoStep + 1)
                       }
+                      onReplay={() => {
+                        if (demoStep >= demo.steps.length) {
+                          // "Watch again" builds the whole story from version 1.
+                          demoReachedRef.current = 0;
+                          setDemoReached(0);
+                          playDemoStep(demo, 1);
+                        } else {
+                          playDemoStep(demo, demoStep);
+                        }
+                      }}
                       onExit={exitDemo}
                     />
                   ) : undefined

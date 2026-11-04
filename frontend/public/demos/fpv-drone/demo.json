@@ -1,0 +1,366 @@
+{
+ "slug": "fpv-drone",
+ "title": "5-inch FPV drone frame",
+ "summary": "A freestyle quadcopter frame, from a cut plate to a full stack with a camera cage.",
+ "source": "example",
+ "steps": [
+  {
+   "prompt": "Start a 5-inch freestyle FPV frame: a 5 mm bottom plate with a stretched center body and four tapered arms, 225 mm motor to motor.",
+   "summary": "A true-X bottom plate, 225 mm motor to motor, cut from 5 mm plate.",
+   "code": "plate_thickness = 5.0\nmotor_diagonal = 225.0\nmotor_radius = motor_diagonal / 2\nbody_width = 44.0\nbody_length = 100.0\narm_root_width = 24.0\narm_tip_width = 16.0\nmotor_pad_diameter = 30.0\narm_angles = [45, 135, 225, 315]\n\nwith BuildPart() as frame:\n    with BuildSketch() as outline:\n        RectangleRounded(body_width, body_length, 8)\n        for angle in arm_angles:\n            with Locations(Rot(0, 0, angle)):\n                Polygon(\n                    (10, -arm_root_width / 2),\n                    (motor_radius, -arm_tip_width / 2),\n                    (motor_radius, arm_tip_width / 2),\n                    (10, arm_root_width / 2),\n                    align=None,\n                )\n                with Locations((motor_radius, 0)):\n                    Circle(motor_pad_diameter / 2)\n        # Round the inside corners where the arms meet the body.\n        inside_corners = [\n            v for v in outline.vertices()\n            if abs(abs(v.X) - body_width / 2) < 0.01 and abs(v.Y) < body_length / 2 - 8\n        ]\n        fillet(inside_corners, radius=4)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"bottom_plate\",\n        \"Bottom plate\",\n        \"additive\",\n        frame.part,\n        parameters={\"thickness\": plate_thickness, \"motor_diagonal\": motor_diagonal},\n    )\n    register_constraint(\n        \"plate_thickness\",\n        \"thickness\",\n        [\"bottom_plate\"],\n        parameters={\"parameter\": \"thickness\", \"value\": plate_thickness, \"unit\": \"mm\"},\n    )\n\nresult = frame.part\n",
+   "glb": "step-1.glb",
+   "previews": [
+    {
+     "file": "step-1-preview-1.glb",
+     "name": "Bottom plate"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A true-X bottom plate, 225 mm motor to motor, cut from 5 mm plate.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 189.099 \u00d7 189.099 \u00d7 5 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A true-X bottom plate, 225 mm motor to motor, cut from 5 mm plate.\n\n- The center body is 44 \u00d7 100 mm with 8 mm corner radii, long in the flight direction for the battery and the stack.\n- Each arm tapers from 24 mm at the body to 16 mm, and ends in a 30 mm round motor pad.\n- The inside corners between the arms and the body get 4 mm radii, so the plate has no sharp notches where cracks start.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A true-X bottom plate, 225 mm motor to motor, cut from 5 mm plate."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 189.099 \u00d7 189.099 \u00d7 5 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 62495.646,
+     "bounding_box_mm": {
+      "x": 189.099,
+      "y": 189.099,
+      "z": 5.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add motor mounts to each arm: a 16 \u00d7 16 mm M3 pattern and a center relief for the motor shaft.",
+   "summary": "Four motor mounts, one at the end of each arm.",
+   "code": "plate_thickness = 5.0\nmotor_diagonal = 225.0\nmotor_radius = motor_diagonal / 2\nbody_width = 44.0\nbody_length = 100.0\narm_root_width = 24.0\narm_tip_width = 16.0\nmotor_pad_diameter = 30.0\narm_angles = [45, 135, 225, 315]\n\nmotor_hole_spacing = 16.0\nmotor_hole_diameter = 3.2\nshaft_relief_diameter = 8.0\n\nwith BuildPart() as frame:\n    with BuildSketch() as outline:\n        RectangleRounded(body_width, body_length, 8)\n        for angle in arm_angles:\n            with Locations(Rot(0, 0, angle)):\n                Polygon(\n                    (10, -arm_root_width / 2),\n                    (motor_radius, -arm_tip_width / 2),\n                    (motor_radius, arm_tip_width / 2),\n                    (10, arm_root_width / 2),\n                    align=None,\n                )\n                with Locations((motor_radius, 0)):\n                    Circle(motor_pad_diameter / 2)\n        # Round the inside corners where the arms meet the body.\n        inside_corners = [\n            v for v in outline.vertices()\n            if abs(abs(v.X) - body_width / 2) < 0.01 and abs(v.Y) < body_length / 2 - 8\n        ]\n        fillet(inside_corners, radius=4)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"bottom_plate\",\n        \"Bottom plate\",\n        \"additive\",\n        frame.part,\n        parameters={\"thickness\": plate_thickness, \"motor_diagonal\": motor_diagonal},\n    )\n    register_constraint(\n        \"plate_thickness\",\n        \"thickness\",\n        [\"bottom_plate\"],\n        parameters={\"parameter\": \"thickness\", \"value\": plate_thickness, \"unit\": \"mm\"},\n    )\n\n    for angle in arm_angles:\n        with Locations(Rot(0, 0, angle) * Pos(motor_radius, 0, plate_thickness / 2)):\n            Cylinder(shaft_relief_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n            with Locations(Rot(0, 0, 45)):\n                with GridLocations(motor_hole_spacing, motor_hole_spacing, 2, 2):\n                    Cylinder(motor_hole_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n    register_feature(\n        \"motor_mounts\",\n        \"Motor mounts\",\n        \"pattern\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"spacing\": motor_hole_spacing, \"count\": 4},\n    )\n\nresult = frame.part\n",
+   "glb": "step-2.glb",
+   "previews": [
+    {
+     "file": "step-2-preview-1.glb",
+     "name": "Motor mounts"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Four motor mounts, one at the end of each arm.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 189.099 \u00d7 189.099 \u00d7 5 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "Four motor mounts, one at the end of each arm.\n\n- Each mount has four 3.2 mm holes on a 16 \u00d7 16 mm square, turned 45\u00b0 so two holes sit on the arm's center line.\n- An 8 mm center relief clears the motor shaft and its circlip.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Four motor mounts, one at the end of each arm."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 189.099 \u00d7 189.099 \u00d7 5 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 60846.938,
+     "bounding_box_mm": {
+      "x": 189.099,
+      "y": 189.099,
+      "z": 5.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Now the center body: a 30.5 mm flight-controller stack, four standoff holes, and two slots for the battery strap.",
+   "summary": "The center body gets its mounting holes.",
+   "code": "plate_thickness = 5.0\nmotor_diagonal = 225.0\nmotor_radius = motor_diagonal / 2\nbody_width = 44.0\nbody_length = 100.0\narm_root_width = 24.0\narm_tip_width = 16.0\nmotor_pad_diameter = 30.0\narm_angles = [45, 135, 225, 315]\n\nmotor_hole_spacing = 16.0\nmotor_hole_diameter = 3.2\nshaft_relief_diameter = 8.0\n\nstack_spacing = 30.5\nstandoff_spacing_x = 32.0\nstandoff_spacing_y = 84.0\nstrap_slot_offset = 27.0\n\nwith BuildPart() as frame:\n    with BuildSketch() as outline:\n        RectangleRounded(body_width, body_length, 8)\n        for angle in arm_angles:\n            with Locations(Rot(0, 0, angle)):\n                Polygon(\n                    (10, -arm_root_width / 2),\n                    (motor_radius, -arm_tip_width / 2),\n                    (motor_radius, arm_tip_width / 2),\n                    (10, arm_root_width / 2),\n                    align=None,\n                )\n                with Locations((motor_radius, 0)):\n                    Circle(motor_pad_diameter / 2)\n        # Round the inside corners where the arms meet the body.\n        inside_corners = [\n            v for v in outline.vertices()\n            if abs(abs(v.X) - body_width / 2) < 0.01 and abs(v.Y) < body_length / 2 - 8\n        ]\n        fillet(inside_corners, radius=4)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"bottom_plate\",\n        \"Bottom plate\",\n        \"additive\",\n        frame.part,\n        parameters={\"thickness\": plate_thickness, \"motor_diagonal\": motor_diagonal},\n    )\n    register_constraint(\n        \"plate_thickness\",\n        \"thickness\",\n        [\"bottom_plate\"],\n        parameters={\"parameter\": \"thickness\", \"value\": plate_thickness, \"unit\": \"mm\"},\n    )\n\n    for angle in arm_angles:\n        with Locations(Rot(0, 0, angle) * Pos(motor_radius, 0, plate_thickness / 2)):\n            Cylinder(shaft_relief_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n            with Locations(Rot(0, 0, 45)):\n                with GridLocations(motor_hole_spacing, motor_hole_spacing, 2, 2):\n                    Cylinder(motor_hole_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n    register_feature(\n        \"motor_mounts\",\n        \"Motor mounts\",\n        \"pattern\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"spacing\": motor_hole_spacing, \"count\": 4},\n    )\n\n    with Locations((0, 0, plate_thickness / 2)):\n        with GridLocations(stack_spacing, stack_spacing, 2, 2):\n            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)\n        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):\n            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)\n    with BuildSketch() as strap_slots:\n        with Locations((0, strap_slot_offset), (0, -strap_slot_offset)):\n            SlotOverall(24, 4)\n    extrude(amount=plate_thickness, mode=Mode.SUBTRACT)\n    register_feature(\n        \"body_holes\",\n        \"Stack, standoff and strap holes\",\n        \"subtractive\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"stack\": stack_spacing},\n    )\n\nresult = frame.part\n",
+   "glb": "step-3.glb",
+   "previews": [
+    {
+     "file": "step-3-preview-1.glb",
+     "name": "Stack, standoff and strap holes"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "The center body gets its mounting holes.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 189.099 \u00d7 189.099 \u00d7 5 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "The center body gets its mounting holes.\n\n- A 30.5 \u00d7 30.5 mm M3 pattern for the flight controller and ESC stack, at the center of the frame.\n- Four 3.2 mm standoff holes at 32 \u00d7 84 mm, near the corners of the body.\n- Two 24 \u00d7 4 mm strap slots, one each side of the stack, so the battery strap passes under the plate.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "The center body gets its mounting holes."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 189.099 \u00d7 189.099 \u00d7 5 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 59599.575,
+     "bounding_box_mm": {
+      "x": 189.099,
+      "y": 189.099,
+      "z": 5.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Take some weight out of the arms with a slot along each one.",
+   "summary": "A weight-relief slot along each arm.",
+   "code": "plate_thickness = 5.0\nmotor_diagonal = 225.0\nmotor_radius = motor_diagonal / 2\nbody_width = 44.0\nbody_length = 100.0\narm_root_width = 24.0\narm_tip_width = 16.0\nmotor_pad_diameter = 30.0\narm_angles = [45, 135, 225, 315]\n\nmotor_hole_spacing = 16.0\nmotor_hole_diameter = 3.2\nshaft_relief_diameter = 8.0\n\nstack_spacing = 30.5\nstandoff_spacing_x = 32.0\nstandoff_spacing_y = 84.0\nstrap_slot_offset = 27.0\n\nrelief_start = 40.0\nrelief_end = 88.0\nrelief_width = 6.0\n\nwith BuildPart() as frame:\n    with BuildSketch() as outline:\n        RectangleRounded(body_width, body_length, 8)\n        for angle in arm_angles:\n            with Locations(Rot(0, 0, angle)):\n                Polygon(\n                    (10, -arm_root_width / 2),\n                    (motor_radius, -arm_tip_width / 2),\n                    (motor_radius, arm_tip_width / 2),\n                    (10, arm_root_width / 2),\n                    align=None,\n                )\n                with Locations((motor_radius, 0)):\n                    Circle(motor_pad_diameter / 2)\n        # Round the inside corners where the arms meet the body.\n        inside_corners = [\n            v for v in outline.vertices()\n            if abs(abs(v.X) - body_width / 2) < 0.01 and abs(v.Y) < body_length / 2 - 8\n        ]\n        fillet(inside_corners, radius=4)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"bottom_plate\",\n        \"Bottom plate\",\n        \"additive\",\n        frame.part,\n        parameters={\"thickness\": plate_thickness, \"motor_diagonal\": motor_diagonal},\n    )\n    register_constraint(\n        \"plate_thickness\",\n        \"thickness\",\n        [\"bottom_plate\"],\n        parameters={\"parameter\": \"thickness\", \"value\": plate_thickness, \"unit\": \"mm\"},\n    )\n\n    for angle in arm_angles:\n        with Locations(Rot(0, 0, angle) * Pos(motor_radius, 0, plate_thickness / 2)):\n            Cylinder(shaft_relief_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n            with Locations(Rot(0, 0, 45)):\n                with GridLocations(motor_hole_spacing, motor_hole_spacing, 2, 2):\n                    Cylinder(motor_hole_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n    register_feature(\n        \"motor_mounts\",\n        \"Motor mounts\",\n        \"pattern\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"spacing\": motor_hole_spacing, \"count\": 4},\n    )\n\n    with Locations((0, 0, plate_thickness / 2)):\n        with GridLocations(stack_spacing, stack_spacing, 2, 2):\n            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)\n        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):\n            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)\n    with BuildSketch() as strap_slots:\n        with Locations((0, strap_slot_offset), (0, -strap_slot_offset)):\n            SlotOverall(24, 4)\n    extrude(amount=plate_thickness, mode=Mode.SUBTRACT)\n    register_feature(\n        \"body_holes\",\n        \"Stack, standoff and strap holes\",\n        \"subtractive\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"stack\": stack_spacing},\n    )\n\n    with BuildSketch() as relief:\n        for angle in arm_angles:\n            with Locations(Rot(0, 0, angle) * Pos((relief_start + relief_end) / 2, 0)):\n                SlotCenterToCenter(relief_end - relief_start, relief_width)\n    extrude(amount=plate_thickness, mode=Mode.SUBTRACT)\n    register_feature(\n        \"arm_relief\",\n        \"Arm weight relief\",\n        \"subtractive\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"width\": relief_width},\n    )\n\nresult = frame.part\n",
+   "glb": "step-4.glb",
+   "previews": [
+    {
+     "file": "step-4-preview-1.glb",
+     "name": "Arm weight relief"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A weight-relief slot along each arm.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 189.099 \u00d7 189.099 \u00d7 5 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A weight-relief slot along each arm.\n\n- Each slot runs from 40 mm to 88 mm out from the center and is 6 mm wide, which leaves at least 4 mm of plate on each side.\n- The slot ends are round, so the load flows around them.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A weight-relief slot along each arm."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 189.099 \u00d7 189.099 \u00d7 5 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 53274.088,
+     "bounding_box_mm": {
+      "x": 189.099,
+      "y": 189.099,
+      "z": 5.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add 25 mm standoffs and a 2.5 mm top plate with a cutout for the wiring.",
+   "summary": "The stack is closed with standoffs and a top plate.",
+   "code": "plate_thickness = 5.0\nmotor_diagonal = 225.0\nmotor_radius = motor_diagonal / 2\nbody_width = 44.0\nbody_length = 100.0\narm_root_width = 24.0\narm_tip_width = 16.0\nmotor_pad_diameter = 30.0\narm_angles = [45, 135, 225, 315]\n\nmotor_hole_spacing = 16.0\nmotor_hole_diameter = 3.2\nshaft_relief_diameter = 8.0\n\nstack_spacing = 30.5\nstandoff_spacing_x = 32.0\nstandoff_spacing_y = 84.0\nstrap_slot_offset = 27.0\n\nrelief_start = 40.0\nrelief_end = 88.0\nrelief_width = 6.0\n\nstandoff_height = 25.0\ntop_plate_thickness = 2.5\ntop_z = plate_thickness + standoff_height\n\nwith BuildPart() as frame:\n    with BuildSketch() as outline:\n        RectangleRounded(body_width, body_length, 8)\n        for angle in arm_angles:\n            with Locations(Rot(0, 0, angle)):\n                Polygon(\n                    (10, -arm_root_width / 2),\n                    (motor_radius, -arm_tip_width / 2),\n                    (motor_radius, arm_tip_width / 2),\n                    (10, arm_root_width / 2),\n                    align=None,\n                )\n                with Locations((motor_radius, 0)):\n                    Circle(motor_pad_diameter / 2)\n        # Round the inside corners where the arms meet the body.\n        inside_corners = [\n            v for v in outline.vertices()\n            if abs(abs(v.X) - body_width / 2) < 0.01 and abs(v.Y) < body_length / 2 - 8\n        ]\n        fillet(inside_corners, radius=4)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"bottom_plate\",\n        \"Bottom plate\",\n        \"additive\",\n        frame.part,\n        parameters={\"thickness\": plate_thickness, \"motor_diagonal\": motor_diagonal},\n    )\n    register_constraint(\n        \"plate_thickness\",\n        \"thickness\",\n        [\"bottom_plate\"],\n        parameters={\"parameter\": \"thickness\", \"value\": plate_thickness, \"unit\": \"mm\"},\n    )\n\n    for angle in arm_angles:\n        with Locations(Rot(0, 0, angle) * Pos(motor_radius, 0, plate_thickness / 2)):\n            Cylinder(shaft_relief_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n            with Locations(Rot(0, 0, 45)):\n                with GridLocations(motor_hole_spacing, motor_hole_spacing, 2, 2):\n                    Cylinder(motor_hole_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n    register_feature(\n        \"motor_mounts\",\n        \"Motor mounts\",\n        \"pattern\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"spacing\": motor_hole_spacing, \"count\": 4},\n    )\n\n    with Locations((0, 0, plate_thickness / 2)):\n        with GridLocations(stack_spacing, stack_spacing, 2, 2):\n            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)\n        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):\n            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)\n    with BuildSketch() as strap_slots:\n        with Locations((0, strap_slot_offset), (0, -strap_slot_offset)):\n            SlotOverall(24, 4)\n    extrude(amount=plate_thickness, mode=Mode.SUBTRACT)\n    register_feature(\n        \"body_holes\",\n        \"Stack, standoff and strap holes\",\n        \"subtractive\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"stack\": stack_spacing},\n    )\n\n    with BuildSketch() as relief:\n        for angle in arm_angles:\n            with Locations(Rot(0, 0, angle) * Pos((relief_start + relief_end) / 2, 0)):\n                SlotCenterToCenter(relief_end - relief_start, relief_width)\n    extrude(amount=plate_thickness, mode=Mode.SUBTRACT)\n    register_feature(\n        \"arm_relief\",\n        \"Arm weight relief\",\n        \"subtractive\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"width\": relief_width},\n    )\n\nwith BuildPart() as standoffs:\n    with BuildSketch(Plane.XY.offset(plate_thickness)):\n        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):\n            RegularPolygon(5.5 / 2 / 0.866, 6)\n            Circle(1.5, mode=Mode.SUBTRACT)\n    extrude(amount=standoff_height)\n\nwith BuildPart() as top_plate:\n    with BuildSketch(Plane.XY.offset(top_z)):\n        RectangleRounded(40, 92, 6)\n        RectangleRounded(20, 34, 4, mode=Mode.SUBTRACT)\n        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):\n            Circle(1.6, mode=Mode.SUBTRACT)\n    extrude(amount=top_plate_thickness)\n\nregister_feature(\n    \"standoffs\",\n    \"Standoffs\",\n    \"additive\",\n    Compound([frame.part, standoffs.part]),\n    parent_id=\"body_holes\",\n    parameters={\"height\": standoff_height},\n)\nregister_feature(\n    \"top_plate\",\n    \"Top plate\",\n    \"additive\",\n    Compound([frame.part, standoffs.part, top_plate.part]),\n    parent_id=\"standoffs\",\n    parameters={\"thickness\": top_plate_thickness},\n)\n\nresult = Compound([frame.part, standoffs.part, top_plate.part])\n",
+   "glb": "step-5.glb",
+   "previews": [
+    {
+     "file": "step-5-preview-1.glb",
+     "name": "Standoffs"
+    },
+    {
+     "file": "step-5-preview-2.glb",
+     "name": "Top plate"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "The stack is closed with standoffs and a top plate.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 6 solids; bounds 189.099 \u00d7 189.099 \u00d7 32.5 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "The stack is closed with standoffs and a top plate.\n\n- Four hex standoffs, 5.5 mm across the flats and 25 mm tall, stand on the standoff holes, each with an M3 bore.\n- The top plate is 40 \u00d7 92 mm and 2.5 mm thick, sitting on the standoffs.\n- A 20 \u00d7 34 mm cutout in the top plate lets the wires through, and the plate has matching standoff holes.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "The stack is closed with standoffs and a top plate."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 6 solids; bounds 189.099 \u00d7 189.099 \u00d7 32.5 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 6,
+     "volume_mm3": 62563.765,
+     "bounding_box_mm": {
+      "x": 189.099,
+      "y": 189.099,
+      "z": 32.5
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Finish it with a camera cage at the front for a 19 mm micro camera, with a tilt slot.",
+   "summary": "Two camera side plates at the front of the stack.",
+   "code": "plate_thickness = 5.0\nmotor_diagonal = 225.0\nmotor_radius = motor_diagonal / 2\nbody_width = 44.0\nbody_length = 100.0\narm_root_width = 24.0\narm_tip_width = 16.0\nmotor_pad_diameter = 30.0\narm_angles = [45, 135, 225, 315]\n\nmotor_hole_spacing = 16.0\nmotor_hole_diameter = 3.2\nshaft_relief_diameter = 8.0\n\nstack_spacing = 30.5\nstandoff_spacing_x = 32.0\nstandoff_spacing_y = 84.0\nstrap_slot_offset = 27.0\n\nrelief_start = 40.0\nrelief_end = 88.0\nrelief_width = 6.0\n\nstandoff_height = 25.0\ntop_plate_thickness = 2.5\ntop_z = plate_thickness + standoff_height\n\ncamera_width = 19.0\ncage_gap = camera_width + 2\ncage_plate_thickness = 2.0\npivot = (52.0, plate_thickness + standoff_height / 2)\n\nwith BuildPart() as frame:\n    with BuildSketch() as outline:\n        RectangleRounded(body_width, body_length, 8)\n        for angle in arm_angles:\n            with Locations(Rot(0, 0, angle)):\n                Polygon(\n                    (10, -arm_root_width / 2),\n                    (motor_radius, -arm_tip_width / 2),\n                    (motor_radius, arm_tip_width / 2),\n                    (10, arm_root_width / 2),\n                    align=None,\n                )\n                with Locations((motor_radius, 0)):\n                    Circle(motor_pad_diameter / 2)\n        # Round the inside corners where the arms meet the body.\n        inside_corners = [\n            v for v in outline.vertices()\n            if abs(abs(v.X) - body_width / 2) < 0.01 and abs(v.Y) < body_length / 2 - 8\n        ]\n        fillet(inside_corners, radius=4)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"bottom_plate\",\n        \"Bottom plate\",\n        \"additive\",\n        frame.part,\n        parameters={\"thickness\": plate_thickness, \"motor_diagonal\": motor_diagonal},\n    )\n    register_constraint(\n        \"plate_thickness\",\n        \"thickness\",\n        [\"bottom_plate\"],\n        parameters={\"parameter\": \"thickness\", \"value\": plate_thickness, \"unit\": \"mm\"},\n    )\n\n    for angle in arm_angles:\n        with Locations(Rot(0, 0, angle) * Pos(motor_radius, 0, plate_thickness / 2)):\n            Cylinder(shaft_relief_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n            with Locations(Rot(0, 0, 45)):\n                with GridLocations(motor_hole_spacing, motor_hole_spacing, 2, 2):\n                    Cylinder(motor_hole_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)\n    register_feature(\n        \"motor_mounts\",\n        \"Motor mounts\",\n        \"pattern\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"spacing\": motor_hole_spacing, \"count\": 4},\n    )\n\n    with Locations((0, 0, plate_thickness / 2)):\n        with GridLocations(stack_spacing, stack_spacing, 2, 2):\n            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)\n        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):\n            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)\n    with BuildSketch() as strap_slots:\n        with Locations((0, strap_slot_offset), (0, -strap_slot_offset)):\n            SlotOverall(24, 4)\n    extrude(amount=plate_thickness, mode=Mode.SUBTRACT)\n    register_feature(\n        \"body_holes\",\n        \"Stack, standoff and strap holes\",\n        \"subtractive\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"stack\": stack_spacing},\n    )\n\n    with BuildSketch() as relief:\n        for angle in arm_angles:\n            with Locations(Rot(0, 0, angle) * Pos((relief_start + relief_end) / 2, 0)):\n                SlotCenterToCenter(relief_end - relief_start, relief_width)\n    extrude(amount=plate_thickness, mode=Mode.SUBTRACT)\n    register_feature(\n        \"arm_relief\",\n        \"Arm weight relief\",\n        \"subtractive\",\n        frame.part,\n        parent_id=\"bottom_plate\",\n        parameters={\"width\": relief_width},\n    )\n\nwith BuildPart() as standoffs:\n    with BuildSketch(Plane.XY.offset(plate_thickness)):\n        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):\n            RegularPolygon(5.5 / 2 / 0.866, 6)\n            Circle(1.5, mode=Mode.SUBTRACT)\n    extrude(amount=standoff_height)\n\nwith BuildPart() as top_plate:\n    with BuildSketch(Plane.XY.offset(top_z)):\n        RectangleRounded(40, 92, 6)\n        RectangleRounded(20, 34, 4, mode=Mode.SUBTRACT)\n        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):\n            Circle(1.6, mode=Mode.SUBTRACT)\n    extrude(amount=top_plate_thickness)\n\nregister_feature(\n    \"standoffs\",\n    \"Standoffs\",\n    \"additive\",\n    Compound([frame.part, standoffs.part]),\n    parent_id=\"body_holes\",\n    parameters={\"height\": standoff_height},\n)\nregister_feature(\n    \"top_plate\",\n    \"Top plate\",\n    \"additive\",\n    Compound([frame.part, standoffs.part, top_plate.part]),\n    parent_id=\"standoffs\",\n    parameters={\"thickness\": top_plate_thickness},\n)\n\nwith BuildPart() as camera_cage:\n    for side in [-1, 1]:\n        side_plane = Plane.YZ.offset(side * (cage_gap + cage_plate_thickness) / 2)\n        with BuildSketch(side_plane):\n            with Locations((46, plate_thickness + standoff_height / 2)):\n                RectangleRounded(28, standoff_height, 4)\n            with Locations(pivot):\n                Circle(1.1, mode=Mode.SUBTRACT)\n                SlotArc(\n                    arc=CenterArc((0, 0), 8, 200, 30),\n                    height=2.2,\n                    mode=Mode.SUBTRACT,\n                )\n        extrude(amount=cage_plate_thickness / 2, both=True)\n\nregister_feature(\n    \"camera_cage\",\n    \"Camera cage\",\n    \"additive\",\n    Compound([frame.part, standoffs.part, top_plate.part, camera_cage.part]),\n    parent_id=\"bottom_plate\",\n    parameters={\"gap\": cage_gap},\n)\n\nresult = Compound([frame.part, standoffs.part, top_plate.part, camera_cage.part])\n",
+   "glb": "step-6.glb",
+   "previews": [
+    {
+     "file": "step-6-preview-1.glb",
+     "name": "Camera cage"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Two camera side plates at the front of the stack.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 8 solids; bounds 189.099 \u00d7 189.099 \u00d7 32.5 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "Two camera side plates at the front of the stack.\n\n- The plates are 2 mm thick and stand 21 mm apart, so a 19 mm micro camera fits with room for its mounting screws.\n- Each plate has an M2 pivot hole and an arc slot, so the camera tilts from 20\u00b0 to 50\u00b0.\n- The plates are 28 mm long and reach 10 mm past the front of the bottom plate, so the lens sees past the frame.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Two camera side plates at the front of the stack."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 8 solids; bounds 189.099 \u00d7 189.099 \u00d7 32.5 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 8,
+     "volume_mm3": 65293.622,
+     "bounding_box_mm": {
+      "x": 189.099,
+      "y": 189.099,
+      "z": 32.5
+     },
+     "error": null
+    }
+   }
+  }
+ ]
+}

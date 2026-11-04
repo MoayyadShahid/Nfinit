@@ -1,158 +1,160 @@
-"""Build the studio's demo parts by running the real agent, step by step.
+"""Build the studio's demo parts from the design files in demos/designs/.
 
-Each demo is a short chat: every step is one prompt, run through the
-production agent with the previous step's code, exactly as in the studio.
-For each step this writes the recorded progress events, the plan, the code,
-the finished GLB and the build previews into frontend/public/demos/<slug>/,
-so the studio can replay the demo without the backend.
+Each design is a short build story written as build123d code (see
+demos/authored.py). For every step this runs the complete script of that
+version in the CAD sandbox and writes into frontend/public/demos/<slug>/:
+the finished GLB, the previews of the features the step adds, and a
+demo.json entry with the prompt, the reply, the code and the geometry facts.
+The studio replays the demos from these static files, without the backend.
 
-Usage, from backend/ (costs a few cents per step; see docs/BILLING_AND_DEMOS.md):
+Usage, from backend/ (no model calls, so no API key and no cost):
 
-    CAD_SANDBOX_MODE=fork poetry run python -m demos.build [--only drone-frame]
+    poetry run python -m demos.build [--only fpv-drone]
 """
 
 import argparse
-import asyncio
 import json
-import os
 import shutil
-import time
 from pathlib import Path
 
-from agent import CadRunRequest, run_cad_agent
 from agent.graph import plan_summary
 from execution import build_mesh, inspect_with_snapshots
 
-SPECS = Path(__file__).with_name("specs.json")
+from .authored import Design, load_designs
+
+# The order of the demo cards; the first is where a free user lands.
+ORDER = [
+    "fpv-drone",
+    "robot-gripper",
+    "mini-glider",
+    "model-rocket",
+    "catapult",
+    "electronics-enclosure",
+]
+OUTPUT = Path(__file__).resolve().parents[2] / "frontend" / "public" / "demos"
+SOURCE = "example"
 
 
 class DemoFailed(RuntimeError):
     """A step did not build; its demo is left out instead of half-written."""
-OUTPUT = Path(__file__).resolve().parents[2] / "frontend" / "public" / "demos"
 
 
-async def build_demo(spec: dict, model_id: str, api_key: str, output: Path) -> dict:
-    folder = output / spec["slug"]
+def _bounds(inspection) -> str:
+    box = inspection.bounding_box_mm or {}
+    size = " × ".join(f"{box.get(axis, 0):g}" for axis in ("x", "y", "z"))
+    count = inspection.solid_count or 0
+    return f"Built {count} solid{'s' if count != 1 else ''}; bounds {size} mm."
+
+
+def build_demo(design: Design, output: Path) -> dict:
+    folder = output / design.slug
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True)
-    messages: list[dict] = []
-    code = ""
     steps = []
-    cost = 0.0
-    seen_features: set[str] = set()
-    for index, prompt in enumerate(spec["steps"], start=1):
-        events: list[dict] = []
-        started = time.monotonic()
-
-        async def record(event: dict) -> None:
-            events.append({**event, "at_ms": round((time.monotonic() - started) * 1000)})
-
-        snapshots: list = []
-
-        def inspect(candidate: str):
-            inspection, previews = inspect_with_snapshots(candidate)
-            snapshots[:] = previews  # keep the previews of the latest attempt
-            return inspection
-
-        messages.append({"role": "user", "content": prompt})
-        try:
-            state = await run_cad_agent(
-                CadRunRequest(
-                    messages=messages,
-                    code=code,
-                    modelId=model_id,
-                    supportsStructuredOutputs=True,
-                ),
-                api_key,
-                inspect,
-                on_event=record,
-            )
-        except TimeoutError as error:  # CadRunTimeoutError is a TimeoutError
+    seen: set[str] = set()
+    for number in range(1, len(design.steps) + 1):
+        code = design.code(number)
+        inspection, previews = inspect_with_snapshots(code)
+        if not inspection.valid:
             shutil.rmtree(folder, ignore_errors=True)
-            raise DemoFailed(f"{spec['slug']} step {index} timed out: {error}") from error
-        cost += state["usage"].get("cost_usd", 0)
-        if state["validation_error"]:
-            shutil.rmtree(folder, ignore_errors=True)
-            raise DemoFailed(
-                f"{spec['slug']} step {index} did not build: {state['validation_error']}"
-            )
-        code = state["code"]
+            raise DemoFailed(f"{design.slug} step {number} did not build: {inspection.error}")
         built = build_mesh(code)
-        (folder / f"step-{index}.glb").write_bytes(built.glb)
+        (folder / f"step-{number}.glb").write_bytes(built.glb)
+
         # Each step rebuilds the whole part; keep only what this step adds.
-        added = [preview for preview in snapshots if preview.feature_id not in seen_features]
-        seen_features.update(preview.feature_id for preview in snapshots)
+        added = [preview for preview in previews if preview.name not in seen]
+        seen.update(preview.name for preview in previews)
         preview_files = []
-        for number, preview in enumerate(added or snapshots[-1:], start=1):
-            name = f"step-{index}-preview-{number}.glb"
+        for index, preview in enumerate(added or previews[-1:], start=1):
+            name = f"step-{number}-preview-{index}.glb"
             (folder / name).write_bytes(preview.glb)
             preview_files.append({"file": name, "name": preview.name})
 
-        agent = {
-            "plan": state["plan"],
-            "trace": state["trace"],
-            "inspection": built.inspection.model_dump(),
-        }
-        messages.append({"role": "assistant", "content": code, "agent": agent})
+        plan = design.plan(number)
+        summary = plan_summary(plan)
+        detail = _bounds(built.inspection)
+        # No timings: these builds are examples, not recorded agent runs.
+        events = [
+            {"stage": "plan", "status": "complete", "message": summary, "at_ms": 0},
+            {
+                "stage": "inspect",
+                "status": "started",
+                "message": "Building the part and checking its geometry.",
+                "at_ms": 900,
+            },
+            {"stage": "inspect", "status": "passed", "message": detail, "at_ms": 1500},
+        ]
+        trace = [
+            {"node": "plan", "status": "complete", "detail": summary},
+            {"node": "inspect", "status": "passed", "detail": detail},
+        ]
         steps.append(
             {
-                "prompt": prompt,
-                "summary": plan_summary(state["plan"]),
+                "prompt": design.steps[number - 1].prompt,
+                "summary": summary,
                 "code": code,
-                "glb": f"step-{index}.glb",
+                "glb": f"step-{number}.glb",
                 "previews": preview_files,
                 "events": events,
-                "agent": agent,
+                "agent": {
+                    "plan": plan,
+                    "trace": trace,
+                    "inspection": built.inspection.model_dump(),
+                },
             }
         )
-        print(f"  {spec['slug']} step {index}: ok, {len(preview_files)} previews")
+        print(f"  {design.slug} step {number}: ok, {len(preview_files)} previews")
 
-    demo = {key: spec[key] for key in ("slug", "title", "summary")}
-    demo.update({"model_id": model_id, "steps": steps})
+    demo = {
+        "slug": design.slug,
+        "title": design.title,
+        "summary": design.summary,
+        "source": SOURCE,
+        "steps": steps,
+    }
     (folder / "demo.json").write_text(json.dumps(demo, indent=1) + "\n", encoding="utf-8")
-    return {**{key: spec[key] for key in ("slug", "title", "summary")},
-            "steps": len(steps), "cost_usd": round(cost, 4)}
+    return demo
 
 
-async def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--only", action="append", help="Build only this demo slug.")
-    parser.add_argument("--output", type=Path, default=OUTPUT)
-    args = parser.parse_args()
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        raise SystemExit("OPENROUTER_API_KEY is required.")
-
-    config = json.loads(SPECS.read_text(encoding="utf-8"))
-    chosen = [spec for spec in config["demos"] if not args.only or spec["slug"] in args.only]
-    args.output.mkdir(parents=True, exist_ok=True)
-    costs, failures = {}, []
-    for spec in chosen:
-        print(f"Building {spec['slug']}…")
-        try:
-            built = await build_demo(spec, config["model_id"], api_key, args.output)
-            costs[spec["slug"]] = built["cost_usd"]
-        except (DemoFailed, TimeoutError) as error:
-            failures.append(str(error))
-            print(f"  skipped: {error}")
-
-    # The index lists every demo on disk, in the order of specs.json.
+def write_index(output: Path) -> None:
+    """List every demo on disk, in ORDER, and remove folders not in it."""
+    for folder in output.iterdir():
+        if folder.is_dir() and folder.name not in ORDER:
+            shutil.rmtree(folder)
     index = []
-    for spec in config["demos"]:
-        demo_path = args.output / spec["slug"] / "demo.json"
-        if demo_path.is_file():
-            demo = json.loads(demo_path.read_text(encoding="utf-8"))
+    for slug in ORDER:
+        path = output / slug / "demo.json"
+        if path.is_file():
+            demo = json.loads(path.read_text(encoding="utf-8"))
             index.append(
                 {key: demo[key] for key in ("slug", "title", "summary")}
                 | {"steps": len(demo["steps"])}
             )
-    (args.output / "index.json").write_text(
+    (output / "index.json").write_text(
         json.dumps({"demos": index}, indent=1) + "\n", encoding="utf-8"
     )
-    print("Cost:", costs, "| total $%.2f" % sum(costs.values()))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--only", action="append", help="Build only this demo slug.")
+    parser.add_argument("--output", type=Path, default=OUTPUT)
+    args = parser.parse_args()
+
+    chosen = [slug for slug in ORDER if not args.only or slug in args.only]
+    args.output.mkdir(parents=True, exist_ok=True)
+    failures = []
+    for design in load_designs(chosen):
+        print(f"Building {design.slug}…")
+        try:
+            build_demo(design, args.output)
+        except DemoFailed as error:
+            failures.append(str(error))
+            print(f"  skipped: {error}")
+    write_index(args.output)
     if failures:
         raise SystemExit("Some demos did not build:\n" + "\n".join(failures))
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

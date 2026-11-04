@@ -1,12 +1,13 @@
 import type { AgentTraceStep, ModelInspection, RunEvent } from "@/lib/types";
 
 /**
- * Demo parts: short build stories recorded once by `backend/demos/build.py`
- * with the real agent and served as static files, so anyone can replay them
- * without the backend or a subscription.
+ * Demo parts: short build stories built by `backend/demos/build.py` and
+ * served as static files, so anyone can replay them without the backend or a
+ * subscription. Each step is one version of the part, like a point on a CAD
+ * timeline.
  */
 export const DEMO_ROOT = "/demos";
-export const FIRST_DEMO = "drone-frame";
+export const FIRST_DEMO = "fpv-drone";
 
 export type DemoSummary = {
   slug: string;
@@ -35,7 +36,20 @@ export type DemoStep = {
   agent: { plan: string; trace: AgentTraceStep[]; inspection: ModelInspection };
 };
 
-export type Demo = Omit<DemoSummary, "steps"> & { model_id: string; steps: DemoStep[] };
+export type Demo = Omit<DemoSummary, "steps"> & {
+  /**
+   * "example": written by the Nfinit team and built in the sandbox.
+   * "recorded": a recorded run of the agent (older demos, with `model_id`).
+   */
+  source?: "example" | "recorded";
+  model_id?: string;
+  steps: DemoStep[];
+};
+
+/** A short name for a step: the features it adds, e.g. "Standoffs + Top plate". */
+export function stepTitle(step: DemoStep): string {
+  return step.previews.map((preview) => preview.name).join(" + ") || step.summary;
+}
 
 export async function listDemos(): Promise<DemoSummary[]> {
   const response = await fetch(`${DEMO_ROOT}/index.json`);

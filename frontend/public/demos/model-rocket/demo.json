@@ -1,0 +1,303 @@
+{
+ "slug": "model-rocket",
+ "title": "Model rocket",
+ "summary": "A 280 mm single-stage rocket with an ogive nose cone, a printed fin can and a motor retainer.",
+ "source": "example",
+ "steps": [
+  {
+   "prompt": "Design a small model rocket. Start with a 25 mm body tube, 200 mm long.",
+   "summary": "The body tube, standing on its tail with Z pointing up.",
+   "code": "tube_length = 200.0\ntube_radius = 12.5\ntube_wall = 0.8\ntube_inner_radius = tube_radius - tube_wall\n\nwith BuildPart() as body_tube:\n    Cylinder(tube_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    Cylinder(tube_inner_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n    register_feature(\n        \"body_tube\",\n        \"Body tube\",\n        \"additive\",\n        body_tube.part,\n        parameters={\"length\": tube_length, \"radius\": tube_radius, \"wall\": tube_wall},\n    )\n\nresult = body_tube.part\n",
+   "glb": "step-1.glb",
+   "previews": [
+    {
+     "file": "step-1-preview-1.glb",
+     "name": "Body tube"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "The body tube, standing on its tail with Z pointing up.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 25 \u00d7 25 \u00d7 200 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "The body tube, standing on its tail with Z pointing up.\n\n- 25 mm outside diameter with a 0.8 mm wall, 200 mm long.\n- Everything else is sized from this tube, so the outside and inside radii are parameters.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "The body tube, standing on its tail with Z pointing up."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 25 \u00d7 25 \u00d7 200 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 12164.247,
+     "bounding_box_mm": {
+      "x": 25.0,
+      "y": 25.0,
+      "z": 200.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add an ogive nose cone with a shoulder that slides into the tube.",
+   "summary": "A 70 mm ogive nose cone with a 20 mm shoulder.",
+   "code": "tube_length = 200.0\ntube_radius = 12.5\ntube_wall = 0.8\ntube_inner_radius = tube_radius - tube_wall\n\nnose_length = 70.0\nshoulder_length = 20.0\nshoulder_radius = tube_inner_radius - 0.1\n\nwith BuildPart() as body_tube:\n    Cylinder(tube_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    Cylinder(tube_inner_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n    register_feature(\n        \"body_tube\",\n        \"Body tube\",\n        \"additive\",\n        body_tube.part,\n        parameters={\"length\": tube_length, \"radius\": tube_radius, \"wall\": tube_wall},\n    )\n\nwith BuildPart() as nose_cone:\n    with BuildSketch(Plane.XZ):\n        with BuildLine():\n            Spline(\n                (tube_radius, tube_length),\n                (11.8, tube_length + 14),\n                (9.6, tube_length + 32),\n                (6.0, tube_length + 50),\n                (0, tube_length + nose_length),\n            )\n            Polyline(\n                (0, tube_length + nose_length),\n                (0, tube_length - shoulder_length),\n                (shoulder_radius, tube_length - shoulder_length),\n                (shoulder_radius, tube_length),\n                (tube_radius, tube_length),\n            )\n        make_face()\n    revolve(axis=Axis.Z)\n    with Locations((0, 0, tube_length - shoulder_length - 3)):\n        Torus(4, 1.2, rotation=(90, 0, 0))\n\nregister_feature(\n    \"nose_cone\",\n    \"Nose cone\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part]),\n    parent_id=\"body_tube\",\n    parameters={\"length\": nose_length, \"shoulder\": shoulder_length},\n)\n\nresult = Compound([body_tube.part, nose_cone.part])\n",
+   "glb": "step-2.glb",
+   "previews": [
+    {
+     "file": "step-2-preview-1.glb",
+     "name": "Nose cone"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A 70 mm ogive nose cone with a 20 mm shoulder.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 2 solids; bounds 25 \u00d7 25 \u00d7 270 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A 70 mm ogive nose cone with a 20 mm shoulder.\n\n- The ogive runs from the full 25 mm diameter to a sharp tip, 270 mm above the tail.\n- The shoulder is 0.1 mm smaller than the inside of the tube, so it slides in with a little friction.\n- A 4 mm eye at the bottom of the shoulder takes the shock cord.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A 70 mm ogive nose cone with a 20 mm shoulder."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 2 solids; bounds 25 \u00d7 25 \u00d7 270 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 2,
+     "volume_mm3": 38364.945,
+     "bounding_box_mm": {
+      "x": 25.0,
+      "y": 25.0,
+      "z": 270.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add a printed fin can at the tail with three swept fins.",
+   "summary": "A fin can that slides over the tail of the tube, with three swept fins.",
+   "code": "tube_length = 200.0\ntube_radius = 12.5\ntube_wall = 0.8\ntube_inner_radius = tube_radius - tube_wall\n\nnose_length = 70.0\nshoulder_length = 20.0\nshoulder_radius = tube_inner_radius - 0.1\n\nsleeve_length = 60.0\nsleeve_inner = tube_radius + 0.1\nsleeve_outer = sleeve_inner + 1.5\nfin_span = 35.0\nfin_thickness = 2.5\n\nwith BuildPart() as body_tube:\n    Cylinder(tube_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    Cylinder(tube_inner_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n    register_feature(\n        \"body_tube\",\n        \"Body tube\",\n        \"additive\",\n        body_tube.part,\n        parameters={\"length\": tube_length, \"radius\": tube_radius, \"wall\": tube_wall},\n    )\n\nwith BuildPart() as nose_cone:\n    with BuildSketch(Plane.XZ):\n        with BuildLine():\n            Spline(\n                (tube_radius, tube_length),\n                (11.8, tube_length + 14),\n                (9.6, tube_length + 32),\n                (6.0, tube_length + 50),\n                (0, tube_length + nose_length),\n            )\n            Polyline(\n                (0, tube_length + nose_length),\n                (0, tube_length - shoulder_length),\n                (shoulder_radius, tube_length - shoulder_length),\n                (shoulder_radius, tube_length),\n                (tube_radius, tube_length),\n            )\n        make_face()\n    revolve(axis=Axis.Z)\n    with Locations((0, 0, tube_length - shoulder_length - 3)):\n        Torus(4, 1.2, rotation=(90, 0, 0))\n\nregister_feature(\n    \"nose_cone\",\n    \"Nose cone\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part]),\n    parent_id=\"body_tube\",\n    parameters={\"length\": nose_length, \"shoulder\": shoulder_length},\n)\n\nwith BuildPart() as fin:\n    with BuildSketch(Plane.XZ):\n        Polygon(\n            (sleeve_outer - 1, 5),\n            (sleeve_outer - 1, 55),\n            (sleeve_outer + fin_span, 29),\n            (sleeve_outer + fin_span, 5),\n            align=None,\n        )\n    extrude(amount=fin_thickness / 2, both=True)\n\nwith BuildPart() as fin_can:\n    Cylinder(sleeve_outer, sleeve_length, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with PolarLocations(0, 3):\n        add(fin.part)\n    Cylinder(sleeve_inner, sleeve_length, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n\nregister_feature(\n    \"fin_can\",\n    \"Fin can\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part, fin_can.part]),\n    parent_id=\"body_tube\",\n    parameters={\"fins\": 3, \"span\": fin_span, \"thickness\": fin_thickness},\n)\n\nresult = Compound([body_tube.part, nose_cone.part, fin_can.part])\n",
+   "glb": "step-3.glb",
+   "previews": [
+    {
+     "file": "step-3-preview-1.glb",
+     "name": "Fin can"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A fin can that slides over the tail of the tube, with three swept fins.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 3 solids; bounds 74.733 \u00d7 86.294 \u00d7 270 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A fin can that slides over the tail of the tube, with three swept fins.\n\n- The sleeve is 60 mm long with a 1.5 mm wall and 0.1 mm of clearance on the tube.\n- Three fins at 120\u00b0, each 2.5 mm thick with a 50 mm root and a 24 mm tip, swept back 26 mm, with a 35 mm span.\n- The fins stop 5 mm above the tail, so the rocket stands on its fin can, not on its fins.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A fin can that slides over the tail of the tube, with three swept fins."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 3 solids; bounds 74.733 \u00d7 86.294 \u00d7 270 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 3,
+     "volume_mm3": 55538.736,
+     "bounding_box_mm": {
+      "x": 74.733,
+      "y": 86.294,
+      "z": 270.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add a launch lug for a 1/8 inch launch rod.",
+   "summary": "A launch lug between two fins.",
+   "code": "tube_length = 200.0\ntube_radius = 12.5\ntube_wall = 0.8\ntube_inner_radius = tube_radius - tube_wall\n\nnose_length = 70.0\nshoulder_length = 20.0\nshoulder_radius = tube_inner_radius - 0.1\n\nsleeve_length = 60.0\nsleeve_inner = tube_radius + 0.1\nsleeve_outer = sleeve_inner + 1.5\nfin_span = 35.0\nfin_thickness = 2.5\n\nwith BuildPart() as body_tube:\n    Cylinder(tube_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    Cylinder(tube_inner_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n    register_feature(\n        \"body_tube\",\n        \"Body tube\",\n        \"additive\",\n        body_tube.part,\n        parameters={\"length\": tube_length, \"radius\": tube_radius, \"wall\": tube_wall},\n    )\n\nwith BuildPart() as nose_cone:\n    with BuildSketch(Plane.XZ):\n        with BuildLine():\n            Spline(\n                (tube_radius, tube_length),\n                (11.8, tube_length + 14),\n                (9.6, tube_length + 32),\n                (6.0, tube_length + 50),\n                (0, tube_length + nose_length),\n            )\n            Polyline(\n                (0, tube_length + nose_length),\n                (0, tube_length - shoulder_length),\n                (shoulder_radius, tube_length - shoulder_length),\n                (shoulder_radius, tube_length),\n                (tube_radius, tube_length),\n            )\n        make_face()\n    revolve(axis=Axis.Z)\n    with Locations((0, 0, tube_length - shoulder_length - 3)):\n        Torus(4, 1.2, rotation=(90, 0, 0))\n\nregister_feature(\n    \"nose_cone\",\n    \"Nose cone\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part]),\n    parent_id=\"body_tube\",\n    parameters={\"length\": nose_length, \"shoulder\": shoulder_length},\n)\n\nwith BuildPart() as fin:\n    with BuildSketch(Plane.XZ):\n        Polygon(\n            (sleeve_outer - 1, 5),\n            (sleeve_outer - 1, 55),\n            (sleeve_outer + fin_span, 29),\n            (sleeve_outer + fin_span, 5),\n            align=None,\n        )\n    extrude(amount=fin_thickness / 2, both=True)\n\nwith BuildPart() as fin_can:\n    Cylinder(sleeve_outer, sleeve_length, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with PolarLocations(0, 3):\n        add(fin.part)\n    Cylinder(sleeve_inner, sleeve_length, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n\nregister_feature(\n    \"fin_can\",\n    \"Fin can\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part, fin_can.part]),\n    parent_id=\"body_tube\",\n    parameters={\"fins\": 3, \"span\": fin_span, \"thickness\": fin_thickness},\n)\n\nwith BuildPart() as launch_lug:\n    with Locations(Rot(0, 0, 60) * Pos(tube_radius + 2.6, 0, 80)):\n        Cylinder(2.8, 40, align=(Align.CENTER, Align.CENTER, Align.MIN))\n        Cylinder(2.1, 40, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n\nregister_feature(\n    \"launch_lug\",\n    \"Launch lug\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part, fin_can.part, launch_lug.part]),\n    parent_id=\"body_tube\",\n    parameters={\"bore\": 4.2, \"length\": 40},\n)\n\nresult = Compound([body_tube.part, nose_cone.part, fin_can.part, launch_lug.part])\n",
+   "glb": "step-4.glb",
+   "previews": [
+    {
+     "file": "step-4-preview-1.glb",
+     "name": "Launch lug"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A launch lug between two fins.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 4 solids; bounds 74.733 \u00d7 86.294 \u00d7 270 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A launch lug between two fins.\n\n- A 40 mm tube with a 4.2 mm bore, which fits a 1/8 inch (3.2 mm) rod with room to slide.\n- It sits on the body tube at 60\u00b0, halfway between two fins, 80 mm above the tail.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A launch lug between two fins."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 4 solids; bounds 74.733 \u00d7 86.294 \u00d7 270 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 4,
+     "volume_mm3": 55969.762,
+     "bounding_box_mm": {
+      "x": 74.733,
+      "y": 86.294,
+      "z": 270.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Finish with an 18 mm motor mount and a screw-on retainer at the tail.",
+   "summary": "A motor mount inside the tail and a retainer cap below it.",
+   "code": "tube_length = 200.0\ntube_radius = 12.5\ntube_wall = 0.8\ntube_inner_radius = tube_radius - tube_wall\n\nnose_length = 70.0\nshoulder_length = 20.0\nshoulder_radius = tube_inner_radius - 0.1\n\nsleeve_length = 60.0\nsleeve_inner = tube_radius + 0.1\nsleeve_outer = sleeve_inner + 1.5\nfin_span = 35.0\nfin_thickness = 2.5\n\nmotor_bore = 18.2\nmotor_tube_outer = motor_bore / 2 + 0.7\n\nwith BuildPart() as body_tube:\n    Cylinder(tube_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    Cylinder(tube_inner_radius, tube_length, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n    register_feature(\n        \"body_tube\",\n        \"Body tube\",\n        \"additive\",\n        body_tube.part,\n        parameters={\"length\": tube_length, \"radius\": tube_radius, \"wall\": tube_wall},\n    )\n\nwith BuildPart() as nose_cone:\n    with BuildSketch(Plane.XZ):\n        with BuildLine():\n            Spline(\n                (tube_radius, tube_length),\n                (11.8, tube_length + 14),\n                (9.6, tube_length + 32),\n                (6.0, tube_length + 50),\n                (0, tube_length + nose_length),\n            )\n            Polyline(\n                (0, tube_length + nose_length),\n                (0, tube_length - shoulder_length),\n                (shoulder_radius, tube_length - shoulder_length),\n                (shoulder_radius, tube_length),\n                (tube_radius, tube_length),\n            )\n        make_face()\n    revolve(axis=Axis.Z)\n    with Locations((0, 0, tube_length - shoulder_length - 3)):\n        Torus(4, 1.2, rotation=(90, 0, 0))\n\nregister_feature(\n    \"nose_cone\",\n    \"Nose cone\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part]),\n    parent_id=\"body_tube\",\n    parameters={\"length\": nose_length, \"shoulder\": shoulder_length},\n)\n\nwith BuildPart() as fin:\n    with BuildSketch(Plane.XZ):\n        Polygon(\n            (sleeve_outer - 1, 5),\n            (sleeve_outer - 1, 55),\n            (sleeve_outer + fin_span, 29),\n            (sleeve_outer + fin_span, 5),\n            align=None,\n        )\n    extrude(amount=fin_thickness / 2, both=True)\n\nwith BuildPart() as fin_can:\n    Cylinder(sleeve_outer, sleeve_length, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with PolarLocations(0, 3):\n        add(fin.part)\n    Cylinder(sleeve_inner, sleeve_length, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n\nregister_feature(\n    \"fin_can\",\n    \"Fin can\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part, fin_can.part]),\n    parent_id=\"body_tube\",\n    parameters={\"fins\": 3, \"span\": fin_span, \"thickness\": fin_thickness},\n)\n\nwith BuildPart() as launch_lug:\n    with Locations(Rot(0, 0, 60) * Pos(tube_radius + 2.6, 0, 80)):\n        Cylinder(2.8, 40, align=(Align.CENTER, Align.CENTER, Align.MIN))\n        Cylinder(2.1, 40, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n\nregister_feature(\n    \"launch_lug\",\n    \"Launch lug\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part, fin_can.part, launch_lug.part]),\n    parent_id=\"body_tube\",\n    parameters={\"bore\": 4.2, \"length\": 40},\n)\n\nwith BuildPart() as motor_mount:\n    Cylinder(motor_tube_outer, 70, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    for z in [10, 60]:\n        with Locations((0, 0, z)):\n            Cylinder(tube_inner_radius, 3, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    Cylinder(motor_bore / 2, 70, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n\nwith BuildPart() as retainer:\n    with Locations((0, 0, -10)):\n        Cylinder(motor_tube_outer + 2.5, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))\n        with PolarLocations(motor_tube_outer + 2.5, 12):\n            Cylinder(0.8, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))\n        Cylinder(7.5, 10, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n\nregister_feature(\n    \"motor_mount\",\n    \"Motor mount and retainer\",\n    \"additive\",\n    Compound([body_tube.part, nose_cone.part, fin_can.part, launch_lug.part, motor_mount.part, retainer.part]),\n    parent_id=\"fin_can\",\n    parameters={\"motor_diameter\": 18},\n)\n\nresult = Compound([body_tube.part, nose_cone.part, fin_can.part, launch_lug.part, motor_mount.part, retainer.part])\n",
+   "glb": "step-5.glb",
+   "previews": [
+    {
+     "file": "step-5-preview-1.glb",
+     "name": "Motor mount and retainer"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A motor mount inside the tail and a retainer cap below it.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 6 solids; bounds 74.733 \u00d7 86.294 \u00d7 280 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A motor mount inside the tail and a retainer cap below it.\n\n- The motor tube takes an 18 mm motor (18.2 mm bore, 0.7 mm wall) and is 70 mm long.\n- Two 3 mm centering rings hold it in the middle of the body tube, at 10 mm and 60 mm.\n- The retainer is a 10 mm cap below the tail, with a 15 mm opening for the nozzle and twelve grip ribs.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A motor mount inside the tail and a retainer cap below it."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 6 solids; bounds 74.733 \u00d7 86.294 \u00d7 280 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 6,
+     "volume_mm3": 62757.268,
+     "bounding_box_mm": {
+      "x": 74.733,
+      "y": 86.294,
+      "z": 280.0
+     },
+     "error": null
+    }
+   }
+  }
+ ]
+}

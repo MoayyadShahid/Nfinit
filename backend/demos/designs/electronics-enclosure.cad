@@ -1,0 +1,194 @@
+# title: Electronics enclosure
+# summary: A printable case for a small dev board, with standoffs, a USB-C opening, vents and a screw-down lid.
+# part: case
+
+# == step
+# prompt: Design a printable enclosure for a 55 × 28 mm dev board. Start with a rounded open box with 2 mm walls.
+# plan: An open box, 70 × 42 × 24 mm outside, with 2 mm walls and floor.
+# plan:
+# plan: - The corners have a 5 mm radius outside and 3 mm inside, so the walls stay 2 mm thick all the way round.
+# plan: - The bottom edge gets a 1.5 mm round, which also helps the first print layer come off the bed cleanly.
+# plan: - The inside is 66 × 38 mm, which leaves room round the board for cables.
+# -- params
+case_length = 70.0
+case_width = 42.0
+case_height = 24.0
+wall = 2.0
+# -- build
+    with BuildSketch():
+        RectangleRounded(case_length, case_width, 5)
+    extrude(amount=case_height)
+    fillet(case.edges().group_by(Axis.Z)[0], radius=1.5)
+    with BuildSketch(Plane.XY.offset(wall)):
+        RectangleRounded(case_length - 2 * wall, case_width - 2 * wall, 3)
+    extrude(amount=case_height, mode=Mode.SUBTRACT)
+    register_feature(
+        "shell",
+        "Shell",
+        "additive",
+        case.part,
+        parameters={"length": case_length, "width": case_width, "height": case_height, "wall": wall},
+    )
+    register_constraint(
+        "wall_thickness",
+        "thickness",
+        ["shell"],
+        parameters={"parameter": "wall", "value": wall, "unit": "mm"},
+    )
+
+# == step
+# prompt: Add four standoffs for the board. Its mounting holes are 49 × 22 mm apart.
+# plan: Four 5 mm standoffs that hold the board above the floor.
+# plan:
+# plan: - Each standoff is 6 mm across with a 2.2 mm pilot hole for an M2.5 screw, on a 49 × 22 mm pattern.
+# plan: - The pattern is a parameter, so it is quick to change to the holes of another board.
+# plan: - The board sits 7 mm above the bottom of the case, which leaves room for pins under it.
+# -- params
+board_hole_x = 49.0
+board_hole_y = 22.0
+standoff_height = 5.0
+board_z = wall + standoff_height
+# -- build
+    with BuildSketch(Plane.XY.offset(wall)):
+        with GridLocations(board_hole_x, board_hole_y, 2, 2):
+            Circle(3)
+            Circle(1.1, mode=Mode.SUBTRACT)
+    extrude(amount=standoff_height)
+    register_feature(
+        "standoffs",
+        "Board standoffs",
+        "pattern",
+        case.part,
+        parent_id="shell",
+        parameters={"spacing_x": board_hole_x, "spacing_y": board_hole_y, "height": standoff_height},
+    )
+
+# == step
+# prompt: Cut an opening for the USB-C port at one end, and two holes for the buttons beside it.
+# plan: A USB-C opening and two button holes in the left end wall.
+# plan:
+# plan: - The opening is 11 × 5 mm with round ends, centered 3 mm above the board, where the connector sits.
+# plan: - Two 3 mm holes, 8 mm each side of it, let a paper clip reach the reset and boot buttons.
+# -- params
+port_z = board_z + 1.6 + 1.6
+# -- build
+    with BuildSketch(Plane.YZ.offset(-case_length / 2)):
+        with Locations((0, port_z)):
+            SlotOverall(11, 5)
+        with Locations((-8, port_z), (8, port_z)):
+            Circle(1.5)
+    extrude(amount=wall * 3, both=True, mode=Mode.SUBTRACT)
+    register_feature(
+        "port_openings",
+        "USB-C and button openings",
+        "subtractive",
+        case.part,
+        parent_id="shell",
+    )
+
+# == step
+# prompt: Add vent slots along both long sides.
+# plan: Two rows of vent slots, one in each long wall.
+# plan:
+# plan: - Seven slots per side, 2 mm wide and 9 mm tall, 5 mm apart, high on the walls above the board.
+# plan: - Upright slots print without supports, because each slot's top is only 2 mm wide.
+# -- build
+    for side in [-1, 1]:
+        with BuildSketch(Plane.XZ.offset(side * case_width / 2)):
+            with GridLocations(5, 0, 7, 1):
+                with Locations((0, 15.5)):
+                    SlotOverall(9, 2, rotation=90)
+        extrude(amount=wall * 3, both=True, mode=Mode.SUBTRACT)
+    register_feature(
+        "vents",
+        "Vent slots",
+        "pattern",
+        case.part,
+        parent_id="shell",
+        parameters={"count": 14},
+    )
+
+# == step
+# prompt: Now add a lid with a lip that locates it inside the walls. Show it lifted off the case.
+# plan: A 2 mm lid with a locating lip, shown 12 mm above the case.
+# plan:
+# plan: - The lid has the same 70 × 42 mm rounded outline as the case and a 1 mm round on its top edge.
+# plan: - The 3 mm lip is 1.2 mm thick and 0.2 mm smaller than the inside of the case on every side, so it drops in without play.
+# -- params
+lid_thickness = 2.0
+lid_gap = 12.0
+lid_z = case_height + lid_gap
+lip_height = 3.0
+clearance = 0.2
+# -- extra
+with BuildPart() as lid:
+    with BuildSketch(Plane.XY.offset(lid_z)):
+        RectangleRounded(case_length, case_width, 5)
+    extrude(amount=lid_thickness)
+    fillet(lid.edges().group_by(Axis.Z)[-1], radius=1)
+    with BuildSketch(Plane.XY.offset(lid_z)):
+        RectangleRounded(case_length - 2 * (wall + clearance), case_width - 2 * (wall + clearance), 3 - clearance)
+        RectangleRounded(
+            case_length - 2 * (wall + clearance + 1.2),
+            case_width - 2 * (wall + clearance + 1.2),
+            3 - clearance - 1.2,
+            mode=Mode.SUBTRACT,
+        )
+    extrude(amount=-lip_height)
+
+register_feature(
+    "lid",
+    "Lid",
+    "additive",
+    Compound([case.part, lid.part]),
+    parent_id="shell",
+    parameters={"thickness": lid_thickness, "clearance": clearance},
+)
+# -- result
+result = Compound([case.part, lid.part])
+
+# == step
+# prompt: Finish with screw bosses in the corners and countersunk holes in the lid.
+# plan: Four corner bosses in the case and four countersunk holes in the lid.
+# plan:
+# plan: - Each boss is 6 mm across, fills its corner from the floor to 3 mm below the rim, and has a 2.2 mm pilot hole for an M2.5 screw.
+# plan: - The lip of the lid is cut back round each boss, so the lid still sits flat.
+# plan: - The lid holes are 2.9 mm with a 90° countersink, so the screw heads sit flush.
+# -- params
+boss_x = case_length / 2 - wall - 3
+boss_y = case_width / 2 - wall - 3
+boss_top = case_height - lip_height
+# -- build
+    with BuildSketch(Plane.XY.offset(wall)):
+        with GridLocations(2 * boss_x, 2 * boss_y, 2, 2):
+            Circle(3)
+    extrude(amount=boss_top - wall)
+    with Locations((0, 0, boss_top)):
+        with GridLocations(2 * boss_x, 2 * boss_y, 2, 2):
+            Hole(1.1, depth=boss_top - wall)
+    register_feature(
+        "screw_bosses",
+        "Screw bosses",
+        "additive",
+        case.part,
+        parent_id="shell",
+    )
+# -- extra
+with BuildPart() as lid_holes:
+    add(lid.part)
+    with Locations((0, 0, lid_z - lip_height)):
+        with GridLocations(2 * boss_x, 2 * boss_y, 2, 2):
+            Cylinder(3.6, lip_height, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)
+    with Locations((0, 0, lid_z + lid_thickness)):
+        with GridLocations(2 * boss_x, 2 * boss_y, 2, 2):
+            CounterSinkHole(1.45, 2.6, depth=lid_thickness)
+
+register_feature(
+    "lid_holes",
+    "Lid screw holes",
+    "subtractive",
+    Compound([case.part, lid_holes.part]),
+    parent_id="lid",
+)
+# -- result
+result = Compound([case.part, lid_holes.part])

@@ -1,0 +1,196 @@
+# title: Robot gripper
+# summary: A two-finger parallel gripper: a micro servo drives twin gears and parallel links.
+# part: base
+
+# == step
+# prompt: Design a two-finger robot gripper. Start with a 70 × 50 mm, 4 mm base plate with M3 mounting holes.
+# plan: A 70 × 50 mm base plate, 4 mm thick, with 5 mm corner radii.
+# plan:
+# plan: - Four M3 clearance holes (3.4 mm) at 60 × 40 mm mount the gripper to an arm.
+# plan: - The fingers will point along +Y, and the gears will sit on top of the plate.
+# -- params
+plate_width = 70.0
+plate_depth = 50.0
+plate_thickness = 4.0
+# -- build
+    with BuildSketch():
+        RectangleRounded(plate_width, plate_depth, 5)
+        with GridLocations(60, 40, 2, 2):
+            Circle(1.7, mode=Mode.SUBTRACT)
+    extrude(amount=plate_thickness)
+    register_feature(
+        "base_plate",
+        "Base plate",
+        "additive",
+        base.part,
+        parameters={"width": plate_width, "depth": plate_depth, "thickness": plate_thickness},
+    )
+
+# == step
+# prompt: Mount a micro servo under the plate, with its shaft coming up through it on the left.
+# plan: A servo pocket and a reference servo under the plate.
+# plan:
+# plan: - The servo body is 23 × 12.5 × 22.5 mm with 32.5 mm mounting ears, hanging under the plate.
+# plan: - Its shaft sits 10 mm left of the center line, where the drive gear will go.
+# plan: - The plate gets a 7 mm opening for the shaft and two M2 holes for the ears, 28 mm apart.
+# -- params
+gear_spacing = 20.0
+drive_x = -gear_spacing / 2
+idler_x = gear_spacing / 2
+# -- build
+    with Locations((drive_x, 0, plate_thickness / 2)):
+        Cylinder(3.5, plate_thickness * 2, mode=Mode.SUBTRACT)
+        with Locations((-5.5 - 14, 0, 0), (-5.5 + 14, 0, 0)):
+            Cylinder(1.1, plate_thickness * 2, mode=Mode.SUBTRACT)
+    register_feature(
+        "servo_holes",
+        "Servo holes",
+        "subtractive",
+        base.part,
+        parent_id="base_plate",
+    )
+# -- extra
+with BuildPart() as servo:
+    with Locations((drive_x - 5.5, 0, 0)):
+        Box(23, 12.5, 22.5, align=(Align.CENTER, Align.CENTER, Align.MAX))
+        with Locations((0, 0, -2.5)):
+            Box(32.5, 12.5, 2.5, align=(Align.CENTER, Align.CENTER, Align.MAX))
+    with Locations((drive_x, 0, 0)):
+        Cylinder(3, 4, align=(Align.CENTER, Align.CENTER, Align.MIN))
+
+register_feature(
+    "servo",
+    "Micro servo",
+    "reference",
+    Compound([base.part, servo.part]),
+    parent_id="servo_holes",
+)
+# -- result
+result = Compound([base.part, servo.part])
+
+# == step
+# prompt: Add two meshing spur gears on top of the plate, one on the servo shaft and one on a pin.
+# plan: Two 16-tooth spur gears that mesh, 20 mm apart.
+# plan:
+# plan: - Module 1.25, so each gear has a 20 mm pitch diameter, and the center distance is exactly one pitch diameter.
+# plan: - The gears are 4 mm thick and sit 0.5 mm above the plate.
+# plan: - The idler gear is turned by half a tooth so its teeth fall between the drive gear's teeth. Both gears turn the same amount in opposite directions, which keeps the fingers in step.
+# -- params
+gear_teeth = 16
+gear_z = plate_thickness + 0.5
+gear_thickness = 4.0
+half_tooth = 360 / gear_teeth / 2
+# -- extra
+with BuildPart() as gears:
+    for x, turn in [(drive_x, 0), (idler_x, half_tooth)]:
+        with BuildSketch(Plane.XY.offset(gear_z) * Pos(x, 0) * Rot(0, 0, turn)):
+            Circle(8.6)
+            with PolarLocations(8.4, gear_teeth):
+                Trapezoid(2.6, 2.8, 78, rotation=-90, align=(Align.CENTER, Align.MIN))
+            Circle(1.6, mode=Mode.SUBTRACT)
+        extrude(amount=gear_thickness)
+
+register_feature(
+    "gears",
+    "Spur gears",
+    "additive",
+    Compound([base.part, servo.part, gears.part]),
+    parent_id="base_plate",
+    parameters={"teeth": gear_teeth, "module": 1.25},
+)
+# -- result
+result = Compound([base.part, servo.part, gears.part])
+
+# == step
+# prompt: Add the linkage: a crank on each gear and a parallel idler link in front of it.
+# plan: Two four-bar parallel linkages, one on each side.
+# plan:
+# plan: - Each gear carries a 30 mm crank on top. The cranks start at 115° and 65°, so they point forward and outward.
+# plan: - Each idler link is the same length and pivots on a post 14 mm in front of its gear. It runs one layer above the cranks, so the two never touch.
+# plan: - Crank, idler, finger and plate form a parallelogram, so the fingers stay parallel as the gears turn.
+# -- params
+link_length = 30.0
+crank_angles = {drive_x: 115, idler_x: 65}
+idler_y = 14.0
+link_width = 7.0
+crank_z = gear_z + gear_thickness
+idler_z = crank_z + gear_thickness + 0.5
+# -- build
+    with Locations((drive_x, idler_y, plate_thickness), (idler_x, idler_y, plate_thickness)):
+        Cylinder(4, idler_z - plate_thickness, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        Cylinder(1.5, idler_z - plate_thickness + 6, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    register_feature(
+        "idler_posts",
+        "Idler posts",
+        "additive",
+        base.part,
+        parent_id="base_plate",
+    )
+# -- extra
+with BuildPart() as links:
+    for x, angle in crank_angles.items():
+        for y, z in [(0, crank_z), (idler_y, idler_z)]:
+            with BuildSketch(Plane.XY.offset(z) * Pos(x, y) * Rot(0, 0, angle)):
+                with Locations((link_length / 2, 0)):
+                    SlotCenterToCenter(link_length, link_width)
+                Circle(1.6, mode=Mode.SUBTRACT)
+                with Locations((link_length, 0)):
+                    Circle(1.6, mode=Mode.SUBTRACT)
+            extrude(amount=gear_thickness)
+
+register_feature(
+    "links",
+    "Cranks and idler links",
+    "additive",
+    Compound([base.part, servo.part, gears.part, links.part]),
+    parent_id="gears",
+    parameters={"length": link_length},
+)
+# -- result
+result = Compound([base.part, servo.part, gears.part, links.part])
+
+# == step
+# prompt: Add the two fingers on the ends of the links, with ribbed grip faces.
+# plan: Two fingers that join the ends of each crank and idler link.
+# plan:
+# plan: - Each finger is 8 mm thick and reaches 40 mm past the idler link to the tip, where it tapers.
+# plan: - The inner faces are 37 mm apart when open, with six 1 mm ribs so objects do not slip.
+# plan: - Pins through each finger join it to its crank and its idler link.
+# -- params
+finger_x = gear_spacing / 2 + link_length * 0.4226
+finger_y = link_length * 0.9063
+finger_thickness = 8.0
+finger_tip_y = finger_y + idler_y + 40
+# -- extra
+with BuildPart() as fingers:
+    for side in [-1, 1]:
+        x = side * finger_x
+        with BuildSketch(Plane.YZ.offset(x)):
+            Polygon(
+                (finger_y - 6, crank_z - 6),
+                (finger_tip_y, crank_z - 4),
+                (finger_tip_y, crank_z + 2),
+                (finger_y + idler_y + 6, idler_z + gear_thickness),
+                (finger_y - 6, idler_z + gear_thickness),
+                align=None,
+            )
+        extrude(amount=finger_thickness / 2, both=True)
+        for y, z in [(finger_y, crank_z), (finger_y + idler_y, idler_z)]:
+            with Locations((x, y, z)):
+                Cylinder(3.5, gear_thickness, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)
+                Cylinder(1.5, gear_thickness, align=(Align.CENTER, Align.CENTER, Align.MIN))
+        inner_face_x = x - side * finger_thickness / 2
+        for i in range(6):
+            with Locations((inner_face_x, finger_y + idler_y + 10 + i * 5, crank_z - 1)):
+                Box(2, 1.2, 6)
+
+register_feature(
+    "fingers",
+    "Fingers",
+    "additive",
+    Compound([base.part, servo.part, gears.part, links.part, fingers.part]),
+    parent_id="links",
+    parameters={"reach": 40, "ribs": 6},
+)
+# -- result
+result = Compound([base.part, servo.part, gears.part, links.part, fingers.part])
