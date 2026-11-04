@@ -1,6 +1,7 @@
 import { Wordmark } from "@/components/brand/Wordmark";
 import { DeleteAccount } from "@/components/DeleteAccount";
 import { LegalLinks } from "@/components/LegalPage";
+import { PlanSection } from "@/components/PlanSection";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getAuthenticatedUser } from "@/lib/supabase/server";
@@ -43,8 +44,6 @@ export default async function AccountPage() {
             </strong>
           </p>
           <p>
-            To change your card, see invoices or cancel only your subscription, use the{" "}
-            <strong className="text-[var(--ink)]">Billing</strong> button in the studio.
             To get a copy of your data, see the{" "}
             <Link href="/privacy#rights" className="underline underline-offset-4">
               Privacy Policy
@@ -52,6 +51,8 @@ export default async function AccountPage() {
             .
           </p>
         </section>
+
+        <PlanSection />
 
         <section className="mt-10">
           <DeleteAccount />

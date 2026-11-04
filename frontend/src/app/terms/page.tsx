@@ -25,8 +25,9 @@ export default function TermsPage() {
           </li>
           <li>
             The subscription renews every month until you cancel. You can cancel at
-            any time with the <strong>Billing</strong> button in the studio, and you
-            keep access until the end of the month you paid for.
+            any time with <strong>Manage billing</strong>, in your account menu or on
+            the <Link href="/account">Account page</Link>, and you keep access until
+            the end of the month you paid for.
           </li>
           <li>You own the parts you design and the prompts and images you give us.</li>
           <li>
@@ -113,9 +114,10 @@ export default function TermsPage() {
             until you cancel.
           </li>
           <li>
-            <strong>How to cancel:</strong> select <strong>Billing</strong> (the card
-            icon) in the studio toolbar, then select <strong>Cancel subscription</strong>{" "}
-            on the page that opens. You can also email us at{" "}
+            <strong>How to cancel:</strong> select your account menu (your initial, top
+            right), then <strong>Manage billing</strong>, or select{" "}
+            <strong>Manage billing</strong> on the <Link href="/account">Account page</Link>.
+            Then select <strong>Cancel subscription</strong> on the page that opens. You can also email us at{" "}
             <a href={mail}>{contactEmail}</a>. Cancellation stops the next renewal. You
             keep access until the end of the month you already paid for.
           </li>
