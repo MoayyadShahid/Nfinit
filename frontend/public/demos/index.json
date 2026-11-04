@@ -4,7 +4,7 @@
    "slug": "fpv-drone",
    "title": "5-inch FPV drone frame",
    "summary": "A freestyle quadcopter frame, from a cut plate to a full stack with a camera cage.",
-   "steps": 7
+   "steps": 6
   },
   {
    "slug": "robot-gripper",

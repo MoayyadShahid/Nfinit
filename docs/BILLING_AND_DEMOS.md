@@ -82,7 +82,7 @@ Six example builds, served as static files from `frontend/public/demos/`
 
 | Demo | Versions |
 | --- | --- |
-| 5-inch FPV drone frame (first for free users) | bottom plate → motor mounts → stack, standoff and strap holes → arm weight relief → standoffs and top plate → camera cage → motors and camera |
+| 5-inch FPV drone frame (first for free users) | bottom plate → motor mounts → stack, standoff and strap holes → arm weight relief → standoffs and top plate → camera cage |
 | Robot gripper | base plate → micro servo → spur gears → cranks and idler links → fingers |
 | Miniature glider | fuselage → main wing → horizontal stabilizer → vertical fin → nose pocket and launch hook |
 | Model rocket | body tube → nose cone → fin can → launch lug → motor mount and retainer |

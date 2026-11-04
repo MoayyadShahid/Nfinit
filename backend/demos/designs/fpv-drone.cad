@@ -220,39 +220,3 @@ register_feature(
 )
 # -- result
 result = Compound([frame.part, standoffs.part, top_plate.part, camera_cage.part])
-
-# == step
-# prompt: Put the motors and the camera in place so I can check the clearances.
-# plan: Reference bodies for four motors and the camera, to check the fit.
-# plan:
-# plan: - Each motor is a 28 mm bell, 18 mm tall, with a 5 mm shaft, on its pad.
-# plan: - Adjacent motors are 159 mm apart, so 5-inch (127 mm) propellers have 32 mm between their tips.
-# plan: - The 19 mm camera sits between the cage plates at its pivot, tilted 30°, with its lens to the front.
-# -- params
-motor_bell_diameter = 28.0
-motor_bell_height = 18.0
-camera_tilt = 30
-# -- extra
-with BuildPart() as motors:
-    for angle in arm_angles:
-        with Locations(Rot(0, 0, angle) * Pos(motor_radius, 0, plate_thickness)):
-            Cylinder(motor_bell_diameter / 2, motor_bell_height, align=(Align.CENTER, Align.CENTER, Align.MIN))
-            with Locations((0, 0, motor_bell_height)):
-                Cylinder(2.5, 6, align=(Align.CENTER, Align.CENTER, Align.MIN))
-    fillet(motors.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-2], radius=2)
-
-with BuildPart() as camera:
-    with Locations(Pos(0, pivot[0], pivot[1]) * Rot(-camera_tilt, 0, 0)):
-        Box(camera_width, camera_width, camera_width)
-        with Locations((0, camera_width / 2, 0)):
-            Cylinder(7, 8, rotation=(-90, 0, 0), align=(Align.CENTER, Align.CENTER, Align.MIN))
-
-register_feature(
-    "reference_parts",
-    "Motors and camera",
-    "reference",
-    Compound([frame.part, standoffs.part, top_plate.part, camera_cage.part, motors.part, camera.part]),
-    parent_id="camera_cage",
-)
-# -- result
-result = Compound([frame.part, standoffs.part, top_plate.part, camera_cage.part, motors.part, camera.part])
