@@ -1,10 +1,11 @@
 {
   "schema_version": "1.0",
   "suite": "cad50",
-  "required_case_count": 50,
+  "required_case_count": 55,
   "minimum_pass_rate": 1.0,
   "maximum_failed_cases": 0,
   "required_categories": {
+    "dimension_reading": 5,
     "edge_finish": 5,
     "failure_recovery": 5,
     "iterative_edit": 5,

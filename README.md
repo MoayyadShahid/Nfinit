@@ -91,10 +91,29 @@ The FastAPI backend owns the LangGraph workflow; Next.js only proxies requests:
 2. **Plan** — translate the product request into dimensions, constraints,
    features, and manufacturing intent.
 3. **Generate** — produce parameterized build123d code from that plan.
-4. **Inspect** — execute the code and measure its solids, volume, and bounding
-   box.
-5. **Repair** — feed execution failures back to the model, retrying up to three
-   times.
+4. **Inspect** — execute the code, measure its solids, volume, and bounding
+   box, and compare them with the plan's expectations.
+5. **Repair** — feed execution failures and geometry mismatches back to the
+   model, retrying up to three times.
+
+### Plan expectations
+
+The plan ends with a fenced `expectations` block: the overall bounding box
+(an axis is `null` when the plan does not fix it), the solid count, and any
+assumption about how the request was read. The block is removed from the plan
+that the studio shows. Assumptions become the plan's first line, so the chat
+summary says how an ambiguous request was read.
+
+The planner reads a stacked dimension from the surface the feature rises
+from: "a 3 mm base with 12 mm tall walls" is 15 mm overall. Words such as
+"overall" or "total" give the full size instead.
+
+A part that builds but differs from the expectations by more than 0.1 mm (or
+0.1%) goes to repair with the measured and expected values. A part that still
+differs after three repairs is returned with the difference in its trace. When
+the last repair does not build, the previous part that did build is kept, so a
+repair cannot turn a usable part into an error. Plans without the block are
+checked for execution only, as before.
 
 Each step records a progress event when it starts and when it finishes
 (`run_events`). `GET /cad/runs/{id}?after=<seq>` returns the run with the
@@ -367,7 +386,7 @@ per-metric, repair, latency, and token scores to each run trace. Prompt text,
 generated code, and images remain redacted.
 
 The **Live CAD model evaluation** GitHub workflow runs both models on demand.
-Choose `smoke` for six paid agent runs or `cad50` for the complete 100-run
+Choose `smoke` for six paid agent runs or `cad50` for the complete 110-run
 comparison. Configure these repository secrets before running it:
 
 - `OPENROUTER_API_KEY`
@@ -381,10 +400,12 @@ workflow artifacts for 90 days.
 Reports compare pass rate, geometry accuracy, policy compliance, repair count,
 latency, and token usage by model. A nonzero exit code indicates a regression.
 
-The `cad50.json` benchmark contains 50 balanced cases across primitives,
+The `cad50.json` benchmark contains 55 balanced cases across primitives,
 subtractive features, patterns, sketch profiles, edge finishing, mechanical
-parts, iterative edits, selected-face edits, failure recovery, and
-manufacturing-oriented products. Validate all canonical outputs locally with:
+parts, iterative edits, selected-face edits, failure recovery,
+manufacturing-oriented products, and dimension reading (stacked and overall
+heights). The file keeps its `cad50` name so that earlier reports and the
+LangFuse dataset stay comparable. Validate all canonical outputs locally with:
 
 ```bash
 python -m evaluation.cli \
@@ -395,7 +416,7 @@ python -m evaluation.cli \
 ```
 
 Pull requests that change the backend run this benchmark in GitHub Actions.
-`evaluation/baselines/cad50.json` requires all 50 case IDs, five cases in each
+`evaluation/baselines/cad50.json` requires all 55 case IDs, five cases in each
 category, complete metric coverage, and a 100% canonical replay pass rate. The
 JSON report is uploaded as a 30-day workflow artifact. Validate a report against
 the same policy locally with:
