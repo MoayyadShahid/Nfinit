@@ -118,6 +118,12 @@ story from version 1. Replays make no backend calls.
 - A free user with nothing open lands in the FPV drone demo.
 - Everyone sees "See how it's built" cards under the prompt box on the
   welcome screen, and `/studio?demo=<slug>` opens a demo directly.
+- Every account's Parts gallery (`/parts`, "Your parts") lists the six demo
+  parts after the user's own parts, each with a picture of its last version
+  and a "Demo part" badge; search covers them too. With no parts of their own,
+  a "Make your first part" card comes first. Demos are shown, not copied into
+  a user's projects: they need no subscription, use none of the account's
+  storage, and stay up to date when the demos change.
 - Sending a prompt, selecting a face and exporting open the paywall for free
   users. For subscribers, a prompt builds on the shown version as a new
   project, and export works as for any part.
@@ -134,6 +140,17 @@ longer listed. A demo with a step that does not build is left out. The tests
 in `backend/tests/test_demos.py` check that the shipped code is exactly the
 design's code for each version and that every version builds on the one
 before it.
+
+Then, from `frontend/`, render the gallery pictures (`thumbnail.webp` in each
+demo folder) from each demo's last version, with the studio viewer's colours,
+lights and camera:
+
+```bash
+PLAYWRIGHT_PATH=$(npm root -g)/playwright node scripts/render-demo-thumbnails.mjs
+```
+
+The demo build keeps an existing `thumbnail.webp`, so render the pictures
+again after a design changes.
 
 **Next: version history for projects.** Projects should get the same
 behaviour: each assistant turn in a project's chat is a revision, and

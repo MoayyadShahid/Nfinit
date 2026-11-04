@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/brand/Wordmark";
 import type { Viewer } from "@/components/CommandBar";
 import { Paywall } from "@/components/Paywall";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { demoThumbnail, listDemos, type DemoSummary } from "@/lib/demos";
 import {
   deleteProject,
   getProject,
@@ -14,7 +15,7 @@ import {
   type ProjectSummary,
 } from "@/lib/projects";
 import { sandboxRequest } from "@/lib/sandbox";
-import { Box, Check, LogOut, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Box, Check, LogOut, Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -233,11 +234,64 @@ function PartCard({
   );
 }
 
+/** A demo part every account has: opens its version-by-version replay. */
+function DemoCard({ demo }: { demo: DemoSummary }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  return (
+    <Link
+      href={`/studio?demo=${encodeURIComponent(demo.slug)}`}
+      aria-label={`Replay the ${demo.title} demo`}
+      className="theme-floating group flex flex-col overflow-hidden rounded-2xl border shadow-sm transition-shadow hover:shadow-xl hover:shadow-black/10"
+    >
+      <span className="relative block aspect-[4/3] overflow-hidden bg-[var(--clay)]">
+        {imageFailed ? (
+          <span className="flex size-full items-center justify-center text-[var(--ink-2)]">
+            <Box className="size-10 opacity-40" strokeWidth={1.25} />
+          </span>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element -- small static file in public/
+          <img
+            src={demoThumbnail(demo.slug)}
+            alt=""
+            loading="lazy"
+            onError={() => setImageFailed(true)}
+            className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          />
+        )}
+        <span className="absolute left-3 top-3 rounded-full bg-[var(--sheet)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--ink-2)]">
+          Demo part
+        </span>
+      </span>
+      <span className="flex flex-1 flex-col gap-1.5 p-4">
+        <span className="text-[15px] font-semibold text-[var(--ink)]">{demo.title}</span>
+        <span className="text-[13px] leading-5 text-[var(--ink-2)]">{demo.summary}</span>
+        <span className="mt-auto flex items-center gap-1.5 pt-2 text-xs text-[var(--ink-2)]">
+          <Play className="size-3.5" />
+          {demo.steps} versions · Replay how it is built
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
   const [parts, setParts] = useState<ProjectSummary[] | null>(null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [demos, setDemos] = useState<DemoSummary[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    listDemos()
+      .then((items) => {
+        if (active) setDemos(items);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -255,11 +309,21 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
     };
   }, []);
 
+  const needle = query.trim().toLowerCase();
   const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     if (!parts || !needle) return parts;
     return parts.filter((part) => part.name.toLowerCase().includes(needle));
-  }, [parts, query]);
+  }, [parts, needle]);
+  // The demo parts are in every account's library, after the user's own parts.
+  const visibleDemos = useMemo(
+    () =>
+      needle
+        ? demos.filter((demo) =>
+            `${demo.title} ${demo.summary}`.toLowerCase().includes(needle)
+          )
+        : demos,
+    [demos, needle]
+  );
 
   return (
     <div className="theme-page min-h-dvh">
@@ -300,7 +364,7 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
               Your <em>parts</em>
             </h1>
           </div>
-          {parts && parts.length > 0 && (
+          {(parts?.length || demos.length) > 0 && (
             <label className="theme-inset flex w-full items-center gap-2 rounded-xl border px-3 py-2 sm:w-72">
               <Search className="size-4 text-[var(--ink-2)]" />
               <input
@@ -337,29 +401,33 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
               />
             ))}
           </div>
-        ) : parts.length === 0 ? (
-          <div className="theme-floating flex flex-col items-start gap-4 rounded-2xl border p-8 sm:p-10">
-            <Box className="size-8 text-[var(--ink-2)]" strokeWidth={1.25} />
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--ink)]">No parts yet</h2>
-              <p className="mt-1 text-[15px] text-[var(--ink-2)]">
-                Describe something in the studio. Every valid model is saved here.
-              </p>
-            </div>
-            <Link
-              href="/studio?new=1"
-              className="theme-primary-button flex h-10 items-center gap-1.5 rounded-lg px-4 text-sm font-semibold"
-            >
-              <Plus className="size-4" />
-              Make your first part
-            </Link>
-          </div>
-        ) : visible && visible.length === 0 ? (
+        ) : visible?.length === 0 && visibleDemos.length === 0 && needle ? (
           <p className="text-[15px] text-[var(--ink-2)]">
             No parts match “{query.trim()}”.
           </p>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {parts.length === 0 && !needle && (
+              <Link
+                href="/studio?new=1"
+                className="theme-floating flex flex-col items-start justify-end gap-4 rounded-2xl border border-dashed p-6 transition-shadow hover:shadow-xl hover:shadow-black/10"
+              >
+                <Box className="size-8 text-[var(--ink-2)]" strokeWidth={1.25} />
+                <span>
+                  <span className="block text-[15px] font-semibold text-[var(--ink)]">
+                    Make your first part
+                  </span>
+                  <span className="mt-1 block text-[13px] leading-5 text-[var(--ink-2)]">
+                    Describe something in the studio, and every valid model is saved
+                    here. The demo parts show how a part is built, version by version.
+                  </span>
+                </span>
+                <span className="theme-primary-button flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold">
+                  <Plus className="size-3.5" />
+                  New part
+                </span>
+              </Link>
+            )}
             {visible?.map((part) => (
               <PartCard
                 key={part.id}
@@ -379,6 +447,9 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
                   )
                 }
               />
+            ))}
+            {visibleDemos.map((demo) => (
+              <DemoCard key={demo.slug} demo={demo} />
             ))}
           </div>
         )}

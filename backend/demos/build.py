@@ -33,6 +33,7 @@ ORDER = [
 ]
 OUTPUT = Path(__file__).resolve().parents[2] / "frontend" / "public" / "demos"
 SOURCE = "example"
+THUMBNAIL = "thumbnail.webp"
 
 
 class DemoFailed(RuntimeError):
@@ -48,8 +49,13 @@ def _bounds(inspection) -> str:
 
 def build_demo(design: Design, output: Path) -> dict:
     folder = output / design.slug
+    # The gallery picture comes from frontend/scripts/render-demo-thumbnails.mjs.
+    thumbnail = folder / THUMBNAIL
+    kept = thumbnail.read_bytes() if thumbnail.is_file() else None
     shutil.rmtree(folder, ignore_errors=True)
     folder.mkdir(parents=True)
+    if kept is not None:
+        thumbnail.write_bytes(kept)
     steps = []
     seen: set[str] = set()
     for number in range(1, len(design.steps) + 1):
