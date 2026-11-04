@@ -1,0 +1,311 @@
+{
+ "slug": "robot-gripper",
+ "title": "Robot gripper",
+ "summary": "A two-finger parallel gripper: a micro servo drives twin gears and parallel links.",
+ "source": "example",
+ "steps": [
+  {
+   "prompt": "Design a two-finger robot gripper. Start with a 70 \u00d7 50 mm, 4 mm base plate with M3 mounting holes.",
+   "summary": "A 70 \u00d7 50 mm base plate, 4 mm thick, with 5 mm corner radii.",
+   "code": "plate_width = 70.0\nplate_depth = 50.0\nplate_thickness = 4.0\n\nwith BuildPart() as base:\n    with BuildSketch():\n        RectangleRounded(plate_width, plate_depth, 5)\n        with GridLocations(60, 40, 2, 2):\n            Circle(1.7, mode=Mode.SUBTRACT)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"base_plate\",\n        \"Base plate\",\n        \"additive\",\n        base.part,\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness},\n    )\n\nresult = base.part\n",
+   "glb": "step-1.glb",
+   "previews": [
+    {
+     "file": "step-1-preview-1.glb",
+     "name": "Base plate"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A 70 \u00d7 50 mm base plate, 4 mm thick, with 5 mm corner radii.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 70 \u00d7 50 \u00d7 4 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A 70 \u00d7 50 mm base plate, 4 mm thick, with 5 mm corner radii.\n\n- Four M3 clearance holes (3.4 mm) at 60 \u00d7 40 mm mount the gripper to an arm.\n- The fingers will point along +Y, and the gears will sit on top of the plate.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A 70 \u00d7 50 mm base plate, 4 mm thick, with 5 mm corner radii."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 70 \u00d7 50 \u00d7 4 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 13768.892,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 50.0,
+      "z": 4.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Mount a micro servo under the plate, with its shaft coming up through it on the left.",
+   "summary": "A servo pocket and a reference servo under the plate.",
+   "code": "plate_width = 70.0\nplate_depth = 50.0\nplate_thickness = 4.0\n\ngear_spacing = 20.0\ndrive_x = -gear_spacing / 2\nidler_x = gear_spacing / 2\n\nwith BuildPart() as base:\n    with BuildSketch():\n        RectangleRounded(plate_width, plate_depth, 5)\n        with GridLocations(60, 40, 2, 2):\n            Circle(1.7, mode=Mode.SUBTRACT)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"base_plate\",\n        \"Base plate\",\n        \"additive\",\n        base.part,\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness},\n    )\n\n    with Locations((drive_x, 0, plate_thickness / 2)):\n        Cylinder(3.5, plate_thickness * 2, mode=Mode.SUBTRACT)\n        with Locations((-5.5 - 14, 0, 0), (-5.5 + 14, 0, 0)):\n            Cylinder(1.1, plate_thickness * 2, mode=Mode.SUBTRACT)\n    register_feature(\n        \"servo_holes\",\n        \"Servo holes\",\n        \"subtractive\",\n        base.part,\n        parent_id=\"base_plate\",\n    )\n\nwith BuildPart() as servo:\n    with Locations((drive_x - 5.5, 0, 0)):\n        Box(23, 12.5, 22.5, align=(Align.CENTER, Align.CENTER, Align.MAX))\n        with Locations((0, 0, -2.5)):\n            Box(32.5, 12.5, 2.5, align=(Align.CENTER, Align.CENTER, Align.MAX))\n    with Locations((drive_x, 0, 0)):\n        Cylinder(3, 4, align=(Align.CENTER, Align.CENTER, Align.MIN))\n\nregister_feature(\n    \"servo\",\n    \"Micro servo\",\n    \"reference\",\n    Compound([base.part, servo.part]),\n    parent_id=\"servo_holes\",\n)\n\nresult = Compound([base.part, servo.part])\n",
+   "glb": "step-2.glb",
+   "previews": [
+    {
+     "file": "step-2-preview-1.glb",
+     "name": "Servo holes"
+    },
+    {
+     "file": "step-2-preview-2.glb",
+     "name": "Micro servo"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A servo pocket and a reference servo under the plate.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 2 solids; bounds 70 \u00d7 50 \u00d7 26.5 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A servo pocket and a reference servo under the plate.\n\n- The servo body is 23 \u00d7 12.5 \u00d7 22.5 mm with 32.5 mm mounting ears, hanging under the plate.\n- Its shaft sits 10 mm left of the center line, where the drive gear will go.\n- The plate gets a 7 mm opening for the shaft and two M2 holes for the ears, 28 mm apart.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A servo pocket and a reference servo under the plate."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 2 solids; bounds 70 \u00d7 50 \u00d7 26.5 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 2,
+     "volume_mm3": 20463.266,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 50.0,
+      "z": 26.5
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add two meshing spur gears on top of the plate, one on the servo shaft and one on a pin.",
+   "summary": "Two 16-tooth spur gears that mesh, 20 mm apart.",
+   "code": "plate_width = 70.0\nplate_depth = 50.0\nplate_thickness = 4.0\n\ngear_spacing = 20.0\ndrive_x = -gear_spacing / 2\nidler_x = gear_spacing / 2\n\ngear_teeth = 16\ngear_z = plate_thickness + 0.5\ngear_thickness = 4.0\nhalf_tooth = 360 / gear_teeth / 2\n\nwith BuildPart() as base:\n    with BuildSketch():\n        RectangleRounded(plate_width, plate_depth, 5)\n        with GridLocations(60, 40, 2, 2):\n            Circle(1.7, mode=Mode.SUBTRACT)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"base_plate\",\n        \"Base plate\",\n        \"additive\",\n        base.part,\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness},\n    )\n\n    with Locations((drive_x, 0, plate_thickness / 2)):\n        Cylinder(3.5, plate_thickness * 2, mode=Mode.SUBTRACT)\n        with Locations((-5.5 - 14, 0, 0), (-5.5 + 14, 0, 0)):\n            Cylinder(1.1, plate_thickness * 2, mode=Mode.SUBTRACT)\n    register_feature(\n        \"servo_holes\",\n        \"Servo holes\",\n        \"subtractive\",\n        base.part,\n        parent_id=\"base_plate\",\n    )\n\nwith BuildPart() as servo:\n    with Locations((drive_x - 5.5, 0, 0)):\n        Box(23, 12.5, 22.5, align=(Align.CENTER, Align.CENTER, Align.MAX))\n        with Locations((0, 0, -2.5)):\n            Box(32.5, 12.5, 2.5, align=(Align.CENTER, Align.CENTER, Align.MAX))\n    with Locations((drive_x, 0, 0)):\n        Cylinder(3, 4, align=(Align.CENTER, Align.CENTER, Align.MIN))\n\nregister_feature(\n    \"servo\",\n    \"Micro servo\",\n    \"reference\",\n    Compound([base.part, servo.part]),\n    parent_id=\"servo_holes\",\n)\n\nwith BuildPart() as gears:\n    for x, turn in [(drive_x, 0), (idler_x, half_tooth)]:\n        with BuildSketch(Plane.XY.offset(gear_z) * Pos(x, 0) * Rot(0, 0, turn)):\n            Circle(8.6)\n            with PolarLocations(8.4, gear_teeth):\n                Trapezoid(2.6, 2.8, 78, rotation=-90, align=(Align.CENTER, Align.MIN))\n            Circle(1.6, mode=Mode.SUBTRACT)\n        extrude(amount=gear_thickness)\n\nregister_feature(\n    \"gears\",\n    \"Spur gears\",\n    \"additive\",\n    Compound([base.part, servo.part, gears.part]),\n    parent_id=\"base_plate\",\n    parameters={\"teeth\": gear_teeth, \"module\": 1.25},\n)\n\nresult = Compound([base.part, servo.part, gears.part])\n",
+   "glb": "step-3.glb",
+   "previews": [
+    {
+     "file": "step-3-preview-1.glb",
+     "name": "Spur gears"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Two 16-tooth spur gears that mesh, 20 mm apart.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 3 solids; bounds 70 \u00d7 50 \u00d7 31 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "Two 16-tooth spur gears that mesh, 20 mm apart.\n\n- Module 1.25, so each gear has a 20 mm pitch diameter, and the center distance is exactly one pitch diameter.\n- The gears are 4 mm thick and sit 0.5 mm above the plate.\n- The idler gear is turned by half a tooth so its teeth fall between the drive gear's teeth. Both gears turn the same amount in opposite directions, which keeps the fingers in step.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Two 16-tooth spur gears that mesh, 20 mm apart."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 3 solids; bounds 70 \u00d7 50 \u00d7 31 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 3,
+     "volume_mm3": 22919.719,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 50.0,
+      "z": 31.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add the linkage: a crank on each gear and a parallel idler link in front of it.",
+   "summary": "Two four-bar parallel linkages, one on each side.",
+   "code": "plate_width = 70.0\nplate_depth = 50.0\nplate_thickness = 4.0\n\ngear_spacing = 20.0\ndrive_x = -gear_spacing / 2\nidler_x = gear_spacing / 2\n\ngear_teeth = 16\ngear_z = plate_thickness + 0.5\ngear_thickness = 4.0\nhalf_tooth = 360 / gear_teeth / 2\n\nlink_length = 30.0\ncrank_angles = {drive_x: 115, idler_x: 65}\nidler_y = 14.0\nlink_width = 7.0\ncrank_z = gear_z + gear_thickness\nidler_z = crank_z + gear_thickness + 0.5\n\nwith BuildPart() as base:\n    with BuildSketch():\n        RectangleRounded(plate_width, plate_depth, 5)\n        with GridLocations(60, 40, 2, 2):\n            Circle(1.7, mode=Mode.SUBTRACT)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"base_plate\",\n        \"Base plate\",\n        \"additive\",\n        base.part,\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness},\n    )\n\n    with Locations((drive_x, 0, plate_thickness / 2)):\n        Cylinder(3.5, plate_thickness * 2, mode=Mode.SUBTRACT)\n        with Locations((-5.5 - 14, 0, 0), (-5.5 + 14, 0, 0)):\n            Cylinder(1.1, plate_thickness * 2, mode=Mode.SUBTRACT)\n    register_feature(\n        \"servo_holes\",\n        \"Servo holes\",\n        \"subtractive\",\n        base.part,\n        parent_id=\"base_plate\",\n    )\n\n    with Locations((drive_x, idler_y, plate_thickness), (idler_x, idler_y, plate_thickness)):\n        Cylinder(4, idler_z - plate_thickness, align=(Align.CENTER, Align.CENTER, Align.MIN))\n        Cylinder(1.5, idler_z - plate_thickness + 6, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    register_feature(\n        \"idler_posts\",\n        \"Idler posts\",\n        \"additive\",\n        base.part,\n        parent_id=\"base_plate\",\n    )\n\nwith BuildPart() as servo:\n    with Locations((drive_x - 5.5, 0, 0)):\n        Box(23, 12.5, 22.5, align=(Align.CENTER, Align.CENTER, Align.MAX))\n        with Locations((0, 0, -2.5)):\n            Box(32.5, 12.5, 2.5, align=(Align.CENTER, Align.CENTER, Align.MAX))\n    with Locations((drive_x, 0, 0)):\n        Cylinder(3, 4, align=(Align.CENTER, Align.CENTER, Align.MIN))\n\nregister_feature(\n    \"servo\",\n    \"Micro servo\",\n    \"reference\",\n    Compound([base.part, servo.part]),\n    parent_id=\"servo_holes\",\n)\n\nwith BuildPart() as gears:\n    for x, turn in [(drive_x, 0), (idler_x, half_tooth)]:\n        with BuildSketch(Plane.XY.offset(gear_z) * Pos(x, 0) * Rot(0, 0, turn)):\n            Circle(8.6)\n            with PolarLocations(8.4, gear_teeth):\n                Trapezoid(2.6, 2.8, 78, rotation=-90, align=(Align.CENTER, Align.MIN))\n            Circle(1.6, mode=Mode.SUBTRACT)\n        extrude(amount=gear_thickness)\n\nregister_feature(\n    \"gears\",\n    \"Spur gears\",\n    \"additive\",\n    Compound([base.part, servo.part, gears.part]),\n    parent_id=\"base_plate\",\n    parameters={\"teeth\": gear_teeth, \"module\": 1.25},\n)\n\nwith BuildPart() as links:\n    for x, angle in crank_angles.items():\n        for y, z in [(0, crank_z), (idler_y, idler_z)]:\n            with BuildSketch(Plane.XY.offset(z) * Pos(x, y) * Rot(0, 0, angle)):\n                with Locations((link_length / 2, 0)):\n                    SlotCenterToCenter(link_length, link_width)\n                Circle(1.6, mode=Mode.SUBTRACT)\n                with Locations((link_length, 0)):\n                    Circle(1.6, mode=Mode.SUBTRACT)\n            extrude(amount=gear_thickness)\n\nregister_feature(\n    \"links\",\n    \"Cranks and idler links\",\n    \"additive\",\n    Compound([base.part, servo.part, gears.part, links.part]),\n    parent_id=\"gears\",\n    parameters={\"length\": link_length},\n)\n\nresult = Compound([base.part, servo.part, gears.part, links.part])\n",
+   "glb": "step-4.glb",
+   "previews": [
+    {
+     "file": "step-4-preview-1.glb",
+     "name": "Idler posts"
+    },
+    {
+     "file": "step-4-preview-2.glb",
+     "name": "Cranks and idler links"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Two four-bar parallel linkages, one on each side.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 7 solids; bounds 70 \u00d7 69.689 \u00d7 41.5 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "Two four-bar parallel linkages, one on each side.\n\n- Each gear carries a 30 mm crank on top. The cranks start at 115\u00b0 and 65\u00b0, so they point forward and outward.\n- Each idler link is the same length and pivots on a post 14 mm in front of its gear. It runs one layer above the cranks, so the two never touch.\n- Crank, idler, finger and plate form a parallelogram, so the fingers stay parallel as the gears turn.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Two four-bar parallel linkages, one on each side."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 7 solids; bounds 70 \u00d7 69.689 \u00d7 41.5 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 7,
+     "volume_mm3": 27627.713,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 69.689,
+      "z": 41.5
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add the two fingers on the ends of the links, with ribbed grip faces.",
+   "summary": "Two fingers that join the ends of each crank and idler link.",
+   "code": "plate_width = 70.0\nplate_depth = 50.0\nplate_thickness = 4.0\n\ngear_spacing = 20.0\ndrive_x = -gear_spacing / 2\nidler_x = gear_spacing / 2\n\ngear_teeth = 16\ngear_z = plate_thickness + 0.5\ngear_thickness = 4.0\nhalf_tooth = 360 / gear_teeth / 2\n\nlink_length = 30.0\ncrank_angles = {drive_x: 115, idler_x: 65}\nidler_y = 14.0\nlink_width = 7.0\ncrank_z = gear_z + gear_thickness\nidler_z = crank_z + gear_thickness + 0.5\n\nfinger_x = gear_spacing / 2 + link_length * 0.4226\nfinger_y = link_length * 0.9063\nfinger_thickness = 8.0\nfinger_tip_y = finger_y + idler_y + 40\n\nwith BuildPart() as base:\n    with BuildSketch():\n        RectangleRounded(plate_width, plate_depth, 5)\n        with GridLocations(60, 40, 2, 2):\n            Circle(1.7, mode=Mode.SUBTRACT)\n    extrude(amount=plate_thickness)\n    register_feature(\n        \"base_plate\",\n        \"Base plate\",\n        \"additive\",\n        base.part,\n        parameters={\"width\": plate_width, \"depth\": plate_depth, \"thickness\": plate_thickness},\n    )\n\n    with Locations((drive_x, 0, plate_thickness / 2)):\n        Cylinder(3.5, plate_thickness * 2, mode=Mode.SUBTRACT)\n        with Locations((-5.5 - 14, 0, 0), (-5.5 + 14, 0, 0)):\n            Cylinder(1.1, plate_thickness * 2, mode=Mode.SUBTRACT)\n    register_feature(\n        \"servo_holes\",\n        \"Servo holes\",\n        \"subtractive\",\n        base.part,\n        parent_id=\"base_plate\",\n    )\n\n    with Locations((drive_x, idler_y, plate_thickness), (idler_x, idler_y, plate_thickness)):\n        Cylinder(4, idler_z - plate_thickness, align=(Align.CENTER, Align.CENTER, Align.MIN))\n        Cylinder(1.5, idler_z - plate_thickness + 6, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    register_feature(\n        \"idler_posts\",\n        \"Idler posts\",\n        \"additive\",\n        base.part,\n        parent_id=\"base_plate\",\n    )\n\nwith BuildPart() as servo:\n    with Locations((drive_x - 5.5, 0, 0)):\n        Box(23, 12.5, 22.5, align=(Align.CENTER, Align.CENTER, Align.MAX))\n        with Locations((0, 0, -2.5)):\n            Box(32.5, 12.5, 2.5, align=(Align.CENTER, Align.CENTER, Align.MAX))\n    with Locations((drive_x, 0, 0)):\n        Cylinder(3, 4, align=(Align.CENTER, Align.CENTER, Align.MIN))\n\nregister_feature(\n    \"servo\",\n    \"Micro servo\",\n    \"reference\",\n    Compound([base.part, servo.part]),\n    parent_id=\"servo_holes\",\n)\n\nwith BuildPart() as gears:\n    for x, turn in [(drive_x, 0), (idler_x, half_tooth)]:\n        with BuildSketch(Plane.XY.offset(gear_z) * Pos(x, 0) * Rot(0, 0, turn)):\n            Circle(8.6)\n            with PolarLocations(8.4, gear_teeth):\n                Trapezoid(2.6, 2.8, 78, rotation=-90, align=(Align.CENTER, Align.MIN))\n            Circle(1.6, mode=Mode.SUBTRACT)\n        extrude(amount=gear_thickness)\n\nregister_feature(\n    \"gears\",\n    \"Spur gears\",\n    \"additive\",\n    Compound([base.part, servo.part, gears.part]),\n    parent_id=\"base_plate\",\n    parameters={\"teeth\": gear_teeth, \"module\": 1.25},\n)\n\nwith BuildPart() as links:\n    for x, angle in crank_angles.items():\n        for y, z in [(0, crank_z), (idler_y, idler_z)]:\n            with BuildSketch(Plane.XY.offset(z) * Pos(x, y) * Rot(0, 0, angle)):\n                with Locations((link_length / 2, 0)):\n                    SlotCenterToCenter(link_length, link_width)\n                Circle(1.6, mode=Mode.SUBTRACT)\n                with Locations((link_length, 0)):\n                    Circle(1.6, mode=Mode.SUBTRACT)\n            extrude(amount=gear_thickness)\n\nregister_feature(\n    \"links\",\n    \"Cranks and idler links\",\n    \"additive\",\n    Compound([base.part, servo.part, gears.part, links.part]),\n    parent_id=\"gears\",\n    parameters={\"length\": link_length},\n)\n\nwith BuildPart() as fingers:\n    for side in [-1, 1]:\n        x = side * finger_x\n        with BuildSketch(Plane.YZ.offset(x)):\n            Polygon(\n                (finger_y - 6, crank_z - 6),\n                (finger_tip_y, crank_z - 4),\n                (finger_tip_y, crank_z + 2),\n                (finger_y + idler_y + 6, idler_z + gear_thickness),\n                (finger_y - 6, idler_z + gear_thickness),\n                align=None,\n            )\n        extrude(amount=finger_thickness / 2, both=True)\n        for y, z in [(finger_y, crank_z), (finger_y + idler_y, idler_z)]:\n            with Locations((x, y, z)):\n                Cylinder(3.5, gear_thickness, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n                Cylinder(1.5, gear_thickness, align=(Align.CENTER, Align.CENTER, Align.MIN))\n        inner_face_x = x - side * finger_thickness / 2\n        for i in range(6):\n            with Locations((inner_face_x, finger_y + idler_y + 10 + i * 5, crank_z - 1)):\n                Box(2, 1.2, 6)\n\nregister_feature(\n    \"fingers\",\n    \"Fingers\",\n    \"additive\",\n    Compound([base.part, servo.part, gears.part, links.part, fingers.part]),\n    parent_id=\"links\",\n    parameters={\"reach\": 40, \"ribs\": 6},\n)\n\nresult = Compound([base.part, servo.part, gears.part, links.part, fingers.part])\n",
+   "glb": "step-5.glb",
+   "previews": [
+    {
+     "file": "step-5-preview-1.glb",
+     "name": "Fingers"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Two fingers that join the ends of each crank and idler link.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 9 solids; bounds 70 \u00d7 106.189 \u00d7 41.5 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "Two fingers that join the ends of each crank and idler link.\n\n- Each finger is 8 mm thick and reaches 40 mm past the idler link to the tip, where it tapers.\n- The inner faces are 37 mm apart when open, with six 1 mm ribs so objects do not slip.\n- Pins through each finger join it to its crank and its idler link.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Two fingers that join the ends of each crank and idler link."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 9 solids; bounds 70 \u00d7 106.189 \u00d7 41.5 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 9,
+     "volume_mm3": 38403.458,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 106.189,
+      "z": 41.5
+     },
+     "error": null
+    }
+   }
+  }
+ ]
+}

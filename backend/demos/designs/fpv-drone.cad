@@ -1,0 +1,258 @@
+# title: 5-inch FPV drone frame
+# summary: A freestyle quadcopter frame, from a cut plate to a full stack with a camera cage.
+# part: frame
+
+# == step
+# prompt: Start a 5-inch freestyle FPV frame: a 5 mm bottom plate with a stretched center body and four tapered arms, 225 mm motor to motor.
+# plan: A true-X bottom plate, 225 mm motor to motor, cut from 5 mm plate.
+# plan:
+# plan: - The center body is 44 × 100 mm with 8 mm corner radii, long in the flight direction for the battery and the stack.
+# plan: - Each arm tapers from 24 mm at the body to 16 mm, and ends in a 30 mm round motor pad.
+# plan: - The inside corners between the arms and the body get 4 mm radii, so the plate has no sharp notches where cracks start.
+# -- params
+plate_thickness = 5.0
+motor_diagonal = 225.0
+motor_radius = motor_diagonal / 2
+body_width = 44.0
+body_length = 100.0
+arm_root_width = 24.0
+arm_tip_width = 16.0
+motor_pad_diameter = 30.0
+arm_angles = [45, 135, 225, 315]
+# -- build
+    with BuildSketch() as outline:
+        RectangleRounded(body_width, body_length, 8)
+        for angle in arm_angles:
+            with Locations(Rot(0, 0, angle)):
+                Polygon(
+                    (10, -arm_root_width / 2),
+                    (motor_radius, -arm_tip_width / 2),
+                    (motor_radius, arm_tip_width / 2),
+                    (10, arm_root_width / 2),
+                    align=None,
+                )
+                with Locations((motor_radius, 0)):
+                    Circle(motor_pad_diameter / 2)
+        # Round the inside corners where the arms meet the body.
+        inside_corners = [
+            v for v in outline.vertices()
+            if abs(abs(v.X) - body_width / 2) < 0.01 and abs(v.Y) < body_length / 2 - 8
+        ]
+        fillet(inside_corners, radius=4)
+    extrude(amount=plate_thickness)
+    register_feature(
+        "bottom_plate",
+        "Bottom plate",
+        "additive",
+        frame.part,
+        parameters={"thickness": plate_thickness, "motor_diagonal": motor_diagonal},
+    )
+    register_constraint(
+        "plate_thickness",
+        "thickness",
+        ["bottom_plate"],
+        parameters={"parameter": "thickness", "value": plate_thickness, "unit": "mm"},
+    )
+
+# == step
+# prompt: Add motor mounts to each arm: a 16 × 16 mm M3 pattern and a center relief for the motor shaft.
+# plan: Four motor mounts, one at the end of each arm.
+# plan:
+# plan: - Each mount has four 3.2 mm holes on a 16 × 16 mm square, turned 45° so two holes sit on the arm's center line.
+# plan: - An 8 mm center relief clears the motor shaft and its circlip.
+# -- params
+motor_hole_spacing = 16.0
+motor_hole_diameter = 3.2
+shaft_relief_diameter = 8.0
+# -- build
+    for angle in arm_angles:
+        with Locations(Rot(0, 0, angle) * Pos(motor_radius, 0, plate_thickness / 2)):
+            Cylinder(shaft_relief_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)
+            with Locations(Rot(0, 0, 45)):
+                with GridLocations(motor_hole_spacing, motor_hole_spacing, 2, 2):
+                    Cylinder(motor_hole_diameter / 2, plate_thickness * 2, mode=Mode.SUBTRACT)
+    register_feature(
+        "motor_mounts",
+        "Motor mounts",
+        "pattern",
+        frame.part,
+        parent_id="bottom_plate",
+        parameters={"spacing": motor_hole_spacing, "count": 4},
+    )
+
+# == step
+# prompt: Now the center body: a 30.5 mm flight-controller stack, four standoff holes, and two slots for the battery strap.
+# plan: The center body gets its mounting holes.
+# plan:
+# plan: - A 30.5 × 30.5 mm M3 pattern for the flight controller and ESC stack, at the center of the frame.
+# plan: - Four 3.2 mm standoff holes at 32 × 84 mm, near the corners of the body.
+# plan: - Two 24 × 4 mm strap slots, one each side of the stack, so the battery strap passes under the plate.
+# -- params
+stack_spacing = 30.5
+standoff_spacing_x = 32.0
+standoff_spacing_y = 84.0
+strap_slot_offset = 27.0
+# -- build
+    with Locations((0, 0, plate_thickness / 2)):
+        with GridLocations(stack_spacing, stack_spacing, 2, 2):
+            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)
+        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):
+            Cylinder(1.6, plate_thickness * 2, mode=Mode.SUBTRACT)
+    with BuildSketch() as strap_slots:
+        with Locations((0, strap_slot_offset), (0, -strap_slot_offset)):
+            SlotOverall(24, 4)
+    extrude(amount=plate_thickness, mode=Mode.SUBTRACT)
+    register_feature(
+        "body_holes",
+        "Stack, standoff and strap holes",
+        "subtractive",
+        frame.part,
+        parent_id="bottom_plate",
+        parameters={"stack": stack_spacing},
+    )
+
+# == step
+# prompt: Take some weight out of the arms with a slot along each one.
+# plan: A weight-relief slot along each arm.
+# plan:
+# plan: - Each slot runs from 40 mm to 88 mm out from the center and is 6 mm wide, which leaves at least 4 mm of plate on each side.
+# plan: - The slot ends are round, so the load flows around them.
+# -- params
+relief_start = 40.0
+relief_end = 88.0
+relief_width = 6.0
+# -- build
+    with BuildSketch() as relief:
+        for angle in arm_angles:
+            with Locations(Rot(0, 0, angle) * Pos((relief_start + relief_end) / 2, 0)):
+                SlotCenterToCenter(relief_end - relief_start, relief_width)
+    extrude(amount=plate_thickness, mode=Mode.SUBTRACT)
+    register_feature(
+        "arm_relief",
+        "Arm weight relief",
+        "subtractive",
+        frame.part,
+        parent_id="bottom_plate",
+        parameters={"width": relief_width},
+    )
+
+# == step
+# prompt: Add 25 mm standoffs and a 2.5 mm top plate with a cutout for the wiring.
+# plan: The stack is closed with standoffs and a top plate.
+# plan:
+# plan: - Four hex standoffs, 5.5 mm across the flats and 25 mm tall, stand on the standoff holes, each with an M3 bore.
+# plan: - The top plate is 40 × 92 mm and 2.5 mm thick, sitting on the standoffs.
+# plan: - A 20 × 34 mm cutout in the top plate lets the wires through, and the plate has matching standoff holes.
+# -- params
+standoff_height = 25.0
+top_plate_thickness = 2.5
+top_z = plate_thickness + standoff_height
+# -- extra
+with BuildPart() as standoffs:
+    with BuildSketch(Plane.XY.offset(plate_thickness)):
+        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):
+            RegularPolygon(5.5 / 2 / 0.866, 6)
+            Circle(1.5, mode=Mode.SUBTRACT)
+    extrude(amount=standoff_height)
+
+with BuildPart() as top_plate:
+    with BuildSketch(Plane.XY.offset(top_z)):
+        RectangleRounded(40, 92, 6)
+        RectangleRounded(20, 34, 4, mode=Mode.SUBTRACT)
+        with GridLocations(standoff_spacing_x, standoff_spacing_y, 2, 2):
+            Circle(1.6, mode=Mode.SUBTRACT)
+    extrude(amount=top_plate_thickness)
+
+register_feature(
+    "standoffs",
+    "Standoffs",
+    "additive",
+    Compound([frame.part, standoffs.part]),
+    parent_id="body_holes",
+    parameters={"height": standoff_height},
+)
+register_feature(
+    "top_plate",
+    "Top plate",
+    "additive",
+    Compound([frame.part, standoffs.part, top_plate.part]),
+    parent_id="standoffs",
+    parameters={"thickness": top_plate_thickness},
+)
+# -- result
+result = Compound([frame.part, standoffs.part, top_plate.part])
+
+# == step
+# prompt: Finish it with a camera cage at the front for a 19 mm micro camera, with a tilt slot.
+# plan: Two camera side plates at the front of the stack.
+# plan:
+# plan: - The plates are 2 mm thick and stand 21 mm apart, so a 19 mm micro camera fits with room for its mounting screws.
+# plan: - Each plate has an M2 pivot hole and an arc slot, so the camera tilts from 20° to 50°.
+# plan: - The plates are 28 mm long and reach 10 mm past the front of the bottom plate, so the lens sees past the frame.
+# -- params
+camera_width = 19.0
+cage_gap = camera_width + 2
+cage_plate_thickness = 2.0
+pivot = (52.0, plate_thickness + standoff_height / 2)
+# -- extra
+with BuildPart() as camera_cage:
+    for side in [-1, 1]:
+        side_plane = Plane.YZ.offset(side * (cage_gap + cage_plate_thickness) / 2)
+        with BuildSketch(side_plane):
+            with Locations((46, plate_thickness + standoff_height / 2)):
+                RectangleRounded(28, standoff_height, 4)
+            with Locations(pivot):
+                Circle(1.1, mode=Mode.SUBTRACT)
+                SlotArc(
+                    arc=CenterArc((0, 0), 8, 200, 30),
+                    height=2.2,
+                    mode=Mode.SUBTRACT,
+                )
+        extrude(amount=cage_plate_thickness / 2, both=True)
+
+register_feature(
+    "camera_cage",
+    "Camera cage",
+    "additive",
+    Compound([frame.part, standoffs.part, top_plate.part, camera_cage.part]),
+    parent_id="bottom_plate",
+    parameters={"gap": cage_gap},
+)
+# -- result
+result = Compound([frame.part, standoffs.part, top_plate.part, camera_cage.part])
+
+# == step
+# prompt: Put the motors and the camera in place so I can check the clearances.
+# plan: Reference bodies for four motors and the camera, to check the fit.
+# plan:
+# plan: - Each motor is a 28 mm bell, 18 mm tall, with a 5 mm shaft, on its pad.
+# plan: - Adjacent motors are 159 mm apart, so 5-inch (127 mm) propellers have 32 mm between their tips.
+# plan: - The 19 mm camera sits between the cage plates at its pivot, tilted 30°, with its lens to the front.
+# -- params
+motor_bell_diameter = 28.0
+motor_bell_height = 18.0
+camera_tilt = 30
+# -- extra
+with BuildPart() as motors:
+    for angle in arm_angles:
+        with Locations(Rot(0, 0, angle) * Pos(motor_radius, 0, plate_thickness)):
+            Cylinder(motor_bell_diameter / 2, motor_bell_height, align=(Align.CENTER, Align.CENTER, Align.MIN))
+            with Locations((0, 0, motor_bell_height)):
+                Cylinder(2.5, 6, align=(Align.CENTER, Align.CENTER, Align.MIN))
+    fillet(motors.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-2], radius=2)
+
+with BuildPart() as camera:
+    with Locations(Pos(0, pivot[0], pivot[1]) * Rot(-camera_tilt, 0, 0)):
+        Box(camera_width, camera_width, camera_width)
+        with Locations((0, camera_width / 2, 0)):
+            Cylinder(7, 8, rotation=(-90, 0, 0), align=(Align.CENTER, Align.CENTER, Align.MIN))
+
+register_feature(
+    "reference_parts",
+    "Motors and camera",
+    "reference",
+    Compound([frame.part, standoffs.part, top_plate.part, camera_cage.part, motors.part, camera.part]),
+    parent_id="camera_cage",
+)
+# -- result
+result = Compound([frame.part, standoffs.part, top_plate.part, camera_cage.part, motors.part, camera.part])

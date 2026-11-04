@@ -1,0 +1,178 @@
+# title: Desk catapult
+# summary: A small mangonel on wheels, with an A-frame, a throwing arm and a stop bar.
+# part: chassis
+
+# == step
+# prompt: Let's build a small desk catapult. Start with a ladder-frame base: two 180 mm rails and three cross members, all 10 mm square.
+# plan: A ladder-frame base, 180 × 80 mm, from 10 mm square stock.
+# plan:
+# plan: - Two side rails run along the throw direction (X), 70 mm apart on center.
+# plan: - Three cross members, at the back, the middle and the front, tie the rails together.
+# -- params
+rail_length = 180.0
+rail_spacing = 70.0
+stock = 10.0
+# -- build
+    with Locations((0, -rail_spacing / 2, stock / 2), (0, rail_spacing / 2, stock / 2)):
+        Box(rail_length, stock, stock)
+    with Locations((-80, 0, stock / 2), (0, 0, stock / 2), (80, 0, stock / 2)):
+        Box(stock, rail_spacing, stock)
+    register_feature(
+        "ladder_frame",
+        "Ladder frame",
+        "additive",
+        chassis.part,
+        parameters={"length": rail_length, "spacing": rail_spacing},
+    )
+
+# == step
+# prompt: Add an A-frame upright on each rail to carry the arm's axle, 92 mm above the base.
+# plan: Two A-frame uprights, one on each rail.
+# plan:
+# plan: - Each upright is an 8 mm plate, 100 mm wide at the rail and 28 mm wide at the top, 100 mm tall.
+# plan: - An 8.4 mm hole at 92 mm takes the 8 mm axle with a running fit.
+# plan: - A triangular window in each plate saves material without weakening the legs.
+# -- params
+upright_thickness = 8.0
+axle_height = 92.0
+axle_diameter = 8.0
+# -- build
+    for side in [-1, 1]:
+        with BuildSketch(Plane.XZ.offset(-side * rail_spacing / 2)):
+            Polygon((-50, stock), (50, stock), (14, 100), (-14, 100), align=None)
+            with Locations((0, axle_height)):
+                Circle(axle_diameter / 2 + 0.2, mode=Mode.SUBTRACT)
+            Polygon((-30, 22), (30, 22), (0, 66), align=None, mode=Mode.SUBTRACT)
+        extrude(amount=upright_thickness / 2, both=True)
+    register_feature(
+        "uprights",
+        "A-frame uprights",
+        "additive",
+        chassis.part,
+        parent_id="ladder_frame",
+        parameters={"axle_height": axle_height},
+    )
+
+# == step
+# prompt: Now the throwing arm on an 8 mm axle: 110 mm to the bucket end, a short 30 mm tail, shown in the loaded position.
+# plan: An axle and a throwing arm, shown loaded.
+# plan:
+# plan: - The 8 mm axle spans both uprights and sticks out 5 mm on each side.
+# plan: - The arm is 12 × 10 mm, 140 mm long, with a 20 mm hub on the axle. The bucket end is 110 mm from the pivot.
+# plan: - In the loaded position the arm points back and down at 30°, so the bucket waits behind the base.
+# -- params
+arm_long = 110.0
+arm_short = 30.0
+cocked_angle = 30
+arm_pose = Pos(0, 0, axle_height) * Rot(0, -cocked_angle, 0)
+# -- extra
+with BuildPart() as axle:
+    with Locations((0, 0, axle_height)):
+        Cylinder(axle_diameter / 2, rail_spacing + upright_thickness + 10, rotation=(90, 0, 0))
+
+with BuildPart() as arm:
+    with Locations(arm_pose):
+        with Locations(((arm_short - arm_long) / 2, 0, 0)):
+            Box(arm_long + arm_short, 12, 10)
+        Cylinder(10, 20, rotation=(90, 0, 0))
+        Cylinder(axle_diameter / 2 + 0.2, 30, rotation=(90, 0, 0), mode=Mode.SUBTRACT)
+
+register_feature(
+    "throwing_arm",
+    "Axle and throwing arm",
+    "additive",
+    Compound([chassis.part, axle.part, arm.part]),
+    parent_id="uprights",
+    parameters={"long": arm_long, "short": arm_short, "angle": cocked_angle},
+)
+# -- result
+result = Compound([chassis.part, axle.part, arm.part])
+
+# == step
+# prompt: Put a round bucket on the end of the arm.
+# plan: A hemispherical bucket at the end of the arm.
+# plan:
+# plan: - The bucket is a 32 mm sphere with 2 mm walls, cut in half and open toward the top of the arm.
+# plan: - It sits 2 mm into the arm, so the two bodies join, and holds a 25 mm ball.
+# -- params
+bucket_radius = 16.0
+# -- extra
+with BuildPart() as bucket:
+    with Locations(arm_pose * Pos(-arm_long, 0, 5 + bucket_radius - 2)):
+        Sphere(bucket_radius)
+        Sphere(bucket_radius - 2, mode=Mode.SUBTRACT)
+        Box(40, 40, 20, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)
+
+register_feature(
+    "bucket",
+    "Bucket",
+    "additive",
+    Compound([chassis.part, axle.part, arm.part, bucket.part]),
+    parent_id="throwing_arm",
+    parameters={"radius": bucket_radius},
+)
+# -- result
+result = Compound([chassis.part, axle.part, arm.part, bucket.part])
+
+# == step
+# prompt: Add a stop bar between the uprights so the arm stops at the top of its swing.
+# plan: A padded stop bar across the uprights.
+# plan:
+# plan: - A 10 mm bar runs between the uprights at 84 mm high and 12 mm in front of the axle.
+# plan: - A 16 mm pad in the middle takes the hit from the arm, so the shot releases at about 45°.
+# -- build
+    with Locations((12, 0, 84)):
+        Cylinder(5, rail_spacing, rotation=(90, 0, 0))
+        Cylinder(8, 24, rotation=(90, 0, 0))
+    register_feature(
+        "stop_bar",
+        "Stop bar",
+        "additive",
+        chassis.part,
+        parent_id="uprights",
+    )
+
+# == step
+# prompt: Finish with four spoked wheels, 40 mm across, on axles through the rails.
+# plan: Four spoked wheels on axles through the rails.
+# plan:
+# plan: - Each wheel is 40 mm across and 8 mm wide, with five 9 mm spoke windows and a 12 mm hub.
+# plan: - Two 6 mm axles at ±65 mm pass through 6.4 mm holes in the rails, 5 mm above the base.
+# plan: - The wheels sit 1 mm outside the rails, so they turn freely.
+# -- params
+wheel_radius = 20.0
+wheel_width = 8.0
+wheel_x = 65.0
+wheel_offset = rail_spacing / 2 + stock / 2 + 1 + wheel_width / 2
+# -- build
+    with Locations((-wheel_x, 0, stock / 2), (wheel_x, 0, stock / 2)):
+        Cylinder(3.2, rail_spacing + stock + 2, rotation=(90, 0, 0), mode=Mode.SUBTRACT)
+    register_feature(
+        "wheel_axle_holes",
+        "Wheel axle holes",
+        "subtractive",
+        chassis.part,
+        parent_id="ladder_frame",
+    )
+# -- extra
+with BuildPart() as wheels:
+    for x in [-wheel_x, wheel_x]:
+        with Locations((x, 0, stock / 2)):
+            Cylinder(3, 2 * wheel_offset + wheel_width, rotation=(90, 0, 0))
+        for y in [-wheel_offset, wheel_offset]:
+            with Locations(Pos(x, y, stock / 2) * Rot(90, 0, 0)):
+                Cylinder(wheel_radius, wheel_width)
+                with PolarLocations(12.5, 5):
+                    Cylinder(4.5, wheel_width * 2, mode=Mode.SUBTRACT)
+                Cylinder(6, wheel_width + 2)
+
+register_feature(
+    "wheels",
+    "Wheels and axles",
+    "additive",
+    Compound([chassis.part, axle.part, arm.part, bucket.part, wheels.part]),
+    parent_id="ladder_frame",
+    parameters={"diameter": 2 * wheel_radius, "width": wheel_width},
+)
+# -- result
+result = Compound([chassis.part, axle.part, arm.part, bucket.part, wheels.part])

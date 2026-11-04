@@ -1,0 +1,164 @@
+# title: Miniature glider
+# summary: A 160 mm hand-launch glider with a cambered wing, dihedral and a full tail.
+# part: glider
+
+# == step
+# prompt: Design a miniature hand-launch glider. Start with a 140 mm pod-and-boom fuselage.
+# plan: A 140 mm pod-and-boom fuselage, revolved around the flight axis.
+# plan:
+# plan: - The pod is 15 mm across at its widest, 25 mm behind the nose, with room for nose weight.
+# plan: - It tapers into a boom that ends 4 mm across at the tail, which keeps the tail light.
+# plan: - X points from the nose to the tail, and Z points up.
+# -- params
+fuselage_length = 140.0
+# -- build
+    with BuildSketch(Plane.XZ) as profile:
+        with BuildLine():
+            Spline(
+                (0, 0),
+                (4, 4.2),
+                (12, 6.6),
+                (25, 7.5),
+                (45, 6.4),
+                (70, 3.6),
+                (105, 2.4),
+                (fuselage_length, 2.0),
+            )
+            Polyline((fuselage_length, 2.0), (fuselage_length, 0), (0, 0))
+        make_face()
+    revolve(axis=Axis.X)
+    register_feature(
+        "fuselage",
+        "Fuselage",
+        "additive",
+        glider.part,
+        parameters={"length": fuselage_length},
+    )
+
+# == step
+# prompt: Add the main wing: 160 mm span, a cambered airfoil, tapered, with some dihedral.
+# plan: A tapered main wing with a NACA 2408 section and 6° of dihedral.
+# plan:
+# plan: - Span 160 mm, root chord 32 mm, tip chord 20 mm. The leading edge starts 30 mm behind the nose.
+# plan: - The section has 2% camber and is 8% thick, which suits the low speed of a small glider.
+# plan: - Each tip is 8.4 mm higher than the root (6°) and 6 mm further back, which makes the glider stable in roll.
+# plan: - The wing is built as one half, lofted from root to tip, then mirrored.
+# -- params
+airfoil = [(1.0, 0.0015), (0.8507, 0.0220), (0.7008, 0.0392), (0.5505, 0.0517), (0.4000, 0.0587), (0.2788, 0.0581), (0.1779, 0.0513), (0.0977, 0.0399), (0.0479, 0.0283), (0.0185, 0.0176), (0.0, 0.0), (0.0215, -0.0137), (0.0521, -0.0189), (0.1023, -0.0224), (0.1821, -0.0234), (0.2812, -0.0217), (0.4000, -0.0187), (0.5495, -0.0142), (0.6992, -0.0092), (0.8493, -0.0045), (1.0, -0.0015)]
+wing_span = 160.0
+root_chord = 32.0
+tip_chord = 20.0
+wing_x = 30.0
+wing_z = 3.0
+tip_sweep = 6.0
+tip_rise = 8.4
+# -- build
+    with BuildPart() as half_wing:
+        root_plane = Plane(origin=(wing_x, 0, wing_z), x_dir=(1, 0, 0), z_dir=(0, -1, 0))
+        tip_plane = Plane(
+            origin=(wing_x + tip_sweep, wing_span / 2, wing_z + tip_rise),
+            x_dir=(1, 0, 0),
+            z_dir=(0, -1, 0),
+        )
+        for plane, chord in [(root_plane, root_chord), (tip_plane, tip_chord)]:
+            with BuildSketch(plane):
+                with BuildLine():
+                    section = [(x * chord, y * chord) for x, y in airfoil]
+                    leading_edge = airfoil.index((0.0, 0.0))
+                    Spline(*section[: leading_edge + 1])  # upper surface
+                    Spline(*section[leading_edge:])  # lower surface
+                    Line(section[-1], section[0])  # trailing edge
+                make_face()
+        loft()
+        mirror(about=Plane.XZ)
+    register_feature(
+        "main_wing",
+        "Main wing",
+        "additive",
+        glider.part,
+        parent_id="fuselage",
+        parameters={"span": wing_span, "root_chord": root_chord, "tip_chord": tip_chord},
+    )
+
+# == step
+# prompt: Add a horizontal tail on top of the boom.
+# plan: A flat, tapered horizontal stabilizer on top of the boom.
+# plan:
+# plan: - Span 60 mm, root chord 20 mm, tip chord 13 mm, 1.5 mm thick.
+# plan: - It sits on the boom at the tail, so its trailing edge lines up with the end of the fuselage.
+# plan: - Its area is about a quarter of the wing's, enough to keep the pitch steady.
+# -- params
+tail_span = 60.0
+tail_root = 20.0
+tail_tip = 13.0
+tail_thickness = 1.5
+tail_x = fuselage_length - tail_root
+# -- build
+    with BuildSketch(Plane.XY.offset(1.6)):
+        Polygon(
+            (tail_x, 0),
+            (tail_x + 4, tail_span / 2),
+            (tail_x + 4 + tail_tip, tail_span / 2),
+            (fuselage_length, 0),
+            (tail_x + 4 + tail_tip, -tail_span / 2),
+            (tail_x + 4, -tail_span / 2),
+            align=None,
+        )
+    extrude(amount=tail_thickness)
+    register_feature(
+        "stabilizer",
+        "Horizontal stabilizer",
+        "additive",
+        glider.part,
+        parent_id="fuselage",
+        parameters={"span": tail_span, "thickness": tail_thickness},
+    )
+
+# == step
+# prompt: Add a swept vertical fin.
+# plan: A swept vertical fin above the stabilizer.
+# plan:
+# plan: - 22 mm tall, 20 mm at the root and 9 mm at the tip, 1.5 mm thick.
+# plan: - The leading edge sweeps back 35°, and the trailing edge lines up with the end of the boom.
+# -- params
+fin_height = 22.0
+# -- build
+    with BuildSketch(Plane.XZ):
+        Polygon(
+            (tail_x, 2.0),
+            (tail_x + 15.4, 2.0 + fin_height),
+            (fuselage_length, 2.0 + fin_height),
+            (fuselage_length, 2.0),
+            align=None,
+        )
+    extrude(amount=tail_thickness / 2, both=True)
+    register_feature(
+        "fin",
+        "Vertical fin",
+        "additive",
+        glider.part,
+        parent_id="stabilizer",
+        parameters={"height": fin_height},
+    )
+
+# == step
+# prompt: Finish it with a pocket in the nose for balance weight and a launch hook underneath.
+# plan: A nose-weight pocket and a launch hook.
+# plan:
+# plan: - A 6 mm pocket, 14 mm deep, opens at the nose for a lead or brass weight to set the balance point.
+# plan: - The balance point should be about 30% of the root chord behind the wing's leading edge, near 40 mm from the nose.
+# plan: - An L-shaped hook under the pod, 20 mm behind the nose and open toward the nose, takes a rubber band for catapult launches.
+# -- build
+    with Locations(Pos(0, 0, 0) * Rot(0, 90, 0)):
+        Cylinder(3, 28, mode=Mode.SUBTRACT)
+    with BuildSketch(Plane.XZ):
+        # An L-shaped hook: a post down from the pod and a tip that points to the nose.
+        Polygon((20, -5), (23, -5), (23, -11.5), (15, -11.5), (15, -10), (20, -10), align=None)
+    extrude(amount=1.5, both=True)
+    register_feature(
+        "nose_and_hook",
+        "Nose pocket and launch hook",
+        "other",
+        glider.part,
+        parent_id="fuselage",
+    )

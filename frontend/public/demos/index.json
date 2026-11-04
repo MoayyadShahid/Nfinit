@@ -1,40 +1,40 @@
 {
  "demos": [
   {
-   "slug": "drone-frame",
-   "title": "5-inch drone frame",
-   "summary": "A quadcopter X-frame, built up from a plate to a flight-ready frame.",
+   "slug": "fpv-drone",
+   "title": "5-inch FPV drone frame",
+   "summary": "A freestyle quadcopter frame, from a cut plate to a full stack with a camera cage.",
+   "steps": 7
+  },
+  {
+   "slug": "robot-gripper",
+   "title": "Robot gripper",
+   "summary": "A two-finger parallel gripper: a micro servo drives twin gears and parallel links.",
    "steps": 5
   },
   {
-   "slug": "phone-stand",
-   "title": "Desk phone stand",
-   "summary": "A printable stand that holds a phone at a comfortable viewing angle.",
-   "steps": 3
+   "slug": "mini-glider",
+   "title": "Miniature glider",
+   "summary": "A 160 mm hand-launch glider with a cambered wing, dihedral and a full tail.",
+   "steps": 5
   },
   {
-   "slug": "cable-clip",
-   "title": "Desk cable clip",
-   "summary": "A screw-on clip that keeps three charging cables on the desk.",
-   "steps": 3
+   "slug": "model-rocket",
+   "title": "Model rocket",
+   "summary": "A 280 mm single-stage rocket with an ogive nose cone, a printed fin can and a motor retainer.",
+   "steps": 5
   },
   {
-   "slug": "headphone-hook",
-   "title": "Under-desk headphone hook",
-   "summary": "A hook that screws under the desk and holds a pair of headphones.",
-   "steps": 3
+   "slug": "catapult",
+   "title": "Desk catapult",
+   "summary": "A small mangonel on wheels, with an A-frame, a throwing arm and a stop bar.",
+   "steps": 6
   },
   {
-   "slug": "pi-tray",
-   "title": "Raspberry Pi base tray",
-   "summary": "A tray with standoffs and vents for a Raspberry Pi 4.",
-   "steps": 4
-  },
-  {
-   "slug": "l-bracket",
-   "title": "L-bracket",
-   "summary": "A stiff 90-degree bracket with countersunk mounting holes.",
-   "steps": 3
+   "slug": "electronics-enclosure",
+   "title": "Electronics enclosure",
+   "summary": "A printable case for a small dev board, with standoffs, a USB-C opening, vents and a screw-down lid.",
+   "steps": 6
   }
  ]
 }

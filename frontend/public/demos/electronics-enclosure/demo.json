@@ -1,0 +1,366 @@
+{
+ "slug": "electronics-enclosure",
+ "title": "Electronics enclosure",
+ "summary": "A printable case for a small dev board, with standoffs, a USB-C opening, vents and a screw-down lid.",
+ "source": "example",
+ "steps": [
+  {
+   "prompt": "Design a printable enclosure for a 55 \u00d7 28 mm dev board. Start with a rounded open box with 2 mm walls.",
+   "summary": "An open box, 70 \u00d7 42 \u00d7 24 mm outside, with 2 mm walls and floor.",
+   "code": "case_length = 70.0\ncase_width = 42.0\ncase_height = 24.0\nwall = 2.0\n\nwith BuildPart() as case:\n    with BuildSketch():\n        RectangleRounded(case_length, case_width, 5)\n    extrude(amount=case_height)\n    fillet(case.edges().group_by(Axis.Z)[0], radius=1.5)\n    with BuildSketch(Plane.XY.offset(wall)):\n        RectangleRounded(case_length - 2 * wall, case_width - 2 * wall, 3)\n    extrude(amount=case_height, mode=Mode.SUBTRACT)\n    register_feature(\n        \"shell\",\n        \"Shell\",\n        \"additive\",\n        case.part,\n        parameters={\"length\": case_length, \"width\": case_width, \"height\": case_height, \"wall\": wall},\n    )\n    register_constraint(\n        \"wall_thickness\",\n        \"thickness\",\n        [\"shell\"],\n        parameters={\"parameter\": \"wall\", \"value\": wall, \"unit\": \"mm\"},\n    )\n\nresult = case.part\n",
+   "glb": "step-1.glb",
+   "previews": [
+    {
+     "file": "step-1-preview-1.glb",
+     "name": "Shell"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "An open box, 70 \u00d7 42 \u00d7 24 mm outside, with 2 mm walls and floor.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 70 \u00d7 42 \u00d7 24 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "An open box, 70 \u00d7 42 \u00d7 24 mm outside, with 2 mm walls and floor.\n\n- The corners have a 5 mm radius outside and 3 mm inside, so the walls stay 2 mm thick all the way round.\n- The bottom edge gets a 1.5 mm round, which also helps the first print layer come off the bed cleanly.\n- The inside is 66 \u00d7 38 mm, which leaves room round the board for cables.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "An open box, 70 \u00d7 42 \u00d7 24 mm outside, with 2 mm walls and floor."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 70 \u00d7 42 \u00d7 24 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 14935.922,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 42.0,
+      "z": 24.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add four standoffs for the board. Its mounting holes are 49 \u00d7 22 mm apart.",
+   "summary": "Four 5 mm standoffs that hold the board above the floor.",
+   "code": "case_length = 70.0\ncase_width = 42.0\ncase_height = 24.0\nwall = 2.0\n\nboard_hole_x = 49.0\nboard_hole_y = 22.0\nstandoff_height = 5.0\nboard_z = wall + standoff_height\n\nwith BuildPart() as case:\n    with BuildSketch():\n        RectangleRounded(case_length, case_width, 5)\n    extrude(amount=case_height)\n    fillet(case.edges().group_by(Axis.Z)[0], radius=1.5)\n    with BuildSketch(Plane.XY.offset(wall)):\n        RectangleRounded(case_length - 2 * wall, case_width - 2 * wall, 3)\n    extrude(amount=case_height, mode=Mode.SUBTRACT)\n    register_feature(\n        \"shell\",\n        \"Shell\",\n        \"additive\",\n        case.part,\n        parameters={\"length\": case_length, \"width\": case_width, \"height\": case_height, \"wall\": wall},\n    )\n    register_constraint(\n        \"wall_thickness\",\n        \"thickness\",\n        [\"shell\"],\n        parameters={\"parameter\": \"wall\", \"value\": wall, \"unit\": \"mm\"},\n    )\n\n    with BuildSketch(Plane.XY.offset(wall)):\n        with GridLocations(board_hole_x, board_hole_y, 2, 2):\n            Circle(3)\n            Circle(1.1, mode=Mode.SUBTRACT)\n    extrude(amount=standoff_height)\n    register_feature(\n        \"standoffs\",\n        \"Board standoffs\",\n        \"pattern\",\n        case.part,\n        parent_id=\"shell\",\n        parameters={\"spacing_x\": board_hole_x, \"spacing_y\": board_hole_y, \"height\": standoff_height},\n    )\n\nresult = case.part\n",
+   "glb": "step-2.glb",
+   "previews": [
+    {
+     "file": "step-2-preview-1.glb",
+     "name": "Board standoffs"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Four 5 mm standoffs that hold the board above the floor.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 70 \u00d7 42 \u00d7 24 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "Four 5 mm standoffs that hold the board above the floor.\n\n- Each standoff is 6 mm across with a 2.2 mm pilot hole for an M2.5 screw, on a 49 \u00d7 22 mm pattern.\n- The pattern is a parameter, so it is quick to change to the holes of another board.\n- The board sits 7 mm above the bottom of the case, which leaves room for pins under it.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Four 5 mm standoffs that hold the board above the floor."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 70 \u00d7 42 \u00d7 24 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 15425.382,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 42.0,
+      "z": 24.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Cut an opening for the USB-C port at one end, and two holes for the buttons beside it.",
+   "summary": "A USB-C opening and two button holes in the left end wall.",
+   "code": "case_length = 70.0\ncase_width = 42.0\ncase_height = 24.0\nwall = 2.0\n\nboard_hole_x = 49.0\nboard_hole_y = 22.0\nstandoff_height = 5.0\nboard_z = wall + standoff_height\n\nport_z = board_z + 1.6 + 1.6\n\nwith BuildPart() as case:\n    with BuildSketch():\n        RectangleRounded(case_length, case_width, 5)\n    extrude(amount=case_height)\n    fillet(case.edges().group_by(Axis.Z)[0], radius=1.5)\n    with BuildSketch(Plane.XY.offset(wall)):\n        RectangleRounded(case_length - 2 * wall, case_width - 2 * wall, 3)\n    extrude(amount=case_height, mode=Mode.SUBTRACT)\n    register_feature(\n        \"shell\",\n        \"Shell\",\n        \"additive\",\n        case.part,\n        parameters={\"length\": case_length, \"width\": case_width, \"height\": case_height, \"wall\": wall},\n    )\n    register_constraint(\n        \"wall_thickness\",\n        \"thickness\",\n        [\"shell\"],\n        parameters={\"parameter\": \"wall\", \"value\": wall, \"unit\": \"mm\"},\n    )\n\n    with BuildSketch(Plane.XY.offset(wall)):\n        with GridLocations(board_hole_x, board_hole_y, 2, 2):\n            Circle(3)\n            Circle(1.1, mode=Mode.SUBTRACT)\n    extrude(amount=standoff_height)\n    register_feature(\n        \"standoffs\",\n        \"Board standoffs\",\n        \"pattern\",\n        case.part,\n        parent_id=\"shell\",\n        parameters={\"spacing_x\": board_hole_x, \"spacing_y\": board_hole_y, \"height\": standoff_height},\n    )\n\n    with BuildSketch(Plane.YZ.offset(-case_length / 2)):\n        with Locations((0, port_z)):\n            SlotOverall(11, 5)\n        with Locations((-8, port_z), (8, port_z)):\n            Circle(1.5)\n    extrude(amount=wall * 3, both=True, mode=Mode.SUBTRACT)\n    register_feature(\n        \"port_openings\",\n        \"USB-C and button openings\",\n        \"subtractive\",\n        case.part,\n        parent_id=\"shell\",\n    )\n\nresult = case.part\n",
+   "glb": "step-3.glb",
+   "previews": [
+    {
+     "file": "step-3-preview-1.glb",
+     "name": "USB-C and button openings"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A USB-C opening and two button holes in the left end wall.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 70 \u00d7 42 \u00d7 24 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A USB-C opening and two button holes in the left end wall.\n\n- The opening is 11 \u00d7 5 mm with round ends, centered 3 mm above the board, where the connector sits.\n- Two 3 mm holes, 8 mm each side of it, let a paper clip reach the reset and boot buttons.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A USB-C opening and two button holes in the left end wall."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 70 \u00d7 42 \u00d7 24 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 15297.838,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 42.0,
+      "z": 24.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Add vent slots along both long sides.",
+   "summary": "Two rows of vent slots, one in each long wall.",
+   "code": "case_length = 70.0\ncase_width = 42.0\ncase_height = 24.0\nwall = 2.0\n\nboard_hole_x = 49.0\nboard_hole_y = 22.0\nstandoff_height = 5.0\nboard_z = wall + standoff_height\n\nport_z = board_z + 1.6 + 1.6\n\nwith BuildPart() as case:\n    with BuildSketch():\n        RectangleRounded(case_length, case_width, 5)\n    extrude(amount=case_height)\n    fillet(case.edges().group_by(Axis.Z)[0], radius=1.5)\n    with BuildSketch(Plane.XY.offset(wall)):\n        RectangleRounded(case_length - 2 * wall, case_width - 2 * wall, 3)\n    extrude(amount=case_height, mode=Mode.SUBTRACT)\n    register_feature(\n        \"shell\",\n        \"Shell\",\n        \"additive\",\n        case.part,\n        parameters={\"length\": case_length, \"width\": case_width, \"height\": case_height, \"wall\": wall},\n    )\n    register_constraint(\n        \"wall_thickness\",\n        \"thickness\",\n        [\"shell\"],\n        parameters={\"parameter\": \"wall\", \"value\": wall, \"unit\": \"mm\"},\n    )\n\n    with BuildSketch(Plane.XY.offset(wall)):\n        with GridLocations(board_hole_x, board_hole_y, 2, 2):\n            Circle(3)\n            Circle(1.1, mode=Mode.SUBTRACT)\n    extrude(amount=standoff_height)\n    register_feature(\n        \"standoffs\",\n        \"Board standoffs\",\n        \"pattern\",\n        case.part,\n        parent_id=\"shell\",\n        parameters={\"spacing_x\": board_hole_x, \"spacing_y\": board_hole_y, \"height\": standoff_height},\n    )\n\n    with BuildSketch(Plane.YZ.offset(-case_length / 2)):\n        with Locations((0, port_z)):\n            SlotOverall(11, 5)\n        with Locations((-8, port_z), (8, port_z)):\n            Circle(1.5)\n    extrude(amount=wall * 3, both=True, mode=Mode.SUBTRACT)\n    register_feature(\n        \"port_openings\",\n        \"USB-C and button openings\",\n        \"subtractive\",\n        case.part,\n        parent_id=\"shell\",\n    )\n\n    for side in [-1, 1]:\n        with BuildSketch(Plane.XZ.offset(side * case_width / 2)):\n            with GridLocations(5, 0, 7, 1):\n                with Locations((0, 15.5)):\n                    SlotOverall(9, 2, rotation=90)\n        extrude(amount=wall * 3, both=True, mode=Mode.SUBTRACT)\n    register_feature(\n        \"vents\",\n        \"Vent slots\",\n        \"pattern\",\n        case.part,\n        parent_id=\"shell\",\n        parameters={\"count\": 14},\n    )\n\nresult = case.part\n",
+   "glb": "step-4.glb",
+   "previews": [
+    {
+     "file": "step-4-preview-1.glb",
+     "name": "Vent slots"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Two rows of vent slots, one in each long wall.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 1 solid; bounds 70 \u00d7 42 \u00d7 24 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "Two rows of vent slots, one in each long wall.\n\n- Seven slots per side, 2 mm wide and 9 mm tall, 5 mm apart, high on the walls above the board.\n- Upright slots print without supports, because each slot's top is only 2 mm wide.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Two rows of vent slots, one in each long wall."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 1 solid; bounds 70 \u00d7 42 \u00d7 24 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Part",
+     "solid_count": 1,
+     "volume_mm3": 14817.874,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 42.0,
+      "z": 24.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Now add a lid with a lip that locates it inside the walls. Show it lifted off the case.",
+   "summary": "A 2 mm lid with a locating lip, shown 12 mm above the case.",
+   "code": "case_length = 70.0\ncase_width = 42.0\ncase_height = 24.0\nwall = 2.0\n\nboard_hole_x = 49.0\nboard_hole_y = 22.0\nstandoff_height = 5.0\nboard_z = wall + standoff_height\n\nport_z = board_z + 1.6 + 1.6\n\nlid_thickness = 2.0\nlid_gap = 12.0\nlid_z = case_height + lid_gap\nlip_height = 3.0\nclearance = 0.2\n\nwith BuildPart() as case:\n    with BuildSketch():\n        RectangleRounded(case_length, case_width, 5)\n    extrude(amount=case_height)\n    fillet(case.edges().group_by(Axis.Z)[0], radius=1.5)\n    with BuildSketch(Plane.XY.offset(wall)):\n        RectangleRounded(case_length - 2 * wall, case_width - 2 * wall, 3)\n    extrude(amount=case_height, mode=Mode.SUBTRACT)\n    register_feature(\n        \"shell\",\n        \"Shell\",\n        \"additive\",\n        case.part,\n        parameters={\"length\": case_length, \"width\": case_width, \"height\": case_height, \"wall\": wall},\n    )\n    register_constraint(\n        \"wall_thickness\",\n        \"thickness\",\n        [\"shell\"],\n        parameters={\"parameter\": \"wall\", \"value\": wall, \"unit\": \"mm\"},\n    )\n\n    with BuildSketch(Plane.XY.offset(wall)):\n        with GridLocations(board_hole_x, board_hole_y, 2, 2):\n            Circle(3)\n            Circle(1.1, mode=Mode.SUBTRACT)\n    extrude(amount=standoff_height)\n    register_feature(\n        \"standoffs\",\n        \"Board standoffs\",\n        \"pattern\",\n        case.part,\n        parent_id=\"shell\",\n        parameters={\"spacing_x\": board_hole_x, \"spacing_y\": board_hole_y, \"height\": standoff_height},\n    )\n\n    with BuildSketch(Plane.YZ.offset(-case_length / 2)):\n        with Locations((0, port_z)):\n            SlotOverall(11, 5)\n        with Locations((-8, port_z), (8, port_z)):\n            Circle(1.5)\n    extrude(amount=wall * 3, both=True, mode=Mode.SUBTRACT)\n    register_feature(\n        \"port_openings\",\n        \"USB-C and button openings\",\n        \"subtractive\",\n        case.part,\n        parent_id=\"shell\",\n    )\n\n    for side in [-1, 1]:\n        with BuildSketch(Plane.XZ.offset(side * case_width / 2)):\n            with GridLocations(5, 0, 7, 1):\n                with Locations((0, 15.5)):\n                    SlotOverall(9, 2, rotation=90)\n        extrude(amount=wall * 3, both=True, mode=Mode.SUBTRACT)\n    register_feature(\n        \"vents\",\n        \"Vent slots\",\n        \"pattern\",\n        case.part,\n        parent_id=\"shell\",\n        parameters={\"count\": 14},\n    )\n\nwith BuildPart() as lid:\n    with BuildSketch(Plane.XY.offset(lid_z)):\n        RectangleRounded(case_length, case_width, 5)\n    extrude(amount=lid_thickness)\n    fillet(lid.edges().group_by(Axis.Z)[-1], radius=1)\n    with BuildSketch(Plane.XY.offset(lid_z)):\n        RectangleRounded(case_length - 2 * (wall + clearance), case_width - 2 * (wall + clearance), 3 - clearance)\n        RectangleRounded(\n            case_length - 2 * (wall + clearance + 1.2),\n            case_width - 2 * (wall + clearance + 1.2),\n            3 - clearance - 1.2,\n            mode=Mode.SUBTRACT,\n        )\n    extrude(amount=-lip_height)\n\nregister_feature(\n    \"lid\",\n    \"Lid\",\n    \"additive\",\n    Compound([case.part, lid.part]),\n    parent_id=\"shell\",\n    parameters={\"thickness\": lid_thickness, \"clearance\": clearance},\n)\n\nresult = Compound([case.part, lid.part])\n",
+   "glb": "step-5.glb",
+   "previews": [
+    {
+     "file": "step-5-preview-1.glb",
+     "name": "Lid"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "A 2 mm lid with a locating lip, shown 12 mm above the case.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 2 solids; bounds 70 \u00d7 42 \u00d7 38 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "A 2 mm lid with a locating lip, shown 12 mm above the case.\n\n- The lid has the same 70 \u00d7 42 mm rounded outline as the case and a 1 mm round on its top edge.\n- The 3 mm lip is 1.2 mm thick and 0.2 mm smaller than the inside of the case on every side, so it drops in without play.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "A 2 mm lid with a locating lip, shown 12 mm above the case."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 2 solids; bounds 70 \u00d7 42 \u00d7 38 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 2,
+     "volume_mm3": 21321.189,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 42.0,
+      "z": 38.0
+     },
+     "error": null
+    }
+   }
+  },
+  {
+   "prompt": "Finish with screw bosses in the corners and countersunk holes in the lid.",
+   "summary": "Four corner bosses in the case and four countersunk holes in the lid.",
+   "code": "case_length = 70.0\ncase_width = 42.0\ncase_height = 24.0\nwall = 2.0\n\nboard_hole_x = 49.0\nboard_hole_y = 22.0\nstandoff_height = 5.0\nboard_z = wall + standoff_height\n\nport_z = board_z + 1.6 + 1.6\n\nlid_thickness = 2.0\nlid_gap = 12.0\nlid_z = case_height + lid_gap\nlip_height = 3.0\nclearance = 0.2\n\nboss_x = case_length / 2 - wall - 3\nboss_y = case_width / 2 - wall - 3\nboss_top = case_height - lip_height\n\nwith BuildPart() as case:\n    with BuildSketch():\n        RectangleRounded(case_length, case_width, 5)\n    extrude(amount=case_height)\n    fillet(case.edges().group_by(Axis.Z)[0], radius=1.5)\n    with BuildSketch(Plane.XY.offset(wall)):\n        RectangleRounded(case_length - 2 * wall, case_width - 2 * wall, 3)\n    extrude(amount=case_height, mode=Mode.SUBTRACT)\n    register_feature(\n        \"shell\",\n        \"Shell\",\n        \"additive\",\n        case.part,\n        parameters={\"length\": case_length, \"width\": case_width, \"height\": case_height, \"wall\": wall},\n    )\n    register_constraint(\n        \"wall_thickness\",\n        \"thickness\",\n        [\"shell\"],\n        parameters={\"parameter\": \"wall\", \"value\": wall, \"unit\": \"mm\"},\n    )\n\n    with BuildSketch(Plane.XY.offset(wall)):\n        with GridLocations(board_hole_x, board_hole_y, 2, 2):\n            Circle(3)\n            Circle(1.1, mode=Mode.SUBTRACT)\n    extrude(amount=standoff_height)\n    register_feature(\n        \"standoffs\",\n        \"Board standoffs\",\n        \"pattern\",\n        case.part,\n        parent_id=\"shell\",\n        parameters={\"spacing_x\": board_hole_x, \"spacing_y\": board_hole_y, \"height\": standoff_height},\n    )\n\n    with BuildSketch(Plane.YZ.offset(-case_length / 2)):\n        with Locations((0, port_z)):\n            SlotOverall(11, 5)\n        with Locations((-8, port_z), (8, port_z)):\n            Circle(1.5)\n    extrude(amount=wall * 3, both=True, mode=Mode.SUBTRACT)\n    register_feature(\n        \"port_openings\",\n        \"USB-C and button openings\",\n        \"subtractive\",\n        case.part,\n        parent_id=\"shell\",\n    )\n\n    for side in [-1, 1]:\n        with BuildSketch(Plane.XZ.offset(side * case_width / 2)):\n            with GridLocations(5, 0, 7, 1):\n                with Locations((0, 15.5)):\n                    SlotOverall(9, 2, rotation=90)\n        extrude(amount=wall * 3, both=True, mode=Mode.SUBTRACT)\n    register_feature(\n        \"vents\",\n        \"Vent slots\",\n        \"pattern\",\n        case.part,\n        parent_id=\"shell\",\n        parameters={\"count\": 14},\n    )\n\n    with BuildSketch(Plane.XY.offset(wall)):\n        with GridLocations(2 * boss_x, 2 * boss_y, 2, 2):\n            Circle(3)\n    extrude(amount=boss_top - wall)\n    with Locations((0, 0, boss_top)):\n        with GridLocations(2 * boss_x, 2 * boss_y, 2, 2):\n            Hole(1.1, depth=boss_top - wall)\n    register_feature(\n        \"screw_bosses\",\n        \"Screw bosses\",\n        \"additive\",\n        case.part,\n        parent_id=\"shell\",\n    )\n\nwith BuildPart() as lid:\n    with BuildSketch(Plane.XY.offset(lid_z)):\n        RectangleRounded(case_length, case_width, 5)\n    extrude(amount=lid_thickness)\n    fillet(lid.edges().group_by(Axis.Z)[-1], radius=1)\n    with BuildSketch(Plane.XY.offset(lid_z)):\n        RectangleRounded(case_length - 2 * (wall + clearance), case_width - 2 * (wall + clearance), 3 - clearance)\n        RectangleRounded(\n            case_length - 2 * (wall + clearance + 1.2),\n            case_width - 2 * (wall + clearance + 1.2),\n            3 - clearance - 1.2,\n            mode=Mode.SUBTRACT,\n        )\n    extrude(amount=-lip_height)\n\nregister_feature(\n    \"lid\",\n    \"Lid\",\n    \"additive\",\n    Compound([case.part, lid.part]),\n    parent_id=\"shell\",\n    parameters={\"thickness\": lid_thickness, \"clearance\": clearance},\n)\n\nwith BuildPart() as lid_holes:\n    add(lid.part)\n    with Locations((0, 0, lid_z - lip_height)):\n        with GridLocations(2 * boss_x, 2 * boss_y, 2, 2):\n            Cylinder(3.6, lip_height, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n    with Locations((0, 0, lid_z + lid_thickness)):\n        with GridLocations(2 * boss_x, 2 * boss_y, 2, 2):\n            CounterSinkHole(1.45, 2.6, depth=lid_thickness)\n\nregister_feature(\n    \"lid_holes\",\n    \"Lid screw holes\",\n    \"subtractive\",\n    Compound([case.part, lid_holes.part]),\n    parent_id=\"lid\",\n)\n\nresult = Compound([case.part, lid_holes.part])\n",
+   "glb": "step-6.glb",
+   "previews": [
+    {
+     "file": "step-6-preview-1.glb",
+     "name": "Screw bosses"
+    },
+    {
+     "file": "step-6-preview-2.glb",
+     "name": "Lid screw holes"
+    }
+   ],
+   "events": [
+    {
+     "stage": "plan",
+     "status": "complete",
+     "message": "Four corner bosses in the case and four countersunk holes in the lid.",
+     "at_ms": 0
+    },
+    {
+     "stage": "inspect",
+     "status": "started",
+     "message": "Building the part and checking its geometry.",
+     "at_ms": 900
+    },
+    {
+     "stage": "inspect",
+     "status": "passed",
+     "message": "Built 2 solids; bounds 70 \u00d7 42 \u00d7 38 mm.",
+     "at_ms": 1500
+    }
+   ],
+   "agent": {
+    "plan": "Four corner bosses in the case and four countersunk holes in the lid.\n\n- Each boss is 6 mm across, fills its corner from the floor to 3 mm below the rim, and has a 2.2 mm pilot hole for an M2.5 screw.\n- The lip of the lid is cut back round each boss, so the lid still sits flat.\n- The lid holes are 2.9 mm with a 90\u00b0 countersink, so the screw heads sit flush.",
+    "trace": [
+     {
+      "node": "plan",
+      "status": "complete",
+      "detail": "Four corner bosses in the case and four countersunk holes in the lid."
+     },
+     {
+      "node": "inspect",
+      "status": "passed",
+      "detail": "Built 2 solids; bounds 70 \u00d7 42 \u00d7 38 mm."
+     }
+    ],
+    "inspection": {
+     "valid": true,
+     "shape_type": "Compound",
+     "solid_count": 2,
+     "volume_mm3": 22962.411,
+     "bounding_box_mm": {
+      "x": 70.0,
+      "y": 42.0,
+      "z": 38.0
+     },
+     "error": null
+    }
+   }
+  }
+ ]
+}

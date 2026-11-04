@@ -65,6 +65,12 @@ interface ChatPaneProps {
   runStartedAt?: number | null;
   /** Shown above the progress and the input, e.g. demo replay controls. */
   header?: ReactNode;
+  /**
+   * Treat each reply as a version of the part, like a CAD timeline: replies
+   * are numbered, a click shows that version, and later turns are dimmed.
+   * `selected` is null while a version is being built.
+   */
+  versions?: { selected: number | null; onSelect: (version: number) => void };
 }
 
 export function ChatPane({
@@ -79,6 +85,7 @@ export function ChatPane({
   runEvents,
   runStartedAt = null,
   header,
+  versions,
 }: ChatPaneProps) {
   const [input, setInput] = useState(initialInput);
   const [images, setImages] = useState<string[]>([]);
@@ -86,12 +93,22 @@ export function ChatPane({
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const showsVersions = versions !== undefined;
+  const selectedVersion = versions?.selected ?? null;
+
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages]);
+    const list = scrollRef.current;
+    if (!list) return;
+    const selected =
+      selectedVersion !== null
+        ? list.querySelector<HTMLElement>(`[data-version="${selectedVersion}"]`)
+        : null;
+    if (selected) {
+      selected.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } else {
+      list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
+    }
+  }, [messages, selectedVersion]);
 
   const addFiles = useCallback(async (files: FileList | File[]) => {
     const list = Array.from(files).filter((f) =>
@@ -236,13 +253,18 @@ export function ChatPane({
         {messages.map((msg, i) => {
           const text = getTextContent(msg.content);
           const imgs = getImageUrls(msg.content);
+          // The version a turn belongs to: a request and the reply it led to.
+          const version =
+            messages.slice(0, i).filter((m) => m.role === "assistant").length + 1;
+          const later = showsVersions && selectedVersion !== null && version > selectedVersion;
+          const viewing = showsVersions && msg.role === "assistant" && version === selectedVersion;
           const planSummary = msg.agent?.plan
             .split(/\n|(?<=[.!?])\s+/)
             .find((line) => line.trim())
             ?.trim();
 
           return msg.role === "user" ? (
-            <div key={i} className="flex justify-end">
+            <div key={i} className={`flex justify-end transition-opacity ${later ? "opacity-45" : ""}`}>
               <div className="max-w-[88%] rounded-2xl rounded-br-md bg-[var(--clay)] px-3.5 py-2.5 text-sm leading-5 text-[var(--ink)]">
                 {text}
                 {imgs.length > 0 && (
@@ -260,17 +282,47 @@ export function ChatPane({
               </div>
             </div>
           ) : (
-            <div key={i} className="flex justify-start">
-              <div className="theme-inset max-w-[94%] rounded-2xl rounded-bl-md border px-3.5 py-3">
-                <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--ink)]">
-                  <Sparkles className="size-3 text-[var(--accent)]" />
-                  Model updated
-                </div>
+            <div
+              key={i}
+              data-version={showsVersions ? version : undefined}
+              className={`flex justify-start transition-opacity ${later ? "opacity-45" : ""}`}
+            >
+              <div
+                className={`theme-inset max-w-[94%] rounded-2xl rounded-bl-md border px-3.5 py-3 ${
+                  viewing ? "ring-2 ring-[var(--accent)]/60" : ""
+                }`}
+              >
+                {showsVersions ? (
+                  <button
+                    type="button"
+                    onClick={() => versions?.onSelect(version)}
+                    aria-pressed={viewing}
+                    className="-mx-1 -mt-1 mb-1 block w-[calc(100%+0.5rem)] rounded-lg px-1 pt-1 text-left hover:bg-[var(--control-hover)]"
+                  >
+                    <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--ink)]">
+                      <Sparkles className="size-3 text-[var(--accent)]" />
+                      Version {version}
+                      <span className="ml-auto text-[10px] font-normal text-zinc-500">
+                        {viewing ? "Viewing" : "Show this version"}
+                      </span>
+                    </span>
+                    <span className="block pb-1 text-xs leading-5 text-zinc-400">
+                      {planSummary || "Your part was generated and validated successfully."}
+                    </span>
+                  </button>
+                ) : (
+                  <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-[var(--ink)]">
+                    <Sparkles className="size-3 text-[var(--accent)]" />
+                    Model updated
+                  </div>
+                )}
                 {msg.agent ? (
                   <>
-                    <p className="text-xs leading-5 text-zinc-400">
-                      {planSummary || "Your part was generated and validated successfully."}
-                    </p>
+                    {!showsVersions && (
+                      <p className="text-xs leading-5 text-zinc-400">
+                        {planSummary || "Your part was generated and validated successfully."}
+                      </p>
+                    )}
                     <details className="mt-2 border-t border-[var(--hairline)] pt-2 text-[11px]">
                       <summary className="cursor-pointer text-zinc-500 hover:text-zinc-300">
                         Technical details
