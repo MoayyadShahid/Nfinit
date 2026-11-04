@@ -31,11 +31,28 @@ Copy:
 
 > **Your turn.**
 > You've seen how it's built. Now describe yours.
-> **Start building — $20/mo + tax** · Cancel anytime
+> **Start building · $20/mo + tax** · Cancel anytime
 
 > **Take it into the real world.**
-> Export any part you build as STL or STEP — ready for printing or your CAD tool.
-> **Start building — $20/mo + tax** · Cancel anytime
+> Export any part you build as STL or STEP, ready for printing or your CAD tool.
+> **Start building · $20/mo + tax** · Cancel anytime
+
+## Subscribe button and account menu
+
+There is one subscribe button (`SubscribeButton`) and one account menu
+(`AccountMenu`), and every page uses the same ones, so the offer reads and
+behaves the same everywhere.
+
+| Where | Free user | Subscriber |
+| --- | --- | --- |
+| Studio and Parts toolbars | "Start building" (accent; icon only on narrow screens, hidden on phones) | nothing extra |
+| Account menu (your initial, top right) | "Free · Demo parts only" and "Start building · $20/mo" | "Subscribed · Renews on …" and "Manage billing" |
+| Account page, Plan section | "Start building · $20/mo" | "Manage billing" |
+| Paywall | "Start building · $20/mo" | not shown |
+
+The account menu also links to Your parts and the Account page, and signs out.
+"Manage billing" opens Stripe's customer portal (change card, invoices,
+cancel). When billing is off (no Stripe keys), none of this shows.
 
 ## Enforcement is on the backend
 
@@ -164,7 +181,7 @@ remaining work is to map each assistant message to its revision number.
    and sandbox endpoints, tests.
 2. Frontend: proxy routes for sandbox endpoints, billing client, paywall
    panel, gate on send / face select / editor / export, resume after Checkout,
-   "Manage subscription" in the account menu.
+   "Manage billing" in the account menu and on the Account page.
 3. Demo gallery and replay; build and commit the demo parts (done).
 4. End-to-end in Stripe test mode, then switch to live keys.
 

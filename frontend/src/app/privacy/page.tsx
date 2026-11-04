@@ -284,8 +284,8 @@ export default function PrivacyPage() {
         </p>
         <p>
           You can do some of this yourself: delete a project in the studio, cancel your
-          subscription with the <strong>Billing</strong> button, and delete your account on
-          the <Link href="/account">Account page</Link>.
+          subscription with <strong>Manage billing</strong>, and delete your account, both
+          on the <Link href="/account">Account page</Link>.
         </p>
         <p>
           <strong>Complaints:</strong> if you are not satisfied with our answer, you can

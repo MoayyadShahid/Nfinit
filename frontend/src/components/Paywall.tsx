@@ -1,8 +1,8 @@
 "use client";
 
-import { startCheckout } from "@/lib/billing";
+import { SubscribeButton } from "@/components/SubscribeButton";
 import { X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 export type PaywallReason = "build" | "export";
 
@@ -21,7 +21,7 @@ const COPY: Record<PaywallReason, { title: ReactNode; body: string }> = {
         Take it into the <em>real world.</em>
       </>
     ),
-    body: "Export any part you build as STL or STEP — ready for printing or your CAD tool.",
+    body: "Export any part you build as STL or STEP, ready for printing or your CAD tool.",
   },
 };
 
@@ -54,8 +54,6 @@ function PaywallPanel({
   onClose: () => void;
   taxAtCheckout: boolean;
 }) {
-  const [isStarting, setIsStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const copy = COPY[reason];
 
   useEffect(() => {
@@ -65,17 +63,6 @@ function PaywallPanel({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
-
-  const subscribe = async () => {
-    setIsStarting(true);
-    setError(null);
-    try {
-      await startCheckout();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not open checkout.");
-      setIsStarting(false);
-    }
-  };
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex justify-center p-3 sm:p-5">
@@ -96,19 +83,11 @@ function PaywallPanel({
           {copy.title}
         </h2>
         <p className="mt-2 text-[15px] leading-6 text-[var(--ink-2)]">{copy.body}</p>
-        <button
-          type="button"
-          onClick={subscribe}
-          disabled={isStarting}
-          className="wb-btn wb-btn-primary mt-6 w-full justify-center"
-        >
-          {isStarting
-            ? "Opening checkout…"
-            : `Start building — $20/mo${taxAtCheckout ? " + tax" : ""}`}
-        </button>
+        <SubscribeButton size="lg" taxAtCheckout={taxAtCheckout} className="mt-6" />
         {/* Auto-renewal laws require these terms next to the subscribe button. */}
         <p className="mt-3 text-center text-xs leading-5 text-[var(--muted)]">
-          Renews every month until you cancel. Cancel anytime with the Billing button.
+          Renews every month until you cancel. Cancel anytime with Manage billing in your
+          account menu or on the Account page.
           By subscribing, you agree to the{" "}
           <a href="/terms" target="_blank" rel="noopener" className="underline underline-offset-2">
             Terms of Service
@@ -119,11 +98,6 @@ function PaywallPanel({
           </a>
           .
         </p>
-        {error && (
-          <p role="alert" className="mt-2 text-center text-xs text-[var(--danger)]">
-            {error}
-          </p>
-        )}
       </section>
     </div>
   );

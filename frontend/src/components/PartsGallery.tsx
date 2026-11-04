@@ -2,9 +2,13 @@
 
 import { Wordmark } from "@/components/brand/Wordmark";
 import type { Viewer } from "@/components/CommandBar";
+import { AccountMenu } from "@/components/AccountMenu";
 import { Paywall } from "@/components/Paywall";
+import { SubscribeButton } from "@/components/SubscribeButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { canSubscribe } from "@/lib/billing";
 import { demoThumbnail, listDemos, type DemoSummary } from "@/lib/demos";
+import { useBillingStatus } from "@/lib/useBillingStatus";
 import {
   deleteProject,
   getProject,
@@ -15,7 +19,7 @@ import {
   type ProjectSummary,
 } from "@/lib/projects";
 import { sandboxRequest } from "@/lib/sandbox";
-import { Box, Check, LogOut, Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
+import { Box, Check, Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -280,6 +284,7 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
   const [error, setError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
   const [demos, setDemos] = useState<DemoSummary[]>([]);
+  const billing = useBillingStatus();
 
   useEffect(() => {
     let active = true;
@@ -331,20 +336,12 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
         <Wordmark href="/" size={20} />
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
-          {viewer && (
-            <form action="/auth/signout" method="post">
-              <button
-                type="submit"
-                aria-label={`Sign out${viewer.email ? ` ${viewer.email}` : ""}`}
-                title={viewer.email ? `Sign out ${viewer.email}` : "Sign out"}
-                className="theme-control theme-muted flex h-9 items-center gap-2 rounded-full px-2 text-xs hover:text-[var(--page-fg)]"
-              >
-                <span className="flex size-6 items-center justify-center rounded-full bg-[var(--clay)] text-[10px] font-semibold text-[var(--ink)]">
-                  {(viewer.name ?? viewer.email ?? "U").charAt(0).toUpperCase()}
-                </span>
-                <LogOut className="size-3.5" />
-              </button>
-            </form>
+          {canSubscribe(billing) && (
+            <SubscribeButton
+              size="sm"
+              taxAtCheckout={billing?.taxAtCheckout ?? false}
+              onError={setError}
+            />
           )}
           <Link
             href="/studio?new=1"
@@ -353,6 +350,7 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
             <Plus className="size-3.5" />
             New part
           </Link>
+          {viewer && <AccountMenu viewer={viewer} billing={billing} onError={setError} />}
         </div>
       </header>
 
@@ -457,6 +455,7 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
       <Paywall
         reason={showPaywall ? "export" : null}
         onClose={() => setShowPaywall(false)}
+        taxAtCheckout={billing?.taxAtCheckout ?? false}
       />
     </div>
   );

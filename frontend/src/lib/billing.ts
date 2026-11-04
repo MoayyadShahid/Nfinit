@@ -85,3 +85,31 @@ export async function waitForActiveSubscription(
   }
   return null;
 }
+
+/** The price as every subscribe button shows it, e.g. "$20/mo + tax". */
+export function priceLabel(taxAtCheckout: boolean): string {
+  return `$20/mo${taxAtCheckout ? " + tax" : ""}`;
+}
+
+/** Billing is on and this user has no plan: offer the subscription. */
+export function canSubscribe(status: BillingStatus | null): boolean {
+  return Boolean(status?.enabled && !status.active);
+}
+
+/** Billing is on and this user has (or had) a plan: Stripe's portal applies. */
+export function canManageBilling(status: BillingStatus | null): boolean {
+  return Boolean(status?.enabled && status.status !== "none");
+}
+
+/** One line about the plan, e.g. "Renews on 30 Nov 2026". */
+export function planDetail(status: BillingStatus): string | null {
+  if (!status.enabled) return null;
+  if (!status.active) return "Demo parts only";
+  if (!status.currentPeriodEnd) return "Active";
+  const date = new Date(status.currentPeriodEnd).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  return status.cancelAtPeriodEnd ? `Ends on ${date}` : `Renews on ${date}`;
+}

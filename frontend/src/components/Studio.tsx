@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select";
 import {
   getBillingStatus,
-  openBillingPortal,
   savePendingAction,
   type PendingAction,
   SubscriptionRequiredError,
@@ -894,12 +893,6 @@ export default function Studio({
     setPaywall(null);
   }, []);
 
-  const manageBilling = useCallback(() => {
-    openBillingPortal().catch((e) =>
-      setError(e instanceof Error ? e.message : "Could not open billing")
-    );
-  }, []);
-
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -1103,9 +1096,8 @@ export default function Studio({
         isSaving={isSaving}
         advancedOpen={advancedOpen}
         onAdvancedChange={handleAdvancedChange}
-        onManageBilling={
-          billing?.enabled && billing.status !== "none" ? manageBilling : undefined
-        }
+        billing={billing}
+        onBillingError={setError}
         onProjectChange={loadProject}
         onNewProject={startNewProject}
         onSave={saveCurrentRevision}

@@ -11,16 +11,16 @@ import { cn } from "@/lib/utils";
 import type { ProjectSummary } from "@/lib/projects";
 import { Wordmark } from "@/components/brand/Wordmark";
 import Link from "next/link";
+import { AccountMenu } from "@/components/AccountMenu";
+import { SubscribeButton } from "@/components/SubscribeButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { canSubscribe, type BillingStatus } from "@/lib/billing";
 import {
   ChevronDown,
   Code2,
-  CreditCard,
-  UserRound,
   Download,
   FilePlus2,
   LayoutGrid,
-  LogOut,
   Save,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -50,8 +50,9 @@ interface CommandBarProps {
   onProjectChange: (projectId: string) => void;
   onNewProject: () => void;
   onSave: () => void;
-  /** Opens Stripe's billing portal; omitted until the user has a plan. */
-  onManageBilling?: () => void;
+  /** The user's plan: free users get "Start building", everyone the account menu. */
+  billing?: BillingStatus | null;
+  onBillingError?: (message: string) => void;
   viewer?: Viewer | null;
 }
 
@@ -66,7 +67,8 @@ export function CommandBar({
   onProjectChange,
   onNewProject,
   onSave,
-  onManageBilling,
+  billing,
+  onBillingError,
   viewer = null,
 }: CommandBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
@@ -161,46 +163,12 @@ export function CommandBar({
       </div>
       <div className="flex min-w-0 items-center justify-end gap-2">
         <ThemeToggle />
-        {onManageBilling && (
-          <button
-            type="button"
-            onClick={onManageBilling}
-            title="Manage subscription"
-            aria-label="Manage subscription"
-            className="theme-control theme-muted flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)]"
-          >
-            <CreditCard className="size-3.5" />
-            <span className="hidden xl:inline">Billing</span>
-          </button>
-        )}
-        {viewer && (
-          <Link
-            href="/account"
-            title="Account"
-            aria-label="Account"
-            className="theme-control theme-muted flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)]"
-          >
-            <UserRound className="size-3.5" />
-            <span className="hidden xl:inline">Account</span>
-          </Link>
-        )}
-        {viewer && (
-          <form action="/auth/signout" method="post">
-            <button
-              type="submit"
-              aria-label={`Sign out${viewer.email ? ` ${viewer.email}` : ""}`}
-              title={viewer.email ? `Sign out ${viewer.email}` : "Sign out"}
-              className="theme-control theme-muted flex h-9 items-center gap-2 rounded-full px-2 text-xs hover:text-[var(--page-fg)]"
-            >
-              <span className="flex size-6 items-center justify-center rounded-full bg-[var(--clay)] text-[10px] font-semibold text-[var(--ink)]">
-                {(viewer.name ?? viewer.email ?? "U").charAt(0).toUpperCase()}
-              </span>
-              <span className="hidden max-w-28 truncate xl:inline">
-                {viewer.name ?? viewer.email ?? "Account"}
-              </span>
-              <LogOut className="size-3.5" />
-            </button>
-          </form>
+        {canSubscribe(billing ?? null) && (
+          <SubscribeButton
+            size="sm"
+            taxAtCheckout={billing?.taxAtCheckout ?? false}
+            onError={onBillingError}
+          />
         )}
         <button
           type="button"
@@ -246,6 +214,7 @@ export function CommandBar({
             </div>
           )}
         </div>
+        {viewer && <AccountMenu viewer={viewer} billing={billing ?? null} onError={onBillingError} />}
       </div>
     </header>
   );
