@@ -104,6 +104,24 @@ def max_revisions_per_user() -> int:
     return _positive_setting("CAD_MAX_REVISIONS_PER_USER", 1000)
 
 
+# A run records at most MAX_RUN_EVENTS progress events, each with a message of
+# at most MAX_EVENT_MESSAGE characters. Their storage is reserved when the run
+# starts, so recording an event needs no storage check: that check sums every
+# table the user owns, and a run records 10 to 20 events on its critical path.
+MAX_RUN_EVENTS = 256
+MAX_EVENT_MESSAGE = 500
+RUN_EVENT_RESERVE_BYTES = MAX_RUN_EVENTS * 4 * (100 + 100 + MAX_EVENT_MESSAGE)
+
+
+def event_within_budget(event: RunEvent) -> RunEvent | None:
+    """The event as stored: its message capped, or None past the run's budget."""
+    if event.seq > MAX_RUN_EVENTS:
+        return None
+    if len(event.message) > MAX_EVENT_MESSAGE:
+        return event.model_copy(update={"message": event.message[:MAX_EVENT_MESSAGE]})
+    return event
+
+
 class ProjectStoreProtocol(Protocol):
     def billing_operation_lock(self, user_id: str) -> ContextManager[None]:
         """Serialize checkout creation and destructive billing changes."""
@@ -909,7 +927,9 @@ class ProjectStore:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             self._assert_storage_available(
-                connection, user_id, len(prompt.encode()) + len(model_id.encode())
+                connection,
+                user_id,
+                len(prompt.encode()) + len(model_id.encode()) + RUN_EVENT_RESERVE_BYTES,
             )
             connection.execute(
                 """
@@ -945,7 +965,9 @@ class ProjectStore:
             # processes, not just coroutines in this interpreter.
             connection.execute("BEGIN IMMEDIATE")
             self._assert_storage_available(
-                connection, user_id, len(prompt.encode()) + len(model_id.encode())
+                connection,
+                user_id,
+                len(prompt.encode()) + len(model_id.encode()) + RUN_EVENT_RESERVE_BYTES,
             )
             counts = connection.execute(
                 """
@@ -1110,15 +1132,11 @@ class ProjectStore:
         return self.get_run(run_id, user_id=user_id)
 
     def add_run_event(self, run_id: str, event: RunEvent, *, user_id: str) -> None:
+        stored = event_within_budget(event)
+        if stored is None:
+            return
+        event = stored
         with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            self._assert_storage_available(
-                connection,
-                user_id,
-                len(event.stage.encode())
-                + len(event.status.encode())
-                + len(event.message.encode()),
-            )
             cursor = connection.execute(
                 """
                 INSERT INTO run_events

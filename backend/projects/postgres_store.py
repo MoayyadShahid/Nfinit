@@ -1,10 +1,13 @@
 import json
+import os
+import threading
 from datetime import datetime, timedelta, timezone
 from contextlib import contextmanager
 from uuid import UUID, uuid4
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 from psycopg.types.json import Jsonb
 
 from .models import (
@@ -20,6 +23,7 @@ from .models import (
 )
 from .store import (
     PROJECT_COLUMNS,
+    RUN_EVENT_RESERVE_BYTES,
     ProjectNotFoundError,
     RevisionNotFoundError,
     RunNotFoundError,
@@ -27,26 +31,82 @@ from .store import (
     StorageQuotaExceededError,
     StoredMesh,
     ThumbnailNotFoundError,
+    event_within_budget,
     max_projects_per_user,
     max_revisions_per_user,
     max_storage_bytes_per_user,
 )
 
 
+def _pool_setting(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.getenv(name, str(default))))
+    except ValueError:
+        return default
+
+
 class PostgresProjectStore:
-    """Supabase Postgres store with request-scoped RLS identity."""
+    """Supabase Postgres store with request-scoped RLS identity.
+
+    Connections come from a pool. Opening one costs about six network round
+    trips (TCP, TLS, login), which used to be paid by every query; a request
+    such as opening a saved model made eleven of them. A query now costs
+    three: BEGIN with the identity, the query, and COMMIT. The identity is
+    transaction-local (`set_config(..., true)`), so it ends with the
+    transaction and a pooled connection never carries one user's identity
+    into another user's query.
+    """
 
     def __init__(self, database_url: str):
         self.database_url = database_url
+        self._pool: ConnectionPool | None = None
+        self._pool_lock = threading.Lock()
+
+    def _get_pool(self) -> ConnectionPool:
+        # Opened on first use, so constructing a store never touches the network.
+        if self._pool is None:
+            with self._pool_lock:
+                if self._pool is None:
+                    self._pool = ConnectionPool(
+                        self.database_url,
+                        min_size=_pool_setting("NFNIT_DB_POOL_MIN", 1),
+                        max_size=_pool_setting("NFNIT_DB_POOL_MAX", 10),
+                        # Close idle connections well before Supavisor or a
+                        # firewall would, instead of pinging every connection
+                        # on checkout (one more round trip per query).
+                        max_idle=_pool_setting("NFNIT_DB_POOL_MAX_IDLE_SECONDS", 120),
+                        max_lifetime=_pool_setting("NFNIT_DB_POOL_MAX_LIFETIME_SECONDS", 1800),
+                        timeout=_pool_setting("NFNIT_DB_POOL_TIMEOUT_SECONDS", 15),
+                        # Server-side prepared statements break behind a
+                        # transaction-mode pooler (Supavisor port 6543), and a
+                        # reused connection would start preparing after five runs
+                        # of a query. Keep them off so either pooler mode works.
+                        kwargs={"row_factory": dict_row, "prepare_threshold": None},
+                        name="nfinit",
+                        open=True,
+                    )
+        return self._pool
+
+    def close(self) -> None:
+        """Close the pool's connections, e.g. when the app shuts down."""
+        with self._pool_lock:
+            if self._pool is not None:
+                self._pool.close()
+                self._pool = None
 
     @contextmanager
     def _connect(self, user_id: str):
-        with psycopg.connect(self.database_url, row_factory=dict_row) as connection:
-            connection.execute(
-                "SELECT set_config('request.jwt.claim.sub', %s, true)",
-                (user_id,),
-            )
-            connection.execute("SET LOCAL ROLE nfinit_backend")
+        # The pool commits when the block ends and rolls back on an error,
+        # which also ends the transaction-local identity below.
+        with self._get_pool().connection() as connection:
+            # BEGIN and the identity go out together in one round trip.
+            # set_config('role', ..., true) is SET LOCAL ROLE.
+            with connection.pipeline():
+                connection.execute(
+                    "SELECT set_config('request.jwt.claim.sub', %s, true),"
+                    " set_config('role', 'nfinit_backend', true)",
+                    (user_id,),
+                )
             yield connection
 
     @contextmanager
@@ -598,7 +658,9 @@ class PostgresProjectStore:
         with self._connect(user_id) as connection:
             self._lock_storage(connection, user_id)
             self._assert_storage_available(
-                connection, user_id, len(prompt.encode()) + len(model_id.encode())
+                connection,
+                user_id,
+                len(prompt.encode()) + len(model_id.encode()) + RUN_EVENT_RESERVE_BYTES,
             )
             row = connection.execute(
                 """
@@ -640,7 +702,9 @@ class PostgresProjectStore:
             )
             self._lock_storage(connection, user_id)
             self._assert_storage_available(
-                connection, user_id, len(prompt.encode()) + len(model_id.encode())
+                connection,
+                user_id,
+                len(prompt.encode()) + len(model_id.encode()) + RUN_EVENT_RESERVE_BYTES,
             )
             counts = connection.execute(
                 """
@@ -854,15 +918,11 @@ class PostgresProjectStore:
 
     def add_run_event(self, run_id: str, event: RunEvent, *, user_id: str) -> None:
         run_id = self._run_uuid(run_id)
+        stored = event_within_budget(event)
+        if stored is None:
+            return
+        event = stored
         with self._connect(user_id) as connection:
-            self._lock_storage(connection, user_id)
-            self._assert_storage_available(
-                connection,
-                user_id,
-                len(event.stage.encode())
-                + len(event.status.encode())
-                + len(event.message.encode()),
-            )
             added = connection.execute(
                 """
                 INSERT INTO public.run_events

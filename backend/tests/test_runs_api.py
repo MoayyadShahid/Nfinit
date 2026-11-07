@@ -325,3 +325,54 @@ def test_run_events_are_private_to_their_owner(client, store, monkeypatch):
             store.list_run_events(run_id, user_id=USER_ID)[0],
             user_id=OTHER_USER_ID,
         )
+
+
+def test_run_events_have_a_budget_reserved_when_the_run_starts(store, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    from projects.models import RunEvent
+    from projects.store import (
+        MAX_EVENT_MESSAGE,
+        MAX_RUN_EVENTS,
+        RUN_EVENT_RESERVE_BYTES,
+    )
+
+    now = datetime.now(timezone.utc)
+
+    def create_run(run_id):
+        return store.create_run_with_quota(
+            run_id,
+            user_id=USER_ID,
+            project_id=None,
+            prompt="A bracket.",
+            model_id="test/model",
+            now=now,
+            running_since=now - timedelta(minutes=10),
+            max_concurrent=5,
+            max_hourly=30,
+            max_daily=150,
+        )
+
+    run = create_run("run-with-events")
+    for seq in range(1, MAX_RUN_EVENTS + 6):
+        store.add_run_event(
+            run.id,
+            RunEvent(seq=seq, stage="inspect", status="started", message="x" * 900, created_at=now),
+            user_id=USER_ID,
+        )
+    events = store.list_run_events(run.id, user_id=USER_ID)
+    # Events past the budget are dropped, and long messages are capped, so a
+    # run's events always fit in the storage reserved when it started.
+    assert len(events) == MAX_RUN_EVENTS
+    assert {len(event.message) for event in events} == {MAX_EVENT_MESSAGE}
+
+    # Starting a run needs room for its prompt and its whole event budget.
+    monkeypatch.setenv("CAD_MAX_STORAGE_BYTES_PER_USER", str(1024 * 1024))
+    assert RUN_EVENT_RESERVE_BYTES < 1024 * 1024
+    from projects.store import StorageQuotaExceededError
+
+    monkeypatch.setattr(
+        type(store), "_storage_bytes", staticmethod(lambda *_args: 1024 * 1024 - RUN_EVENT_RESERVE_BYTES)
+    )
+    with pytest.raises(StorageQuotaExceededError):
+        create_run("run-without-room")
