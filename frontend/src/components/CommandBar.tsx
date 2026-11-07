@@ -96,8 +96,8 @@ export function CommandBar({
   return (
     // backdrop-blur makes the header its own stacking context, so its z-50
     // export menu only clears the viewport if the header itself sits above it.
-    <header className="theme-chrome relative z-[55] flex h-16 shrink-0 items-center gap-3 border-b px-4 backdrop-blur-xl md:px-5">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+    <header className="theme-chrome relative z-[55] flex h-16 shrink-0 items-center gap-2 border-b px-3 backdrop-blur-xl sm:gap-3 sm:px-4 md:px-5">
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
         <Wordmark href="/" size={20} />
         <span className="hidden h-5 w-px bg-[var(--hairline)] sm:block" />
         <Link
@@ -115,7 +115,7 @@ export function CommandBar({
         >
           <SelectTrigger
             aria-label="Current part"
-            className="h-9 min-w-0 max-w-[220px] flex-1 border-[var(--hairline)] bg-transparent text-xs"
+            className="hidden h-9 min-w-0 max-w-[220px] flex-1 border-[var(--hairline)] bg-transparent text-xs sm:flex"
           >
             <SelectValue placeholder="Unsaved part" />
           </SelectTrigger>
@@ -161,7 +161,7 @@ export function CommandBar({
           )}
         </button>
       </div>
-      <div className="flex min-w-0 items-center justify-end gap-2">
+      <div className="flex shrink-0 items-center justify-end gap-2">
         <ThemeToggle />
         {canSubscribe(billing ?? null) && (
           <SubscribeButton
@@ -175,7 +175,8 @@ export function CommandBar({
           onClick={() => onAdvancedChange(!advancedOpen)}
           aria-pressed={advancedOpen}
           className={cn(
-            "flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors",
+            // The code editor needs room, so phones keep the bar for the essentials.
+            "hidden h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors sm:flex",
             advancedOpen
               ? "bg-[var(--control-hover)] text-[var(--page-fg)]"
               : "theme-muted theme-control hover:text-[var(--page-fg)]"
@@ -188,10 +189,11 @@ export function CommandBar({
           <button
             type="button"
             onClick={() => setExportOpen((o) => !o)}
-            className="theme-primary-button flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold shadow-sm transition-transform hover:scale-[1.02]"
+            aria-label="Export"
+            className="theme-primary-button flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold shadow-sm transition-transform hover:scale-[1.02] sm:px-3.5"
           >
             <Download className="size-3.5" />
-            Export
+            <span className="hidden sm:inline">Export</span>
             <ChevronDown
               className={cn("size-3.5 transition-transform", exportOpen && "rotate-180")}
             />

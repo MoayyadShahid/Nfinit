@@ -6,9 +6,10 @@ import {
   type ExportFormat,
   type Viewer,
 } from "@/components/CommandBar";
-import { DemoReplay } from "@/components/DemoReplay";
+import { DemoControls } from "@/components/DemoReplay";
 import { EditorPane } from "@/components/EditorPane";
 import { Paywall, type PaywallReason } from "@/components/Paywall";
+import { VersionRail, type RailVersion } from "@/components/VersionRail";
 import { ViewportPane } from "@/components/ViewportPane";
 import {
   Select,
@@ -53,6 +54,7 @@ import {
   FIRST_DEMO,
   getDemo,
   listDemos,
+  stepTitle,
   toRunEvent,
   type Demo,
   type DemoSummary,
@@ -68,16 +70,24 @@ import {
   type RunEvent,
 } from "@/lib/types";
 import {
+  ArrowRight,
   Box,
-  CheckCircle2,
   Code2,
-  MousePointer2,
+  RotateCcw,
   Ruler,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const LAST_PROJECT_KEY = "nfinit:last-project-id";
+const RAIL_OPEN_KEY = "nfinit:version-rail-open";
+
+const VERSION_TIME = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
 // A run in flight survives a reload: the studio resumes polling it.
 const PENDING_RUN_KEY = "nfinit:pending-run";
 
@@ -197,6 +207,19 @@ export default function Studio({
   const [lastRunId, setLastRunId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(true);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // The version rail starts collapsed on phones, where width is scarce. It is
+  // only drawn after the studio initialises, so reading storage here cannot
+  // differ from the server's markup.
+  const [railOpen, setRailOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const saved = window.localStorage.getItem(RAIL_OPEN_KEY);
+      if (saved !== null) return saved === "1";
+    } catch {
+      /* storage can be unavailable; fall back to the screen size */
+    }
+    return window.innerWidth >= 640;
+  });
   const [hasInitialized, setHasInitialized] = useState(false);
   const [inspection, setInspection] = useState<ModelInspection | null>(null);
   // A recorded demo being replayed (no project, no backend runs).
@@ -1163,6 +1186,53 @@ export default function Studio({
     return () => window.clearTimeout(timer);
   }, [billing, demos, hasInitialized, initialDemo, initialPrompt, isLocked, openDemo, showWelcome]);
 
+  const changeRailOpen = useCallback((open: boolean) => {
+    setRailOpen(open);
+    try {
+      window.localStorage.setItem(RAIL_OPEN_KEY, open ? "1" : "0");
+    } catch {
+      /* storage can be unavailable; the choice lasts for this visit */
+    }
+  }, []);
+
+  const nextDemoVersion = (target: Demo) => {
+    if (demoStep < demoReached) selectDemoStep(target, demoStep + 1);
+    else playDemoStep(target, demoStep + 1);
+  };
+
+  const replayDemoVersion = (target: Demo) => {
+    if (demoStep >= target.steps.length) {
+      // "Watch again" builds the whole story from version 1.
+      demoReachedRef.current = 0;
+      setDemoReached(0);
+      playDemoStep(target, 1);
+    } else {
+      playDemoStep(target, demoStep);
+    }
+  };
+
+  // A demo shows its steps; a project shows its saved revisions, oldest first.
+  const railVersions = useMemo<RailVersion[] | null>(() => {
+    if (demo) {
+      return demo.steps.map((step, index) => ({
+        number: index + 1,
+        title: stepTitle(step),
+        detail: step.prompt,
+        built: index + 1 <= demoReached,
+      }));
+    }
+    if (revisions.length === 0) return null;
+    return revisions
+      .slice()
+      .sort((a, b) => a.revisionNumber - b.revisionNumber)
+      .map((revision) => ({
+        number: revision.revisionNumber,
+        title: `Version ${revision.revisionNumber}`,
+        meta: VERSION_TIME.format(new Date(revision.createdAt)),
+        built: true,
+      }));
+  }, [demo, demoReached, revisions]);
+
   return (
     <div className="wb theme-page flex h-dvh flex-col overflow-hidden">
       <CommandBar
@@ -1239,171 +1309,135 @@ export default function Studio({
           </div>
         </main>
       ) : (
-        <main className="theme-viewport-frame relative min-h-0 flex-1 overflow-hidden p-2">
-          <div className="h-full overflow-hidden rounded-2xl border border-[var(--hairline)] bg-[var(--clay)]">
-            <ViewportPane
-              glbUrl={glbUrl}
-              code={code}
-              isLoading={isLoading || isProjectLoading}
-              previewUrl={isLoading ? buildPreview?.url : undefined}
-              previewLabel={buildPreview ? `Built: ${buildPreview.name}` : undefined}
-              progressMessage={
-                isLoading
-                  ? runEvents.filter((event) => event.stage !== "snapshot").at(-1)
-                      ?.message
-                  : undefined
+        <main className="theme-viewport-frame relative flex min-h-0 flex-1 gap-2 overflow-hidden p-2">
+          {railVersions && (
+            <VersionRail
+              heading={demo ? demo.title : "Versions"}
+              versions={railVersions}
+              selected={demo ? (demoPlaying ? null : demoStep) : currentRevision}
+              disabled={demo ? demoPlaying : isLoading || isProjectLoading}
+              open={railOpen}
+              onOpenChange={changeRailOpen}
+              onSelect={(number) =>
+                demo ? selectDemoStep(demo, number) : void loadRevision(number)
               }
-              showSelectionCard={false}
-              onThumbnail={handleThumbnail}
-              onSelectionChange={handleSelectionChange}
-              onSelectBlocked={isLocked ? () => setPaywall("build") : undefined}
+              onClose={demo ? exitDemo : undefined}
+              footer={
+                demo ? (
+                  <DemoControls
+                    demo={demo}
+                    step={demoStep}
+                    reached={demoReached}
+                    playing={demoPlaying}
+                    onNext={() => nextDemoVersion(demo)}
+                    onReplay={() => replayDemoVersion(demo)}
+                  />
+                ) : undefined
+              }
+              compactAction={
+                demo ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      demoStep >= demo.steps.length
+                        ? replayDemoVersion(demo)
+                        : nextDemoVersion(demo)
+                    }
+                    disabled={demoPlaying}
+                    aria-label={
+                      demoStep >= demo.steps.length ? "Watch again" : "Next version"
+                    }
+                    title={demoStep >= demo.steps.length ? "Watch again" : "Next version"}
+                    className="flex size-9 items-center justify-center rounded-xl bg-[var(--ink)] text-[var(--paper)] disabled:opacity-50"
+                  >
+                    {demoStep >= demo.steps.length ? (
+                      <RotateCcw className="size-4" />
+                    ) : (
+                      <ArrowRight className="size-4" />
+                    )}
+                  </button>
+                ) : undefined
+              }
             />
-          </div>
-
-          <div className="pointer-events-none absolute left-5 top-5 z-20 hidden sm:block">
-            <div className="theme-floating pointer-events-auto min-w-[230px] rounded-2xl border p-3.5 shadow-xl shadow-black/10 backdrop-blur-xl">
-              <div className="flex items-center gap-2">
-                <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--control-hover)] text-zinc-400">
-                  <Ruler className="size-3.5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-600">
-                    Overall size
-                  </p>
-                  {inspection?.bounding_box_mm ? (
-                    <p className="mt-0.5 text-xs font-medium">
-                      {inspection.bounding_box_mm.x.toFixed(1)} ×{" "}
-                      {inspection.bounding_box_mm.y.toFixed(1)} ×{" "}
-                      {inspection.bounding_box_mm.z.toFixed(1)} mm
-                    </p>
-                  ) : (
-                    <p className="mt-0.5 text-xs text-zinc-500">
-                      Awaiting model dimensions
-                    </p>
-                  )}
-                </div>
-              </div>
-              {inspection && (
-                <div className="mt-3 flex items-center justify-between border-t border-[var(--hairline)] pt-2.5 text-[10px] text-zinc-500">
-                  <span className="flex items-center gap-1.5">
-                    <Box className="size-3" />
-                    {inspection.shape_type ?? "Solid"}
-                  </span>
-                  <span>{Math.round(inspection.volume_mm3 ?? 0).toLocaleString()} mm³</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {selectedFace && (
-            <div className="pointer-events-none absolute right-5 top-20 z-20 max-w-[260px]">
-              <div className="selection-surface pointer-events-auto rounded-2xl border border-[var(--hairline-strong)] p-4 shadow-xl">
-                <div className="flex items-start gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--clay)] text-[var(--accent)]">
-                    <MousePointer2 className="size-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-[var(--ink)]">
-                      {selectedFace.surfaceType
-                        ? `${selectedFace.surfaceType[0].toUpperCase()}${selectedFace.surfaceType.slice(1)} face`
-                        : "Selected face"}
-                    </p>
-                    <p className="mt-1 font-mono text-[9px] text-[var(--muted)]">
-                      {selectedFace.entityId?.slice(0, 18) ??
-                        selectedFace.point.join(", ")}
-                    </p>
-                    <p className="mt-2 text-[11px] leading-4 text-[var(--ink-2)]">
-                      Describe the change below. Your request will target this face.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
           )}
 
-          <div className="pointer-events-none absolute inset-x-3 bottom-4 z-30 flex flex-col items-center gap-2">
-            {revisions.length > 0 && (
-              <div className="theme-floating pointer-events-auto flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-full border p-1.5 shadow-xl backdrop-blur-xl">
-                <span className="hidden items-center gap-1.5 px-2 text-[10px] font-medium text-zinc-500 sm:flex">
-                  <CheckCircle2 className="size-3 text-emerald-400" />
-                  History
-                </span>
-                {revisions
-                  .slice()
-                  .reverse()
-                  .map((revision) => {
-                    const active = revision.revisionNumber === currentRevision;
-                    return (
-                      <button
-                        key={revision.id}
-                        type="button"
-                        onClick={() => loadRevision(revision.revisionNumber)}
-                        title={`Revision ${revision.revisionNumber} · ${new Date(
-                          revision.createdAt
-                        ).toLocaleString()}`}
-                        className={`flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[10px] font-medium transition-colors ${
-                          active
-                            ? "theme-primary-button shadow-sm"
-                            : "theme-control text-zinc-500 hover:text-[var(--page-fg)]"
-                        }`}
-                      >
-                        <span
-                          className={`size-1.5 rounded-full ${
-                            active ? "bg-[var(--accent)]" : "bg-[var(--hairline-strong)]"
-                          }`}
-                        />
-                        v{revision.revisionNumber}
-                      </button>
-                    );
-                  })}
-              </div>
-            )}
-            <div className="pointer-events-auto w-full max-w-3xl">
-              <ChatPane
-                messages={messages}
-                onSend={sendOrPaywall}
+          <div className="relative min-w-0 flex-1">
+            <div className="h-full overflow-hidden rounded-2xl border border-[var(--hairline)] bg-[var(--clay)]">
+              <ViewportPane
+                glbUrl={glbUrl}
+                code={code}
                 isLoading={isLoading || isProjectLoading}
-                lastError={error}
-                supportsVision={modelConfig?.supportsVision ?? false}
-                selection={selectedFace}
-                runEvents={isLoading ? runEvents : undefined}
-                runStartedAt={runStartedAt}
-                versions={
-                  demo
-                    ? {
-                        selected: demoPlaying ? null : demoStep,
-                        onSelect: (step) => selectDemoStep(demo, step),
-                      }
+                previewUrl={isLoading ? buildPreview?.url : undefined}
+                previewLabel={buildPreview ? `Built: ${buildPreview.name}` : undefined}
+                progressMessage={
+                  isLoading
+                    ? runEvents.filter((event) => event.stage !== "snapshot").at(-1)
+                        ?.message
                     : undefined
                 }
-                header={
-                  demo ? (
-                    <DemoReplay
-                      demo={demo}
-                      step={demoStep}
-                      reached={demoReached}
-                      playing={demoPlaying}
-                      onSelect={(step) => selectDemoStep(demo, step)}
-                      onNext={() =>
-                        demoStep < demoReached
-                          ? selectDemoStep(demo, demoStep + 1)
-                          : playDemoStep(demo, demoStep + 1)
-                      }
-                      onReplay={() => {
-                        if (demoStep >= demo.steps.length) {
-                          // "Watch again" builds the whole story from version 1.
-                          demoReachedRef.current = 0;
-                          setDemoReached(0);
-                          playDemoStep(demo, 1);
-                        } else {
-                          playDemoStep(demo, demoStep);
-                        }
-                      }}
-                      onExit={exitDemo}
-                    />
-                  ) : undefined
-                }
+                showSelectionCard={false}
+                onThumbnail={handleThumbnail}
+                onSelectionChange={handleSelectionChange}
+                onSelectBlocked={isLocked ? () => setPaywall("build") : undefined}
               />
+            </div>
+
+            <div className="pointer-events-none absolute right-3 top-3 z-20 hidden sm:block">
+              <div className="theme-floating pointer-events-auto w-[230px] rounded-2xl border p-3.5 shadow-xl shadow-black/10 backdrop-blur-xl">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--control-hover)] text-zinc-400">
+                    <Ruler className="size-3.5" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-600">
+                      Overall size
+                    </p>
+                    {inspection?.bounding_box_mm ? (
+                      <p className="mt-0.5 text-xs font-medium">
+                        {inspection.bounding_box_mm.x.toFixed(1)} ×{" "}
+                        {inspection.bounding_box_mm.y.toFixed(1)} ×{" "}
+                        {inspection.bounding_box_mm.z.toFixed(1)} mm
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        Awaiting model dimensions
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {inspection && (
+                  <div className="mt-3 flex items-center justify-between border-t border-[var(--hairline)] pt-2.5 text-[10px] text-zinc-500">
+                    <span className="flex items-center gap-1.5">
+                      <Box className="size-3" />
+                      {inspection.shape_type ?? "Solid"}
+                    </span>
+                    <span>{Math.round(inspection.volume_mm3 ?? 0).toLocaleString()} mm³</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pointer-events-none absolute inset-x-2 bottom-2 z-30 flex justify-center sm:inset-x-3 sm:bottom-3">
+              <div className="pointer-events-auto w-full max-w-[620px]">
+                <ChatPane
+                  messages={messages}
+                  onSend={sendOrPaywall}
+                  isLoading={isLoading || isProjectLoading}
+                  lastError={error}
+                  supportsVision={modelConfig?.supportsVision ?? false}
+                  selection={selectedFace}
+                  runEvents={isLoading ? runEvents : undefined}
+                  runStartedAt={runStartedAt}
+                  versions={
+                    demo
+                      ? {
+                          selected: demoPlaying ? null : demoStep,
+                          onSelect: (step) => selectDemoStep(demo, step),
+                        }
+                      : undefined
+                  }
+                />
+              </div>
             </div>
           </div>
         </main>
