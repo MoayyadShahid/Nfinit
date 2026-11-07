@@ -31,6 +31,7 @@ from projects import router as projects_router
 from projects.billing import billing_enabled
 from projects.body_limit import BodySizeLimitMiddleware
 from projects.limits import MAX_CODE_CHARS, SandboxUserId
+from projects.store import get_project_store
 from projects.account import router as account_router
 from projects.billing import router as billing_router
 from projects.meshes import router as meshes_router
@@ -90,6 +91,10 @@ async def lifespan(_app: FastAPI):
     yield
     stop_sandbox()
     flush_tracing()
+    # Close pooled database connections, if this deployment uses Postgres.
+    close = getattr(get_project_store(), "close", None)
+    if callable(close):
+        close()
 
 
 app = FastAPI(title="Nfinit Geometry Engine", lifespan=lifespan)
