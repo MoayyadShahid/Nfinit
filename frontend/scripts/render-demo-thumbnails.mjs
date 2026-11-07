@@ -104,7 +104,11 @@ const server = createServer((request, response) => {
     response.writeHead(404).end();
     return;
   }
-  response.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
+  // Demo models are stored gzipped; serve them as the site does (next.config.ts).
+  const headers = file.endsWith(".glb.gz")
+    ? { "content-type": "model/gltf-binary", "content-encoding": "gzip" }
+    : { "content-type": TYPES[extname(file)] ?? "application/octet-stream" };
+  response.writeHead(200, headers);
   createReadStream(file).pipe(response);
 });
 await new Promise((ready) => server.listen(0, "127.0.0.1", ready));

@@ -32,7 +32,19 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
+    return [
+      { source: "/:path*", headers: SECURITY_HEADERS },
+      // Demo models are stored gzipped (backend/demos/build.py): Vercel does
+      // not compress GLB files, and gzip makes them about 70% smaller. The
+      // browser decodes them, so the viewer still receives a plain GLB.
+      {
+        source: "/demos/:slug/:file*.glb.gz",
+        headers: [
+          { key: "Content-Type", value: "model/gltf-binary" },
+          { key: "Content-Encoding", value: "gzip" },
+        ],
+      },
+    ];
   },
 };
 

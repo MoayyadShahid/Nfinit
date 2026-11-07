@@ -1,3 +1,4 @@
+import gzip
 import json
 from pathlib import Path
 
@@ -27,11 +28,14 @@ def test_every_listed_demo_is_complete_and_safe():
             assert step["code"] == design.code(number)
             validate_cad_code(step["code"])
             assert step["agent"]["inspection"]["valid"]
-            glb = (DEMOS / item["slug"] / step["glb"]).read_bytes()
+            # Stored gzipped; next.config.ts serves them with Content-Encoding.
+            assert step["glb"].endswith(".glb.gz")
+            glb = gzip.decompress((DEMOS / item["slug"] / step["glb"]).read_bytes())
             assert glb[:4] == b"glTF"
             assert step["previews"], f"{item['slug']} step {number} adds no feature"
             for preview in step["previews"]:
-                assert (DEMOS / item["slug"] / preview["file"]).read_bytes()[:4] == b"glTF"
+                preview_glb = (DEMOS / item["slug"] / preview["file"]).read_bytes()
+                assert gzip.decompress(preview_glb)[:4] == b"glTF"
             assert all(event["at_ms"] >= 0 for event in step["events"])
         # The Parts gallery shows this picture on the demo's card.
         assert (DEMOS / item["slug"] / "thumbnail.webp").read_bytes()[8:12] == b"WEBP"

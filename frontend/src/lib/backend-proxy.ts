@@ -82,6 +82,27 @@ function isSameOrigin(request: Request): boolean {
 }
 
 /** Forward a request to the backend as the signed-in Supabase user. */
+/** Binary types that Vercel's CDN leaves uncompressed. */
+const COMPRESSIBLE_TYPES = [
+  "model/gltf-binary",
+  "model/stl",
+  "application/step",
+  "application/octet-stream",
+];
+
+function shouldCompress(request: Request, response: globalThis.Response): boolean {
+  const accepts = request.headers.get("accept-encoding") ?? "";
+  const type = (response.headers.get("content-type") ?? "").split(";")[0].trim();
+  const length = Number(response.headers.get("content-length") ?? "0");
+  return (
+    /\bgzip\b/.test(accepts) &&
+    COMPRESSIBLE_TYPES.includes(type) &&
+    !response.headers.has("content-encoding") &&
+    // Tiny bodies gain nothing; an unknown length is worth compressing.
+    (length === 0 || length >= 1024)
+  );
+}
+
 export async function proxyToBackend(
   request: Request,
   segments: string[],
@@ -102,6 +123,10 @@ export async function proxyToBackend(
   const headers = new Headers();
   const contentType = request.headers.get("content-type");
   if (contentType) headers.set("Content-Type", contentType);
+  // Ask the backend for plain bytes. Node's fetch would decode a gzipped body
+  // but keep its compressed Content-Length; this proxy compresses for the
+  // browser itself (below), and Vercel compresses JSON.
+  headers.set("Accept-Encoding", "identity");
 
   if (!isSupabaseConfigured() && !localAuthBypassEnabled()) {
     return Response.json(
@@ -151,10 +176,18 @@ export async function proxyToBackend(
     }
     // Stream model files instead of copying up to hundreds of megabytes into
     // the Vercel function's heap. 204/304 must not carry a body.
-    const responseBody =
+    let responseBody =
       response.status === 204 || response.status === 304
         ? null
         : response.body;
+    // Vercel's CDN compresses JSON and text but not models or exports, which
+    // shrink to about 30%. Compress those here, as a stream.
+    if (responseBody && shouldCompress(request, response)) {
+      responseBody = responseBody.pipeThrough(new CompressionStream("gzip"));
+      responseHeaders.delete("content-length");
+      responseHeaders.set("content-encoding", "gzip");
+      responseHeaders.set("vary", "Accept-Encoding");
+    }
     return new Response(responseBody, {
       status: response.status,
       headers: responseHeaders,
