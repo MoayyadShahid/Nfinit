@@ -36,6 +36,9 @@ import {
   listRevisions,
   uploadThumbnail,
   type ProjectRevision,
+  type RevisionSummary,
+  getRevision,
+  toRevisionSummary,
   type ProjectState,
   type ProjectSummary,
 } from "@/lib/projects";
@@ -123,6 +126,24 @@ function demoHistory(target: Demo, steps: number): ChatMessage[] {
   ]);
 }
 
+
+/** Models kept in memory per studio session, as blob URLs. */
+const MESH_CACHE_SIZE = 12;
+
+function revisionKey(projectId: string, revisionNumber: number): string {
+  return `${projectId}:${revisionNumber}`;
+}
+
+/** Free a model URL unless the version cache still holds it. */
+function releaseGlbUrl(
+  url: string | null,
+  cache: Map<string, { url: string }>
+): void {
+  if (!url || !url.startsWith("blob:")) return;
+  for (const entry of cache.values()) if (entry.url === url) return;
+  URL.revokeObjectURL(url);
+}
+
 export default function Studio({
   viewer,
   initialPrompt,
@@ -141,6 +162,18 @@ export default function Studio({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL);
   const [glbUrl, setGlbUrl] = useState<string | null>(null);
+  const glbUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    glbUrlRef.current = glbUrl;
+  }, [glbUrl]);
+  // Versions never change once saved, so what was fetched stays valid:
+  // their states, and their models as blob URLs (newest last). Switching
+  // back to a version is then instant, and the viewer's own cache, keyed by
+  // URL, also hits.
+  const revisionCacheRef = useRef(new Map<string, ProjectRevision>());
+  const meshCacheRef = useRef(
+    new Map<string, { url: string; inspection: ModelInspection | null }>()
+  );
   const [selectedFace, setSelectedFace] = useState<FaceSelection | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   // Progress of the run in flight; cleared when it finishes.
@@ -159,7 +192,7 @@ export default function Studio({
   const [error, setError] = useState<string | null>(null);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [revisions, setRevisions] = useState<ProjectRevision[]>([]);
+  const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
   const [currentRevision, setCurrentRevision] = useState<number | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(true);
@@ -228,7 +261,7 @@ export default function Studio({
       const url = URL.createObjectURL(blob);
       if (clearSelection) setSelectedFace(null);
       setGlbUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
+        releaseGlbUrl(prev, meshCacheRef.current);
         return url;
       });
     } catch (e) {
@@ -244,18 +277,43 @@ export default function Studio({
 
   // A saved revision's mesh is stored on the backend: download it instead of
   // building it again, and take its geometry facts from the same answer.
-  const loadRevisionMesh = useCallback(async (revision: ProjectRevision) => {
+  const loadRevisionMesh = useCallback(async (revision: RevisionSummary) => {
     setError(null);
+    const key = revisionKey(revision.projectId, revision.revisionNumber);
+    const show = (entry: { url: string; inspection: ModelInspection | null }) => {
+      setInspection(entry.inspection);
+      setGlbUrl((prev) => {
+        if (prev !== entry.url) releaseGlbUrl(prev, meshCacheRef.current);
+        return entry.url;
+      });
+    };
+    const cached = meshCacheRef.current.get(key);
+    if (cached) {
+      meshCacheRef.current.delete(key); // most recently used goes last
+      meshCacheRef.current.set(key, cached);
+      show(cached);
+      return;
+    }
     try {
       const mesh = await getRevisionMesh(
         revision.projectId,
         revision.revisionNumber
       );
-      setInspection(mesh.inspection.valid ? mesh.inspection : null);
-      setGlbUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return mesh.url;
-      });
+      const response = await fetch(mesh.url);
+      if (!response.ok) throw new Error("Could not download the model.");
+      const entry = {
+        url: URL.createObjectURL(await response.blob()),
+        inspection: mesh.inspection.valid ? mesh.inspection : null,
+      };
+      const cache = meshCacheRef.current;
+      cache.set(key, entry);
+      while (cache.size > MESH_CACHE_SIZE) {
+        const [oldestKey, oldest] = cache.entries().next().value!;
+        cache.delete(oldestKey);
+        // The shown model is released when it is replaced.
+        if (oldest.url !== glbUrlRef.current) URL.revokeObjectURL(oldest.url);
+      }
+      show(entry);
     } catch (e) {
       setError(
         e instanceof SubscriptionRequiredError
@@ -278,6 +336,10 @@ export default function Studio({
 
   const applyRevision = useCallback(
     async (revision: ProjectRevision) => {
+      revisionCacheRef.current.set(
+        revisionKey(revision.projectId, revision.revisionNumber),
+        revision
+      );
       const state = revision.state;
       setCode(state.code);
       setMessages(state.messages);
@@ -370,8 +432,12 @@ export default function Studio({
         if (projectId) {
           savedProjectId = projectId;
           const revision = await addRevision(projectId, state);
+          revisionCacheRef.current.set(
+            revisionKey(revision.projectId, revision.revisionNumber),
+            revision
+          );
           setRevisions((previous) => [
-            revision,
+            toRevisionSummary(revision),
             ...previous.filter((item) => item.id !== revision.id),
           ]);
           setCurrentRevision(revision.revisionNumber);
@@ -399,7 +465,9 @@ export default function Studio({
             project,
             ...previous.filter((item) => item.id !== project.id),
           ]);
-          setRevisions(project.latestRevision ? [project.latestRevision] : []);
+          setRevisions(
+            project.latestRevision ? [toRevisionSummary(project.latestRevision)] : []
+          );
           setCurrentRevision(
             project.latestRevision?.revisionNumber ?? null
           );
@@ -459,7 +527,7 @@ export default function Studio({
       return;
     }
     setGlbUrl((previous) => {
-      if (previous) URL.revokeObjectURL(previous);
+      releaseGlbUrl(previous, meshCacheRef.current);
       return null;
     });
     setProjectId(null);
@@ -484,19 +552,22 @@ export default function Studio({
       ) {
         return;
       }
-      const revision = revisions.find(
-        (item) => item.revisionNumber === revisionNumber
-      );
-      if (!revision) return;
-      setIsProjectLoading(true);
+      if (!projectId) return;
+      const key = revisionKey(projectId, revisionNumber);
+      const cached = revisionCacheRef.current.get(key);
+      // A version seen before switches at once, without the loading cover.
+      const instant = Boolean(cached && meshCacheRef.current.has(key));
+      if (!instant) setIsProjectLoading(true);
       setError(null);
       try {
-        await applyRevision(revision);
+        await applyRevision(cached ?? (await getRevision(projectId, revisionNumber)));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not load this version.");
       } finally {
-        setIsProjectLoading(false);
+        if (!instant) setIsProjectLoading(false);
       }
     },
-    [applyRevision, isDirty, revisions]
+    [applyRevision, isDirty, projectId]
   );
 
   // Load what a finished run produced. The backend has already saved a
@@ -595,7 +666,7 @@ export default function Studio({
     setCode(recorded.code);
     setInspection(recorded.agent.inspection.valid ? recorded.agent.inspection : null);
     setGlbUrl((previous) => {
-      if (previous) URL.revokeObjectURL(previous);
+      releaseGlbUrl(previous, meshCacheRef.current);
       return demoFile(target.slug, recorded.glb);
     });
     setDemoStep(step);
@@ -1064,10 +1135,17 @@ export default function Studio({
   }, [handleGenerate]);
 
   useEffect(() => {
-    return () => {
-      if (glbUrl) URL.revokeObjectURL(glbUrl);
-    };
+    const cache = meshCacheRef.current; // the same Map for the studio's life
+    return () => releaseGlbUrl(glbUrl, cache);
   }, [glbUrl]);
+
+  useEffect(() => {
+    const cache = meshCacheRef.current;
+    return () => {
+      for (const entry of cache.values()) URL.revokeObjectURL(entry.url);
+      cache.clear();
+    };
+  }, []);
 
   const showWelcome =
     hasInitialized && !projectId && messages.length === 0 && glbUrl === null;

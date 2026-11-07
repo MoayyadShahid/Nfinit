@@ -62,14 +62,19 @@ class RevisionCreate(BaseModel):
     state: ProjectState
 
 
-class ProjectRevision(BaseModel):
+class RevisionSummary(BaseModel):
+    """A revision without its state: what a version list needs."""
+
     model_config = ConfigDict(serialize_by_alias=True)
 
     id: str
     project_id: str = Field(serialization_alias="projectId")
     revision_number: int = Field(serialization_alias="revisionNumber")
-    state: ProjectState
     created_at: datetime = Field(serialization_alias="createdAt")
+
+
+class ProjectRevision(RevisionSummary):
+    state: ProjectState
 
 
 class ProjectSummary(BaseModel):

@@ -179,3 +179,25 @@ def test_project_and_revision_counts_are_bounded(client, monkeypatch):
     )
     assert too_many_projects.status_code == 413
     assert "project limit" in too_many_projects.json()["detail"]
+
+
+def test_revision_list_can_leave_out_states(client):
+    project = client.post("/projects", json={"name": "Bracket"}).json()
+    project_id = project["id"]
+    for code in ("result = Box(1, 1, 1)", "result = Box(2, 2, 2)"):
+        response = client.post(
+            f"/projects/{project_id}/revisions",
+            json={"state": {"code": code, "messages": [{"role": "user", "content": code}]}},
+        )
+        assert response.status_code == 201
+
+    full = client.get(f"/projects/{project_id}/revisions").json()
+    summaries = client.get(f"/projects/{project_id}/revisions?state=false").json()
+
+    assert all("state" in item for item in full)
+    # Same versions, newest first, without the chat and code of each one.
+    assert summaries == [
+        {key: item[key] for key in ("id", "projectId", "revisionNumber", "createdAt")}
+        for item in full
+    ]
+    assert client.get("/projects/missing/revisions?state=false").status_code == 404
