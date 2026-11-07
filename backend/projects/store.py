@@ -16,6 +16,7 @@ from .models import (
     ProjectCreate,
     ProjectDetail,
     ProjectRevision,
+    RevisionSummary,
     ProjectState,
     ProjectSummary,
     RunEvent,
@@ -68,6 +69,8 @@ class StoredMesh:
 
 # Thumbnail bytes stay out of list/detail queries; only the timestamp is read.
 PROJECT_COLUMNS = "p.id, p.name, p.created_at, p.updated_at, p.thumbnail_updated_at"
+# A revision without state_json, for version lists.
+REVISION_SUMMARY_COLUMNS = "id, project_id, revision_number, created_at"
 
 
 LEGACY_LOCAL_USER_ID = "00000000-0000-4000-8000-000000000001"
@@ -152,7 +155,8 @@ class ProjectStoreProtocol(Protocol):
         user_id: str,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[ProjectRevision]: ...
+        with_state: bool = True,
+    ) -> list[ProjectRevision] | list[RevisionSummary]: ...
 
     def get_revision(
         self, project_id: str, revision_number: int, *, user_id: str
@@ -512,6 +516,15 @@ class ProjectStore:
         )
 
     @staticmethod
+    def _revision_summary(row: sqlite3.Row) -> RevisionSummary:
+        return RevisionSummary(
+            id=row["id"],
+            project_id=row["project_id"],
+            revision_number=row["revision_number"],
+            created_at=row["created_at"],
+        )
+
+    @staticmethod
     def _summary(row: sqlite3.Row) -> ProjectSummary:
         return ProjectSummary(
             id=row["id"],
@@ -706,7 +719,9 @@ class ProjectStore:
         user_id: str,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[ProjectRevision]:
+        with_state: bool = True,
+    ) -> list[ProjectRevision] | list[RevisionSummary]:
+        columns = "*" if with_state else REVISION_SUMMARY_COLUMNS
         with self._connect() as connection:
             if (
                 connection.execute(
@@ -717,14 +732,16 @@ class ProjectStore:
             ):
                 raise ProjectNotFoundError(project_id)
             rows = connection.execute(
-                """
-                SELECT * FROM project_revisions
+                f"""
+                SELECT {columns} FROM project_revisions
                 WHERE project_id = ?
                 ORDER BY revision_number DESC
                 LIMIT ? OFFSET ?
                 """,
                 (project_id, limit, offset),
             ).fetchall()
+        if not with_state:
+            return [self._revision_summary(row) for row in rows]
         return [self._revision(row) for row in rows]
 
     def get_revision(

@@ -19,6 +19,7 @@ from .models import (
     ProjectCreate,
     ProjectDetail,
     ProjectRevision,
+    RevisionSummary,
     ProjectSummary,
     ProjectUpdate,
     RevisionCreate,
@@ -136,17 +137,23 @@ def create_revision(
         raise _not_found(error) from error
 
 
-@router.get("/{project_id}/revisions", response_model=list[ProjectRevision])
+@router.get(
+    "/{project_id}/revisions",
+    response_model=list[ProjectRevision] | list[RevisionSummary],
+)
 def list_revisions(
     project_id: str,
     store: Store,
     user_id: UserId,
     limit: Annotated[int, Query(ge=1, le=200)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    # state=false lists versions without their chat and code: a version list
+    # needs only numbers and dates, and each state can be large.
+    state: Annotated[bool, Query()] = True,
 ):
     try:
         return store.list_revisions(
-            project_id, user_id=user_id, limit=limit, offset=offset
+            project_id, user_id=user_id, limit=limit, offset=offset, with_state=state
         )
     except ProjectNotFoundError as error:
         raise _not_found(error) from error

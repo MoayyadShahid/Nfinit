@@ -58,12 +58,15 @@ function PartCard({
   part,
   onRenamed,
   onDeleted,
+  onRestored,
   onError,
   onSubscriptionRequired,
 }: {
   part: ProjectSummary;
   onRenamed: (part: ProjectSummary) => void;
   onDeleted: (id: string) => void;
+  /** Puts a part back after a delete that failed. */
+  onRestored: (part: ProjectSummary) => void;
   onError: (message: string) => void;
   onSubscriptionRequired: () => void;
 }) {
@@ -79,27 +82,28 @@ function PartCard({
       setEditing(false);
       return;
     }
-    setBusy("rename");
+    // Show the new name at once; put the old one back if the save fails.
+    const previous = part;
+    onRenamed({ ...part, name: trimmed });
+    setEditing(false);
     try {
-      const updated = await renameProject(part.id, trimmed);
-      onRenamed(updated);
-      setEditing(false);
+      onRenamed(await renameProject(part.id, trimmed));
     } catch (e) {
+      onRenamed(previous);
+      setName(previous.name);
       onError(e instanceof Error ? e.message : "Rename failed");
-    } finally {
-      setBusy(null);
     }
   };
 
   const remove = async () => {
     if (!window.confirm(`Delete “${part.name}” and all of its revisions?`)) return;
-    setBusy("delete");
+    // Remove the card at once; bring it back if the delete fails.
+    onDeleted(part.id);
     try {
       await deleteProject(part.id);
-      onDeleted(part.id);
     } catch (e) {
+      onRestored(part);
       onError(e instanceof Error ? e.message : "Delete failed");
-      setBusy(null);
     }
   };
 
@@ -178,7 +182,6 @@ function PartCard({
             />
             <button
               type="submit"
-              disabled={busy === "rename"}
               aria-label="Save name"
               className="theme-control rounded-lg p-2 text-[var(--ink-2)] hover:text-[var(--ink)]"
             >
@@ -442,6 +445,15 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
                 onDeleted={(id) =>
                   setParts((previous) =>
                     previous?.filter((item) => item.id !== id) ?? null
+                  )
+                }
+                onRestored={(restored) =>
+                  setParts((previous) =>
+                    previous
+                      ? [...previous.filter((item) => item.id !== restored.id), restored].sort(
+                          (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
+                        )
+                      : previous
                   )
                 }
               />

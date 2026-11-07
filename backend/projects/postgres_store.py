@@ -16,6 +16,7 @@ from .models import (
     ProjectCreate,
     ProjectDetail,
     ProjectRevision,
+    RevisionSummary,
     ProjectState,
     ProjectSummary,
     RunEvent,
@@ -23,6 +24,7 @@ from .models import (
 )
 from .store import (
     PROJECT_COLUMNS,
+    REVISION_SUMMARY_COLUMNS,
     RUN_EVENT_RESERVE_BYTES,
     ProjectNotFoundError,
     RevisionNotFoundError,
@@ -199,6 +201,15 @@ class PostgresProjectStore:
             return str(UUID(project_id))
         except (ValueError, AttributeError) as error:
             raise ProjectNotFoundError(project_id) from error
+
+    @staticmethod
+    def _revision_summary(row: dict) -> RevisionSummary:
+        return RevisionSummary(
+            id=str(row["id"]),
+            project_id=str(row["project_id"]),
+            revision_number=row["revision_number"],
+            created_at=row["created_at"],
+        )
 
     @staticmethod
     def _revision(row: dict) -> ProjectRevision:
@@ -427,8 +438,12 @@ class PostgresProjectStore:
         user_id: str,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[ProjectRevision]:
+        with_state: bool = True,
+    ) -> list[ProjectRevision] | list[RevisionSummary]:
         project_id = self._project_uuid(project_id)
+        # Without states the query never reads state_json, which holds the
+        # whole chat and code of every version.
+        columns = "*" if with_state else REVISION_SUMMARY_COLUMNS
         with self._connect(user_id) as connection:
             project = connection.execute(
                 """
@@ -440,14 +455,16 @@ class PostgresProjectStore:
             if project is None:
                 raise ProjectNotFoundError(project_id)
             rows = connection.execute(
-                """
-                SELECT * FROM public.project_revisions
+                f"""
+                SELECT {columns} FROM public.project_revisions
                 WHERE project_id = %s
                 ORDER BY revision_number DESC
                 LIMIT %s OFFSET %s
                 """,
                 (project_id, limit, offset),
             ).fetchall()
+        if not with_state:
+            return [self._revision_summary(row) for row in rows]
         return [self._revision(row) for row in rows]
 
     def get_revision(

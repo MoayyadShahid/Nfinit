@@ -8,13 +8,22 @@ export type ProjectState = {
   lastRunId: string | null;
 };
 
-export type ProjectRevision = {
+/** A version in a list: enough to show and pick it, without its state. */
+export type RevisionSummary = {
   id: string;
   projectId: string;
   revisionNumber: number;
-  state: ProjectState;
   createdAt: string;
 };
+
+export type ProjectRevision = RevisionSummary & {
+  state: ProjectState;
+};
+
+export function toRevisionSummary(revision: RevisionSummary): RevisionSummary {
+  const { id, projectId, revisionNumber, createdAt } = revision;
+  return { id, projectId, revisionNumber, createdAt };
+}
 
 export type ProjectSummary = {
   id: string;
@@ -92,8 +101,17 @@ export function getProject(projectId: string): Promise<ProjectDetail> {
   return requestJson(`/projects/${projectId}`);
 }
 
-export function listRevisions(projectId: string): Promise<ProjectRevision[]> {
-  return requestJson(`/projects/${projectId}/revisions`);
+/** The project's versions, newest first, without their (large) states. */
+export function listRevisions(projectId: string): Promise<RevisionSummary[]> {
+  return requestJson(`/projects/${projectId}/revisions?state=false`);
+}
+
+/** One version with its state: its code and the chat up to it. */
+export function getRevision(
+  projectId: string,
+  revisionNumber: number
+): Promise<ProjectRevision> {
+  return requestJson(`/projects/${projectId}/revisions/${revisionNumber}`);
 }
 
 export function createProject(
