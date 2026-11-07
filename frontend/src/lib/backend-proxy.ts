@@ -115,10 +115,13 @@ export async function proxyToBackend(
     if (!supabase) {
       return Response.json({ detail: "Authentication required." }, { status: 401 });
     }
-    const { data: userData } = await supabase.auth.getUser();
+    // Forward the session's access token; the backend verifies its signature,
+    // expiry and audience on every request. Asking Supabase Auth here as well
+    // (getUser) cost a network round trip before every API call.
+    // getSession refreshes an expired token first.
     const { data: sessionData } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
-    if (!userData.user || !accessToken) {
+    if (!accessToken) {
       return Response.json({ detail: "Authentication required." }, { status: 401 });
     }
     headers.set("Authorization", `Bearer ${accessToken}`);
