@@ -455,7 +455,7 @@ function FeatureList({
   onToggle: (featureId: string) => void;
 }) {
   return (
-    <div className="absolute left-3 top-[118px] z-20 hidden w-[230px] sm:block">
+    <div className="absolute right-3 top-[118px] z-20 hidden w-[230px] sm:block">
       <div className="theme-floating rounded-2xl border p-2 shadow-xl shadow-black/10 backdrop-blur-xl">
         <p className="flex items-center gap-1.5 px-1.5 pb-1.5 pt-0.5 text-[10px] uppercase tracking-[0.14em] text-zinc-600">
           <Layers className="size-3" />

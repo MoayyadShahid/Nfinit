@@ -20,7 +20,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useRef, useEffect, useState, useCallback, type ReactNode } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 
 export type { ChatMessage } from "@/lib/types";
 
@@ -63,8 +63,6 @@ interface ChatPaneProps {
   /** Progress of the run in flight; shown above the input while set. */
   runEvents?: RunEvent[];
   runStartedAt?: number | null;
-  /** Shown above the progress and the input, e.g. demo replay controls. */
-  header?: ReactNode;
   /**
    * Treat each reply as a version of the part, like a CAD timeline: replies
    * are numbered, a click shows that version, and later turns are dimmed.
@@ -84,7 +82,6 @@ export function ChatPane({
   initialInput = "",
   runEvents,
   runStartedAt = null,
-  header,
   versions,
 }: ChatPaneProps) {
   const [input, setInput] = useState(initialInput);
@@ -108,7 +105,16 @@ export function ChatPane({
     } else {
       list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
     }
-  }, [messages, selectedVersion]);
+  }, [messages, selectedVersion, historyOpen]);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHistoryOpen(false);
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [historyOpen]);
 
   const addFiles = useCallback(async (files: FileList | File[]) => {
     const list = Array.from(files).filter((f) =>
@@ -170,13 +176,6 @@ export function ChatPane({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const latestRequest = [...messages]
-    .reverse()
-    .find((message) => message.role === "user");
-  const latestRequestText = latestRequest
-    ? getTextContent(latestRequest.content).trim()
-    : "";
-
   return (
     <div
       className={`flex min-h-0 flex-col ${
@@ -187,31 +186,21 @@ export function ChatPane({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      {variant === "studio" && (
-        <div className="flex h-11 shrink-0 items-center gap-3 border-b border-[var(--hairline)] px-3.5">
+      {variant === "studio" && historyOpen && (
+        <div className="flex h-10 shrink-0 items-center gap-2 border-b border-[var(--hairline)] pl-4 pr-2">
+          <MessagesSquare className="size-3.5 text-[var(--ink-2)]" />
+          <p className="min-w-0 flex-1 text-[11px] font-medium text-[var(--ink-2)]">
+            Conversation
+            <span className="ml-1.5 font-normal text-zinc-500">{messages.length}</span>
+          </p>
           <button
             type="button"
-            onClick={() => setHistoryOpen((open) => !open)}
-            aria-expanded={historyOpen}
-            className="theme-control flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-[var(--ink-2)] transition-colors hover:text-[var(--page-fg)]"
+            onClick={() => setHistoryOpen(false)}
+            aria-label="Hide the conversation"
+            className="rounded-md p-1.5 text-zinc-500 hover:bg-[var(--control-hover)] hover:text-[var(--ink)]"
           >
-            <MessagesSquare className="size-3.5 text-[var(--ink-2)]" />
-            History
-            <span className="text-zinc-600">{messages.length}</span>
-            <ChevronDown
-              className={`size-3 transition-transform ${historyOpen ? "rotate-180" : ""}`}
-            />
+            <ChevronDown className="size-4" />
           </button>
-          {!historyOpen && latestRequestText && (
-            <p className="min-w-0 flex-1 truncate text-[11px] text-zinc-600">
-              Latest: {latestRequestText}
-            </p>
-          )}
-          {historyOpen && (
-            <p className="min-w-0 flex-1 text-right text-[10px] text-zinc-600">
-              Conversation behind this design
-            </p>
-          )}
         </div>
       )}
       <div
@@ -219,7 +208,7 @@ export function ChatPane({
         className={`min-h-0 space-y-4 overflow-y-auto p-4 ${
           variant === "studio"
             ? historyOpen
-              ? "h-[min(48dvh,520px)]"
+              ? "max-h-[min(42dvh,460px)]"
               : "hidden"
             : "flex-1"
         }`}
@@ -383,19 +372,27 @@ export function ChatPane({
           variant === "welcome" || historyOpen
             ? "border-t border-[var(--hairline)]"
             : ""
-        } p-3`}
+        } ${variant === "studio" ? "p-2" : "p-3"}`}
       >
-        {header}
         {runEvents && (
           <RunProgress events={runEvents} startedAt={runStartedAt} />
         )}
         {selection && (
-          <div className="flex items-center gap-2 rounded-xl border border-[var(--hairline-strong)] bg-[var(--clay)] px-3 py-2 text-[11px] text-[var(--ink-2)]">
-            <MapPin className="size-3.5" />
-            Prompt will target{" "}
-            {selection.entityId
-              ? `${selection.surfaceType ?? "B-rep face"} ${selection.entityId.slice(0, 13)}`
-              : `the face at (${selection.point.join(", ")} mm)`}
+          <div
+            title={selection.entityId ?? selection.point.join(", ")}
+            className="flex items-center gap-2 rounded-xl border border-[var(--hairline-strong)] bg-[var(--clay)] px-3 py-2 text-[11px] text-[var(--ink-2)]"
+          >
+            <MapPin className="size-3.5 shrink-0 text-[var(--accent)]" />
+            <span className="min-w-0 truncate">
+              <span className="font-medium text-[var(--ink)]">
+                {selection.surfaceType
+                  ? `${selection.surfaceType[0].toUpperCase()}${selection.surfaceType.slice(1)} face`
+                  : selection.entityId
+                    ? "Face"
+                    : `Point (${selection.point.join(", ")} mm)`}
+              </span>{" "}
+              selected. Your next request will change it.
+            </span>
           </div>
         )}
         {lastError && (
@@ -433,6 +430,27 @@ export function ChatPane({
         )}
 
         <div className="wb-composer theme-inset flex items-end gap-2 rounded-2xl border p-2 shadow-inner">
+          {variant === "studio" && (
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((open) => !open)}
+              aria-expanded={historyOpen}
+              aria-label={historyOpen ? "Hide the conversation" : "Show the conversation"}
+              title={historyOpen ? "Hide the conversation" : "Show the conversation"}
+              className={`relative flex size-9 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                historyOpen
+                  ? "bg-[var(--control-hover)] text-[var(--ink)]"
+                  : "theme-control text-[var(--muted)] hover:text-[var(--ink)]"
+              }`}
+            >
+              <MessagesSquare className="size-4" />
+              {messages.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--ink)] px-1 text-[9px] font-medium tabular-nums text-[var(--paper)]">
+                  {messages.length}
+                </span>
+              )}
+            </button>
+          )}
           {supportsVision && (
             <>
               <input
