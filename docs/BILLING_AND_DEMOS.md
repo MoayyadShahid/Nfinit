@@ -119,6 +119,9 @@ show the plan and the real build result, without timings.
 Each folder has `demo.json` (for every version: the request, the reply,
 the trace, the code, the finished GLB and the previews of the features that
 version adds) and the GLB files. `index.json` lists the demos in order.
+The GLB files are stored gzipped (`.glb.gz`, about 30% of their size), and
+`next.config.ts` serves them with `Content-Encoding: gzip`, so the browser
+decodes them; Vercel does not compress GLB files itself.
 
 **Replay as a version history.** The replay panel shows a timeline with one
 point per version, named after the features it adds. "Build next version"

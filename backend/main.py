@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
@@ -126,6 +127,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Models, exports and JSON leave compressed when the client accepts gzip. A
+# GLB shrinks to about 30%. Event streams are never compressed (Starlette
+# excludes text/event-stream), so progress still arrives as it happens.
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 
 # Outermost: oversized bodies are refused before anything reads them.
 app.add_middleware(BodySizeLimitMiddleware)

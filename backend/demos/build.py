@@ -13,6 +13,7 @@ Usage, from backend/ (no model calls, so no API key and no cost):
 """
 
 import argparse
+import gzip
 import json
 import shutil
 from pathlib import Path
@@ -34,6 +35,14 @@ ORDER = [
 OUTPUT = Path(__file__).resolve().parents[2] / "frontend" / "public" / "demos"
 SOURCE = "example"
 THUMBNAIL = "thumbnail.webp"
+
+
+def _write_glb(path: Path, glb: bytes) -> None:
+    """Write a model gzipped. next.config.ts serves *.glb.gz with
+    Content-Encoding: gzip, so browsers decode it themselves; Vercel would not
+    compress a GLB, and gzip makes it about 70% smaller. mtime=0 keeps the
+    bytes identical across rebuilds of the same model."""
+    path.write_bytes(gzip.compress(glb, compresslevel=9, mtime=0))
 
 
 class DemoFailed(RuntimeError):
@@ -65,15 +74,15 @@ def build_demo(design: Design, output: Path) -> dict:
             shutil.rmtree(folder, ignore_errors=True)
             raise DemoFailed(f"{design.slug} step {number} did not build: {inspection.error}")
         built = build_mesh(code)
-        (folder / f"step-{number}.glb").write_bytes(built.glb)
+        _write_glb(folder / f"step-{number}.glb.gz", built.glb)
 
         # Each step rebuilds the whole part; keep only what this step adds.
         added = [preview for preview in previews if preview.name not in seen]
         seen.update(preview.name for preview in previews)
         preview_files = []
         for index, preview in enumerate(added or previews[-1:], start=1):
-            name = f"step-{number}-preview-{index}.glb"
-            (folder / name).write_bytes(preview.glb)
+            name = f"step-{number}-preview-{index}.glb.gz"
+            _write_glb(folder / name, preview.glb)
             preview_files.append({"file": name, "name": preview.name})
 
         plan = design.plan(number)
@@ -99,7 +108,7 @@ def build_demo(design: Design, output: Path) -> dict:
                 "prompt": design.steps[number - 1].prompt,
                 "summary": summary,
                 "code": code,
-                "glb": f"step-{number}.glb",
+                "glb": f"step-{number}.glb.gz",
                 "previews": preview_files,
                 "events": events,
                 "agent": {
