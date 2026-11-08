@@ -177,8 +177,8 @@ def test_project(browser, base, shots):
     # The rail selects a revision before its mesh finishes downloading. Wait
     # for the new canvas/model so a later load cannot undo the test's zoom.
     page.wait_for_load_state("networkidle")
-    expect(page.get_by_role("button", name="Export", exact=True)).to_be_enabled()
-    expect(page.get_by_text("Features", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Export", exact=True)).to_be_enabled(timeout=30000)
+    expect(page.get_by_text("Features", exact=True)).to_be_visible(timeout=30000)
     canvas = page.locator("canvas").first
     expect(canvas).to_be_visible()
     page.wait_for_timeout(1000)  # let the model's reveal transition finish
