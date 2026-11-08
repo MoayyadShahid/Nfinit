@@ -174,17 +174,23 @@ def test_project(browser, base, shots):
     dialog.get_by_role("option", name=re.compile("Version 1")).click()
     expect(page.locator('[aria-current="step"]')).to_contain_text("Version 1")
     assert any(path == "/api/projects/test-part/revisions/1" for _, path, _ in fixture.requests)
+    # The rail selects a revision before its mesh finishes downloading. Wait
+    # for the new canvas/model so a later load cannot undo the test's zoom.
+    page.wait_for_load_state("networkidle")
+    expect(page.get_by_role("button", name="Export", exact=True)).to_be_enabled()
+    expect(page.get_by_text("Features", exact=True)).to_be_visible()
     canvas = page.locator("canvas").first
     expect(canvas).to_be_visible()
-    page.wait_for_timeout(500)
+    page.wait_for_timeout(1000)  # let the model's reveal transition finish
     box = canvas.bounding_box()
     page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
     page.mouse.wheel(0, 500)
-    page.wait_for_timeout(350)
+    page.wait_for_timeout(500)
+    page.mouse.move(10, 10)  # exclude face-hover highlights from the comparison
     before = canvas.screenshot()
     count = len(fixture.requests)
     palette(page, "Fit model").get_by_role("option", name="Fit model in view").click()
-    page.wait_for_timeout(400)
+    page.wait_for_timeout(500)
     assert before != canvas.screenshot(), "Fit view should move the camera"
     assert len(fixture.requests) == count, "Fit view must not regenerate a mesh"
     # Model changes in the composer are the exact allowlisted id in a run.
@@ -247,6 +253,9 @@ def test_mobile(browser, base, shots):
     page.keyboard.press("Escape")
     expect(drawer).to_have_count(0)
     trigger.click()
+    expect(drawer).to_be_visible()
+    # Vaul ignores drags for 500 ms after opening, even with reduced motion.
+    page.wait_for_timeout(550)
     bounds = drawer.bounding_box()
     page.mouse.move(bounds["x"] + bounds["width"] / 2, bounds["y"] + 22)
     page.mouse.down()
