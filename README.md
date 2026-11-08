@@ -1,6 +1,37 @@
 # Nfinit
 
-AI-native CAD IDE for comparing how different LLMs handle 3D geometry code.
+An open-source visual CAD workspace for Claude Code and Codex. Bring your own
+agent, reference pictures or STL, build and inspect locally, and keep your files.
+Nfinit is MIT-licensed. Local creation, editing, revisions and exports are free;
+inference uses your own agent account and remains subject to its usage limits.
+
+## Run locally
+
+Install Node.js 20.9+, Python 3.11/3.12, Poetry, and Claude Code or Codex. Sign in
+through the agent's own terminal login, then:
+
+```sh
+npm ci
+cd backend
+poetry install
+cd ..
+npm run local
+```
+
+Open **http://127.0.0.1:3000/studio** and select your agent. No Nfinit subscription,
+OpenRouter key, Stripe or Supabase setup is needed. macOS and Linux are supported;
+use WSL2 on Windows. If you already have a working Python environment, use
+`NFNIT_PYTHON=/path/to/python npm run local`.
+
+Attach or paste pictures into chat. Under **References & copies**, import an STL
+as a faceted solid or as a reference for an approximate parametric reconstruction.
+The original stays downloadable, edits create revisions, and you can save a new
+copy. STL imports do not recover the original feature history.
+
+See [the local workspace guide](docs/OPEN_SOURCE_WORKSPACE.md) for supported
+limits, verification coverage, and architecture; [CONTRIBUTING.md](CONTRIBUTING.md)
+for development. The existing hosted API deployment remains optional; the setup
+below describes that path.
 
 <img width="1470" height="761" alt="Screenshot 2026-02-17 at 6 27 44 PM" src="https://github.com/user-attachments/assets/88c0ec7a-4c47-4efb-925f-0d5ef71f04ea" />
 

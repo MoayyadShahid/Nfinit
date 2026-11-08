@@ -1,6 +1,7 @@
 {
   "name": "nfinit",
   "private": true,
+  "license": "MIT",
   "workspaces": [
     "frontend"
   ],
@@ -8,6 +9,7 @@
     "tailwindcss": "^4"
   },
   "scripts": {
+    "local": "python3 scripts/local.py",
     "dev": "npm run dev -w frontend",
     "build": "npm run build -w frontend",
     "start": "npm run start -w frontend"
