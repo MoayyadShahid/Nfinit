@@ -6,6 +6,7 @@ export const MODELS = {
 export interface ModelConfig {
   id: string;
   label: string;
+  description: string;
   supportsVision: boolean;
   supportsStructuredOutputs: boolean;
 }
@@ -15,12 +16,14 @@ export const MODEL_CONFIGS: ModelConfig[] = [
   {
     id: MODELS.CLAUDE_SONNET_5_5,
     label: "Claude Sonnet 5.5",
+    description: "Recommended for everyday CAD work",
     supportsVision: true,
     supportsStructuredOutputs: true,
   },
   {
     id: MODELS.CLAUDE_OPUS_5_5,
     label: "Claude Opus 5.5",
+    description: "An alternative for complex designs",
     supportsVision: true,
     supportsStructuredOutputs: true,
   },

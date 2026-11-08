@@ -3,6 +3,7 @@
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -14,6 +15,9 @@ import Link from "next/link";
 import { AccountMenu } from "@/components/AccountMenu";
 import { SubscribeButton } from "@/components/SubscribeButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import SmoothDrawer from "@/components/kokonutui/smooth-drawer";
+import { Button } from "@/components/ui/button";
+import { EXPORT_FORMATS, type ExportFormat } from "@/lib/exports";
 import { canSubscribe, type BillingStatus } from "@/lib/billing";
 import {
   ChevronDown,
@@ -22,17 +26,13 @@ import {
   FilePlus2,
   LayoutGrid,
   Save,
+  Search,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const EXPORT_FORMATS = [
-  { id: "step", label: "STEP", ext: ".step", desc: "CAD (Fusion, SolidWorks, Onshape)" },
-  { id: "brep", label: "BREP", ext: ".brep", desc: "OpenCASCADE tools" },
-  { id: "stl", label: "STL", ext: ".stl", desc: "3D printing" },
-] as const;
 const UNSAVED_PROJECT = "__unsaved__";
 
-export type ExportFormat = (typeof EXPORT_FORMATS)[number]["id"];
+export type { ExportFormat } from "@/lib/exports";
 export type Viewer = {
   email: string | null;
   name: string | null;
@@ -50,6 +50,8 @@ interface CommandBarProps {
   onProjectChange: (projectId: string) => void;
   onNewProject: () => void;
   onSave: () => void;
+  onOpenCommands: () => void;
+  busy: boolean;
   /** The user's plan: free users get "Start building", everyone the account menu. */
   billing?: BillingStatus | null;
   onBillingError?: (message: string) => void;
@@ -67,6 +69,8 @@ export function CommandBar({
   onProjectChange,
   onNewProject,
   onSave,
+  onOpenCommands,
+  busy,
   billing,
   onBillingError,
   viewer = null,
@@ -112,6 +116,7 @@ export function CommandBar({
         <Select
           value={projectId ?? UNSAVED_PROJECT}
           onValueChange={onProjectChange}
+          disabled={busy}
         >
           <SelectTrigger
             aria-label="Current part"
@@ -120,21 +125,25 @@ export function CommandBar({
             <SelectValue placeholder="Unsaved part" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={UNSAVED_PROJECT} disabled>
-              Unsaved part
-            </SelectItem>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name}
+            <SelectGroup>
+              <SelectItem value={UNSAVED_PROJECT} disabled>
+                Unsaved part
               </SelectItem>
-            ))}
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <button
           type="button"
           onClick={onNewProject}
+          disabled={busy}
           title="New part"
-          className="theme-control theme-muted flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)]"
+          aria-label="New part"
+          className="theme-control theme-muted hidden h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)] disabled:opacity-40 sm:flex"
         >
           <FilePlus2 className="size-3.5" />
           <span className="hidden xl:inline">New</span>
@@ -142,7 +151,7 @@ export function CommandBar({
         <button
           type="button"
           onClick={onSave}
-          disabled={isSaving || (!isDirty && projectId !== null)}
+          disabled={busy || isSaving || (!isDirty && projectId !== null)}
           title={
             projectId === null
               ? "Save part"
@@ -150,7 +159,7 @@ export function CommandBar({
                 ? "Save revision"
                 : "No unsaved changes"
           }
-          className="theme-control theme-muted relative flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)] disabled:cursor-not-allowed disabled:opacity-40"
+          className="theme-control theme-muted relative hidden h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)] disabled:cursor-not-allowed disabled:opacity-40 sm:flex"
         >
           <Save className="size-3.5" />
           <span className="hidden xl:inline">
@@ -162,13 +171,18 @@ export function CommandBar({
         </button>
       </div>
       <div className="flex shrink-0 items-center justify-end gap-2">
+        <Button variant="ghost" size="icon-sm" onClick={onOpenCommands} aria-label="Search Studio commands" title="Search commands (⌘K / Ctrl+K)">
+          <Search />
+        </Button>
         <ThemeToggle />
         {canSubscribe(billing ?? null) && (
-          <SubscribeButton
-            size="sm"
-            taxAtCheckout={billing?.taxAtCheckout ?? false}
-            onError={onBillingError}
-          />
+          <div className="hidden sm:block">
+            <SubscribeButton
+              size="sm"
+              taxAtCheckout={billing?.taxAtCheckout ?? false}
+              onError={onBillingError}
+            />
+          </div>
         )}
         <button
           type="button"
@@ -185,11 +199,15 @@ export function CommandBar({
           <Code2 className="size-3.5" />
           <span className="hidden sm:inline">Advanced</span>
         </button>
-        <div className="relative" ref={exportRef}>
+        <div className="sm:hidden">
+          <SmoothDrawer onExport={onExport} disabled={busy} />
+        </div>
+        <div className="relative hidden sm:block" ref={exportRef}>
           <button
             type="button"
             onClick={() => setExportOpen((o) => !o)}
             aria-label="Export"
+            disabled={busy}
             className="theme-primary-button flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold shadow-sm transition-transform hover:scale-[1.02] sm:px-3.5"
           >
             <Download className="size-3.5" />

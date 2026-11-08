@@ -131,9 +131,11 @@ function ClickableModel({
   selectedFaceId,
   featureFaceIds,
   interactive = true,
+  fitRequest = 0,
 }: {
   url: string;
   interactive?: boolean;
+  fitRequest?: number;
   onFaceClick: (sel: ThreeFaceSelection) => void;
   onThumbnail?: (image: Blob) => void;
   onLoaded?: (url: string) => void;
@@ -264,7 +266,7 @@ function ClickableModel({
           onPointerOut={interactive ? handlePointerOut : undefined}
         />
       </Center>
-      <FitCamera model={scene} />
+      <FitCamera model={scene} fitRequest={fitRequest} />
       {onThumbnail && <ThumbnailCapture model={scene} onCapture={onThumbnail} />}
     </>
   );
@@ -307,9 +309,11 @@ function Scene({
   selectedFaceId,
   featureFaceIds,
   interactive = true,
+  fitRequest = 0,
 }: {
   glbUrl: string | null;
   interactive?: boolean;
+  fitRequest?: number;
   onFaceClick: (sel: ThreeFaceSelection) => void;
   onThumbnail?: (image: Blob) => void;
   onModelShown?: (url: string) => void;
@@ -349,6 +353,7 @@ function Scene({
         selectedFaceId={selectedFaceId}
         featureFaceIds={featureFaceIds}
         interactive={interactive}
+        fitRequest={fitRequest}
       />
     </Suspense>
   );
@@ -359,7 +364,8 @@ function Scene({
  * changes noticeably, keeping the direction the user is looking from. Small
  * changes (a hole, a fillet, the next build preview) leave the camera alone.
  */
-function FitCamera({ model }: { model: THREE.Object3D }) {
+function FitCamera({ model, fitRequest }: { model: THREE.Object3D; fitRequest: number }) {
+  const lastFitRequest = useRef(fitRequest);
   const { camera, controls } = useThree();
 
   useEffect(() => {
@@ -371,7 +377,9 @@ function FitCamera({ model }: { model: THREE.Object3D }) {
         if (box.isEmpty()) return;
         const sphere = box.getBoundingSphere(new THREE.Sphere());
         const fitted = camera.userData.fitRadius as number | undefined;
-        if (fitted && sphere.radius / fitted > 0.8 && sphere.radius / fitted < 1.25) {
+        const requested = fitRequest !== lastFitRequest.current;
+        lastFitRequest.current = fitRequest;
+        if (!requested && fitted && sphere.radius / fitted > 0.8 && sphere.radius / fitted < 1.25) {
           return;
         }
         camera.userData.fitRadius = sphere.radius;
@@ -398,7 +406,7 @@ function FitCamera({ model }: { model: THREE.Object3D }) {
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [camera, controls, model]);
+  }, [camera, controls, model, fitRequest]);
 
   return null;
 }
@@ -503,6 +511,8 @@ function FeatureList({
 }
 
 interface ViewportPaneProps {
+  /** Increment to frame the model without reloading it. */
+  fitRequest?: number;
   glbUrl: string | null;
   code: string;
   isLoading: boolean;
@@ -521,6 +531,7 @@ interface ViewportPaneProps {
 }
 
 function ViewportContent({
+  fitRequest = 0,
   glbUrl,
   code,
   isLoading,
@@ -736,6 +747,7 @@ function ViewportContent({
         <Suspense fallback={null}>
           <Scene
             glbUrl={displayedUrl}
+            fitRequest={fitRequest}
             interactive={!previewUrl}
             onFaceClick={selectFace}
             // A preview is never the part's thumbnail.
