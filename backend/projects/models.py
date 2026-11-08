@@ -4,7 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from agent.models import FaceSelection, ModelInspection, ModelUsage, TraceStep
+from agent.models import FaceSelection, MeshReference, ModelInspection, ModelUsage, TraceStep
 
 MAX_PROJECT_STATE_BYTES = 20_000_000
 
@@ -17,6 +17,7 @@ class ProjectState(BaseModel):
     model_id: str = Field(default="", alias="modelId", max_length=200)
     selection: FaceSelection | None = None
     last_run_id: str | None = Field(default=None, alias="lastRunId", max_length=100)
+    mesh_reference: MeshReference | None = Field(default=None, alias="meshReference")
 
     @model_validator(mode="after")
     def validate_serialized_size(self):

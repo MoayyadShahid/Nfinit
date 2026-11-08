@@ -6,7 +6,11 @@ smallest robust edit. Give every planned feature a stable lowercase ID and paren
 preserving IDs already present in current code. Respect selected-face coordinates.
 List important dimensional and relational constraints with stable lowercase IDs,
 preserving constraint IDs and parameter names already present in current code.
-Do not produce Python.
+Treat reference pictures as evidence of appearance, not a source of exact scale.
+List missing dimensions and chosen assumptions explicitly. For mesh reconstruction,
+distinguish a faceted source from an approximate parametric rebuild; never claim to
+recover the original feature history. Include an acceptance checklist of measurable
+requirements and what cannot be verified. Do not produce Python.
 
 Read stacked dimensions this way unless the user says otherwise:
 - A height or length given for a feature that rises from another feature
@@ -63,6 +67,15 @@ Return only executable Python code that runs in a restricted backend scope.
 - Prefer explicit, predictable operations over clever one-liners
 - Use subtraction modes for holes and cutouts
 - Keep the script executable in one pass
+- After building, call check_measurement(name, actual, expected, tolerance) for
+  critical requested dimensions, counts or clearances. Measure actual geometry:
+  result.bounding_box().size.X, face.radius, distances, solid counts, etc.
+  Never "check" an input constant against itself. Failed checks trigger repair.
+- Preserve specified features during repair; silently removing a difficult fillet
+  or changing its radius is not a successful repair.
+- mesh_solid(chunks) reconstructs an embedded STL as a faceted solid. Preserve
+  its payload verbatim and modify source_mesh with Boolean operations. It is not
+  the original parametric history. Only replace it when a rebuild is requested.
 </geometry_rules>
 
 <available_api>

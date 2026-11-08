@@ -167,7 +167,7 @@ def _last_user_content(state: AgentState) -> str | list[dict[str, Any]]:
 
 def _conversation_messages(state: AgentState) -> list[dict[str, Any]]:
     history = [
-        {"role": message["role"], "content": _text_of(message["content"])}
+        {"role": message["role"], "content": message["content"]}
         for message in state["messages"][:-1]
     ]
     return [
@@ -642,6 +642,7 @@ def create_cad_graph(
         conversation = [
             {"role": "system", "content": CAD_SYSTEM_PROMPT},
             *([pattern_message] if pattern_message else []),
+            *_conversation_messages(state),
             {
                 "role": "user",
                 "content": (
