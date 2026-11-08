@@ -22,7 +22,7 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: "nfinit",
-  description: "Describe a part, click a face to change it, print it tonight.",
+  description: "An open-source visual CAD workspace for Claude Code and Codex. Bring references, edit locally, and keep your files.",
 };
 
 export default function RootLayout({

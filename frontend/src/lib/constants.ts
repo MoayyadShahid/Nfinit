@@ -26,8 +26,13 @@ export const MODEL_CONFIGS: ModelConfig[] = [
   },
 ];
 
+export const LOCAL_MODEL_CONFIGS: ModelConfig[] = [
+  { id: "local/claude", label: "Claude Code · local", supportsVision: true, supportsStructuredOutputs: false },
+  { id: "local/codex", label: "Codex · local", supportsVision: true, supportsStructuredOutputs: false },
+];
+
 export const DEFAULT_MODEL = MODELS.CLAUDE_SONNET_5_5;
 
 export function getModelConfig(modelId: string): ModelConfig | undefined {
-  return MODEL_CONFIGS.find((m) => m.id === modelId);
+  return [...MODEL_CONFIGS, ...LOCAL_MODEL_CONFIGS].find((m) => m.id === modelId);
 }

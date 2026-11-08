@@ -1,6 +1,8 @@
 "use client";
 
 import { ChatPane } from "@/components/ChatPane";
+import { ReferenceImport, type ImportedReference } from "@/components/ReferenceImport";
+import { Button } from "@/components/ui/button";
 import {
   CommandBar,
   type ExportFormat,
@@ -14,6 +16,7 @@ import { ViewportPane } from "@/components/ViewportPane";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -27,7 +30,7 @@ import {
   waitForActiveSubscription,
   type BillingStatus,
 } from "@/lib/billing";
-import { DEFAULT_MODEL, getModelConfig, MODEL_CONFIGS } from "@/lib/constants";
+import { DEFAULT_MODEL, getModelConfig, MODEL_CONFIGS, LOCAL_MODEL_CONFIGS } from "@/lib/constants";
 import {
   addRevision,
   createProject,
@@ -36,6 +39,7 @@ import {
   listProjects,
   listRevisions,
   uploadThumbnail,
+  requestJson,
   type ProjectRevision,
   type RevisionSummary,
   getRevision,
@@ -68,6 +72,7 @@ import {
   type FaceSelection,
   type ModelInspection,
   type RunEvent,
+  type MeshReference,
 } from "@/lib/types";
 import {
   ArrowRight,
@@ -171,6 +176,8 @@ export default function Studio({
   const [code, setCode] = useState(DEFAULT_CODE);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL);
+  const [localAgents, setLocalAgents] = useState<{ id: string; label: string; installed: boolean }[] | null>(null);
+  const [meshReference, setMeshReference] = useState<MeshReference | null>(null);
   const [glbUrl, setGlbUrl] = useState<string | null>(null);
   const glbUrlRef = useRef<string | null>(null);
   useEffect(() => {
@@ -253,6 +260,18 @@ export default function Studio({
   });
 
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
+  const modelOptions = localAgents === null ? MODEL_CONFIGS : [...LOCAL_MODEL_CONFIGS, ...MODEL_CONFIGS];
+
+  useEffect(() => {
+    let active = true;
+    requestJson<{ local: boolean; agents: { id: string; label: string; installed: boolean }[] }>("/cad/local-agents")
+      .then((result) => {
+        if (!active || !result.local) return;
+        setLocalAgents(result.agents);
+        setModelId((current) => current === DEFAULT_MODEL ? (result.agents.find((agent) => agent.installed)?.id ?? "local/claude") : current);
+      }).catch(() => {});
+    return () => { active = false; };
+  }, []);
 
   const inspectModel = useCallback(async (codeToInspect: string) => {
     const response = await sandboxRequest("inspect-model", {
@@ -366,13 +385,15 @@ export default function Studio({
       const state = revision.state;
       setCode(state.code);
       setMessages(state.messages);
+      setMeshReference(state.meshReference ?? null);
       // A model no longer offered (e.g. GPT-5.6 Sol) falls back to the default.
       setModelId(getModelConfig(state.modelId) ? state.modelId : DEFAULT_MODEL);
       setSelectedFace(state.selection);
       setLastRunId(state.lastRunId);
       setCurrentRevision(revision.revisionNumber);
       setIsDirty(false);
-      await loadRevisionMesh(revision);
+      if (state.code.trim()) await loadRevisionMesh(revision);
+      else { setGlbUrl(null); setInspection(null); }
       setSelectedFace(state.selection);
     },
     [loadRevisionMesh]
@@ -526,6 +547,7 @@ export default function Studio({
         modelId,
         selection: selectedFace,
         lastRunId,
+        meshReference,
       });
     } catch (e) {
       if (e instanceof SubscriptionRequiredError) {
@@ -543,6 +565,7 @@ export default function Studio({
     modelId,
     persistSnapshot,
     selectedFace,
+    meshReference,
   ]);
 
   const startNewProject = useCallback(() => {
@@ -559,13 +582,14 @@ export default function Studio({
     setCurrentRevision(null);
     setCode(DEFAULT_CODE);
     setMessages([]);
-    setModelId(DEFAULT_MODEL);
+    setMeshReference(null);
+    setModelId(localAgents?.find((agent) => agent.installed)?.id ?? DEFAULT_MODEL);
     setSelectedFace(null);
     setInspection(null);
     setLastRunId(null);
     setIsDirty(true);
     setError(null);
-  }, [isDirty]);
+  }, [isDirty, localAgents]);
 
   const loadRevision = useCallback(
     async (revisionNumber: number) => {
@@ -784,6 +808,7 @@ export default function Studio({
         demoReachedRef.current = 0;
         setDemoReached(0);
         setProjectId(null);
+        setMeshReference(null);
         setRevisions([]);
         setCurrentRevision(null);
         setLastRunId(null);
@@ -801,6 +826,7 @@ export default function Studio({
   const exitDemo = useCallback(() => {
     stopDemoPlayback();
     setDemo(null);
+    setMeshReference(null);
     demoReachedRef.current = 0;
     setDemoReached(0);
     setIsLoading(false);
@@ -863,6 +889,7 @@ export default function Studio({
           supportsStructuredOutputs:
             modelConfig?.supportsStructuredOutputs ?? false,
           projectId,
+          meshReference,
         });
       } catch (e) {
         if (e instanceof SubscriptionRequiredError) {
@@ -888,6 +915,7 @@ export default function Studio({
       followRun,
       demo,
       stopDemoPlayback,
+      meshReference,
     ]
   );
 
@@ -1173,6 +1201,91 @@ export default function Studio({
   const showWelcome =
     hasInitialized && !projectId && messages.length === 0 && glbUrl === null;
 
+  async function importReference(source: ImportedReference) {
+    if (isDirty && !window.confirm("Import into a new project? Unsaved changes in this project will be left behind.")) return;
+    const facts = source.reference.facts;
+    const importedMessages: ChatMessage[] = [{ role: "user", content: [
+      { type: "text", text: `STL reference: ${source.reference.name}. Source units: ${source.reference.units}; all measured values below are mm. ${JSON.stringify(facts)}. ${source.reference.mode === "preserve" ? "The original mesh is preserved as a faceted solid. Build changes on it." : "Reconstruct an approximate parametric version from these views and measured bounds. Original feature history is unavailable; identify assumptions and verify dimensions."}` },
+      ...source.views.map((url): ContentPart => ({ type: "image_url", image_url: { url } })),
+    ] }];
+    const state: ProjectState = { code: source.code, messages: importedMessages, modelId,
+      selection: null, lastRunId: null, meshReference: source.reference };
+    const project = await createProject(`${source.reference.name.replace(/\.stl$/i, "")} — working copy`.slice(0, 120), state);
+    stopDemoPlayback();
+    setDemo(null);
+    setProjectId(project.id);
+    setProjects((previous) => [project, ...previous]);
+    setRevisions(project.latestRevision ? [toRevisionSummary(project.latestRevision)] : []);
+    if (project.latestRevision) revisionCacheRef.current.set(revisionKey(project.id, 1), project.latestRevision);
+    setCurrentRevision(1);
+    setCode(source.code);
+    setMessages(importedMessages);
+    setMeshReference(source.reference);
+    setSelectedFace(null);
+    setInspection(source.inspection);
+    setLastRunId(null);
+    setIsDirty(false);
+    setGlbUrl((previous) => { releaseGlbUrl(previous, meshCacheRef.current); return null; });
+    window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
+    if (source.code) await generateMesh(source.code);
+  }
+
+  async function saveCopy() {
+    setIsSaving(true);
+    try {
+      const project = await createProject(`${projectNameFromMessages(messages)} — copy`.slice(0, 120), {
+        code, messages, modelId, selection: selectedFace, lastRunId, meshReference,
+      });
+      setProjectId(project.id);
+      setProjects((previous) => [project, ...previous]);
+      setRevisions(project.latestRevision ? [toRevisionSummary(project.latestRevision)] : []);
+      if (project.latestRevision) revisionCacheRef.current.set(revisionKey(project.id, 1), project.latestRevision);
+      setCurrentRevision(1);
+      setIsDirty(false);
+      window.localStorage.setItem(LAST_PROJECT_KEY, project.id);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not save a copy.");
+    } finally { setIsSaving(false); }
+  }
+
+  const workspaceTools = (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={modelId} onValueChange={setModelId} disabled={isLoading}>
+          <SelectTrigger aria-label="Design agent" className="w-52"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectGroup>{modelOptions.map((model) => (
+            <SelectItem key={model.id} value={model.id} disabled={model.id.startsWith("local/") && !localAgents?.find((agent) => agent.id === model.id)?.installed}>
+              {model.label}
+            </SelectItem>
+          ))}</SelectGroup></SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">{modelId.startsWith("local/") ? "Your agent account · local CAD" : "Hosted API"}</span>
+      </div>
+      {localAgents && !localAgents.some((agent) => agent.installed) ? <p className="text-xs text-muted-foreground">Install Claude Code or Codex, sign in in your terminal, then refresh.</p> : null}
+      <details className="text-xs">
+        <summary className="cursor-pointer py-1">References & copies{meshReference ? ` · ${meshReference.name}` : ""}</summary>
+        <div className="flex max-h-64 flex-col gap-3 overflow-y-auto py-2">
+          <ReferenceImport disabled={isLoading || isProjectLoading || isLocked} onImport={importReference} />
+          {meshReference ? <>
+            <p className="text-muted-foreground">{meshReference.mode === "preserve" ? "Faceted STL source" : "Approximate reconstruction reference"} · {meshReference.facts.triangles.toLocaleString()} triangles · {Object.values(meshReference.facts.bounds).join(" × ")} mm</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => {
+                const bytes = Uint8Array.from(atob(meshReference.data), (value) => value.charCodeAt(0));
+                const url = URL.createObjectURL(new Blob([bytes], { type: "model/stl" }));
+                const link = document.createElement("a");
+                link.href = url; link.download = meshReference.name; link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              }}>Download original STL</Button>
+              {meshReference.mode === "reconstruct" && !code.trim() ? <Button size="sm" disabled={isLoading} onClick={() => sendOrPaywall("Reconstruct an editable parametric copy of the imported STL. Preserve its measured dimensions, explain assumptions, and check the resulting geometry.")}>Reconstruct editable copy</Button> : null}
+            </div>
+          </> : null}
+          {projectId ? <Button variant="outline" size="sm" disabled={isSaving || isLoading} onClick={() => void saveCopy()}>Save as a new copy</Button> : null}
+        </div>
+      </details>
+      {inspection?.checks?.length ? <p className="text-xs text-muted-foreground">{inspection.checks.filter((check) => check.passed).length}/{inspection.checks.length} geometry measurements passed. Unmeasured requirements still need review.</p> : null}
+    </div>
+  );
+
   useEffect(() => {
     if (demoOpened.current || !hasInitialized || billing === null) return;
     const slug =
@@ -1268,7 +1381,7 @@ export default function Studio({
                 them—we’ll turn it into editable, export-ready CAD.
               </p>
             </div>
-            <div className="h-[340px] w-full max-w-3xl">
+            <div className="min-h-[380px] w-full max-w-3xl">
               <ChatPane
                 messages={messages}
                 onSend={sendOrPaywall}
@@ -1277,6 +1390,7 @@ export default function Studio({
                 supportsVision={modelConfig?.supportsVision ?? false}
                 selection={selectedFace}
                 variant="welcome"
+                tools={workspaceTools}
                 initialInput={initialPrompt}
               />
             </div>
@@ -1428,6 +1542,7 @@ export default function Studio({
                   selection={selectedFace}
                   runEvents={isLoading ? runEvents : undefined}
                   runStartedAt={runStartedAt}
+                  tools={workspaceTools}
                   versions={
                     demo
                       ? {
@@ -1515,11 +1630,11 @@ export default function Studio({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MODEL_CONFIGS.map((model) => (
+                  <SelectGroup>{modelOptions.map((model) => (
                     <SelectItem key={model.id} value={model.id}>
                       {model.label}
                     </SelectItem>
-                  ))}
+                  ))}</SelectGroup>
                 </SelectContent>
               </Select>
               <button

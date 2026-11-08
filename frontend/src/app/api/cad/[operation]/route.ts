@@ -7,6 +7,7 @@ const OPERATIONS = new Set([
   "inspect-model",
   "analyze-model",
   "export-model",
+  "import-stl",
 ]);
 const SANDBOX_TIMEOUT_MS = 110_000;
 
@@ -22,4 +23,10 @@ export async function POST(request: Request, context: RouteContext) {
     return Response.json({ detail: "Not found." }, { status: 404 });
   }
   return proxyToBackend(request, [operation], SANDBOX_TIMEOUT_MS);
+}
+
+export async function GET(request: Request, context: RouteContext) {
+  const { operation } = await context.params;
+  if (operation !== "local-agents") return Response.json({ detail: "Not found." }, { status: 404 });
+  return proxyToBackend(request, [operation]);
 }

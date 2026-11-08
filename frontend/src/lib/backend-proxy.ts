@@ -127,6 +127,10 @@ export async function proxyToBackend(
   // but keep its compressed Content-Length; this proxy compresses for the
   // browser itself (below), and Vercel compresses JSON.
   headers.set("Accept-Encoding", "identity");
+  // Private launcher token never reaches browser JavaScript or a public build.
+  if (process.env.NFNIT_LOCAL_AGENTS === "true" && process.env.NFNIT_LOCAL_TOKEN) {
+    headers.set("X-Nfinit-Local-Token", process.env.NFNIT_LOCAL_TOKEN);
+  }
 
   if (!isSupabaseConfigured() && !localAuthBypassEnabled()) {
     return Response.json(

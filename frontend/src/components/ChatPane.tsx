@@ -20,7 +20,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, type ReactNode } from "react";
 
 export type { ChatMessage } from "@/lib/types";
 
@@ -69,6 +69,7 @@ interface ChatPaneProps {
    * `selected` is null while a version is being built.
    */
   versions?: { selected: number | null; onSelect: (version: number) => void };
+  tools?: ReactNode;
 }
 
 export function ChatPane({
@@ -83,12 +84,16 @@ export function ChatPane({
   runEvents,
   runStartedAt = null,
   versions,
+  tools,
 }: ChatPaneProps) {
   const [input, setInput] = useState(initialInput);
   const [images, setImages] = useState<string[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [addingImages, setAddingImages] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const readingFiles = useRef(false);
 
   const showsVersions = versions !== undefined;
   const selectedVersion = versions?.selected ?? null;
@@ -117,33 +122,46 @@ export function ChatPane({
   }, [historyOpen]);
 
   const addFiles = useCallback(async (files: FileList | File[]) => {
-    const list = Array.from(files).filter((f) =>
-      ACCEPTED_TYPES.includes(f.type)
-    );
+    if (readingFiles.current) return;
+    readingFiles.current = true;
+    const list = Array.from(files);
+    setAddingImages(true);
+    setAttachmentError(null);
     const converted: string[] = [];
+    const failures: string[] = [];
+    let pendingBytes = images.reduce((total, url) => total + dataUrlBytes(url), 0);
     for (const file of list) {
+      if (images.length + converted.length >= MAX_IMAGES || pendingBytes + file.size > MAX_TOTAL_IMAGE_SIZE) {
+        failures.push("Attach at most 8 images totaling 10 MB.");
+        break;
+      }
       try {
         converted.push(await fileToDataUrl(file));
-      } catch {
-        /* skip unsupported / too-large files */
+        pendingBytes += file.size;
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : "Could not read image.");
       }
     }
-    setImages((previous) => {
-      const next = [...previous];
-      let bytes = next.reduce((total, url) => total + dataUrlBytes(url), 0);
-      for (const url of converted) {
-        const size = dataUrlBytes(url);
-        if (next.length >= MAX_IMAGES || bytes + size > MAX_TOTAL_IMAGE_SIZE) break;
-        next.push(url);
-        bytes += size;
+    const next = [...images];
+    let bytes = next.reduce((total, url) => total + dataUrlBytes(url), 0);
+    for (const url of converted) {
+      const size = dataUrlBytes(url);
+      if (next.length >= MAX_IMAGES || bytes + size > MAX_TOTAL_IMAGE_SIZE) {
+        failures.push("Attach at most 8 images totaling 10 MB.");
+        break;
       }
-      return next;
-    });
-  }, []);
+      next.push(url);
+      bytes += size;
+    }
+    setImages(next);
+    if (failures.length) setAttachmentError(failures.join(" "));
+    setAddingImages(false);
+    readingFiles.current = false;
+  }, [images]);
 
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || addingImages) return;
     if (onSend(trimmed, images.length > 0 ? images : undefined) === false) return;
     setInput("");
     setImages([]);
@@ -167,7 +185,7 @@ export function ChatPane({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!supportsVision) return;
+    if (!supportsVision || isLoading || addingImages) return;
     addFiles(e.dataTransfer.files);
   };
 
@@ -374,6 +392,8 @@ export function ChatPane({
             : ""
         } ${variant === "studio" ? "p-2" : "p-3"}`}
       >
+        {tools}
+        {attachmentError ? <p role="alert" className="text-xs text-destructive">{attachmentError}</p> : null}
         {runEvents && (
           <RunProgress events={runEvents} startedAt={runStartedAt} />
         )}
@@ -417,6 +437,8 @@ export function ChatPane({
                 />
                 <button
                   type="button"
+                  aria-label={`Remove reference image ${i + 1}`}
+                  disabled={addingImages}
                   onClick={() =>
                     setImages((prev) => prev.filter((_, j) => j !== i))
                   }
@@ -466,9 +488,10 @@ export function ChatPane({
                 variant="ghost"
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
+                disabled={isLoading || addingImages}
                 className="theme-control size-9 shrink-0 rounded-xl text-[var(--muted)] hover:text-[var(--ink)]"
-                title="Attach image"
+                title="Attach reference pictures"
+                aria-label="Attach reference pictures"
               >
                 <ImagePlus className="size-4" />
               </Button>
@@ -477,6 +500,12 @@ export function ChatPane({
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onPaste={(event) => {
+              if (supportsVision && !isLoading && !addingImages && event.clipboardData.files.length) {
+                event.preventDefault();
+                void addFiles(event.clipboardData.files);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
