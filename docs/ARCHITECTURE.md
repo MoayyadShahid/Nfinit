@@ -4,11 +4,13 @@ How Nfinit's backend builds, inspects, stores and evaluates CAD parts. For the
 local agent connection, reference pictures and STL import, see
 [OPEN_SOURCE_WORKSPACE.md](OPEN_SOURCE_WORKSPACE.md).
 
-## Hosted agent workflow
+## API agent workflow (optional)
 
-The hosted API path (OpenRouter models) runs a LangGraph workflow in the
-FastAPI backend; Next.js only proxies requests. Local runs use your Claude Code
-or Codex CLI instead; see [OPEN_SOURCE_WORKSPACE.md](OPEN_SOURCE_WORKSPACE.md).
+Runs with Claude Code or Codex use your own CLI; see
+[OPEN_SOURCE_WORKSPACE.md](OPEN_SOURCE_WORKSPACE.md). The optional API path
+(OpenRouter models, enabled only when `OPENROUTER_API_KEY` is set) runs a
+LangGraph workflow in the FastAPI backend; Next.js only proxies requests. The
+live CAD50 evaluation also uses this path.
 
 1. **Retrieve** — find relevant build123d implementation patterns.
 2. **Plan** — translate the product request into dimensions, constraints,
@@ -48,7 +50,7 @@ The studio first follows the run as server-sent events. It asks for
 signed link (`GET /cad/runs/{id}/events?token=…`) directly on the backend,
 because the proxy cannot hold a response open for a whole run. The stream
 sends each event as soon as the run records it, a heartbeat every 15 seconds
-(Railway closes idle connections after 5 minutes), and a final `done` event.
+(so proxies do not close an idle connection), and a final `done` event.
 A reconnect resumes after the browser's `Last-Event-ID`. When the stream is
 unavailable, the studio polls the status endpoint every second instead.
 

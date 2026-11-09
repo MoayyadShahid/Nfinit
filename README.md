@@ -45,6 +45,9 @@ model usage goes through your own Claude Code or Codex login.
 
 ## Quick start
 
+The website is a read-only demo of the demo parts. To make your own parts, run
+Nfinit on your computer:
+
 **You need:** macOS or Linux (WSL2 on Windows), Node.js 20.9+, Python 3.11 or
 3.12, [Poetry](https://python-poetry.org/), and
 [Claude Code](https://code.claude.com) or

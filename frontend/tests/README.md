@@ -15,7 +15,7 @@ python3 -m venv /tmp/nfinit-ui-tests
 npm ci
 ```
 
-Start the frontend on port 3100 in a checkout without Supabase `.env` files:
+Start the frontend on port 3100:
 
 ```sh
 NFNIT_ALLOW_LOCAL_AUTH_BYPASS=true \
