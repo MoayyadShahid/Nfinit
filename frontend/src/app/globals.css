@@ -1208,6 +1208,15 @@ html[data-theme="midnight"] .wb-submit:hover {
     animation: none;
   }
 
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"],
+  [data-slot="popover-content"],
+  [data-slot="drawer-overlay"],
+  [data-slot="drawer-content"] {
+    animation: none !important;
+    transition: none !important;
+  }
+
   .viewport-reveal {
     opacity: 0;
   }

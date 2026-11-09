@@ -1,6 +1,7 @@
 "use client";
 
 import { RunProgress } from "@/components/RunProgress";
+import AIModelSelector, { type ModelOption } from "@/components/kokonutui/ai-model-selector";
 import { Button } from "@/components/ui/button";
 import {
   type ChatMessage,
@@ -56,6 +57,9 @@ interface ChatPaneProps {
   isLoading: boolean;
   lastError?: string | null;
   supportsVision?: boolean;
+  modelId: string;
+  modelOptions: readonly ModelOption[];
+  onModelChange: (modelId: string) => void;
   selection?: FaceSelection | null;
   variant?: "studio" | "welcome";
   /** Prefills the input, e.g. with a prompt typed on the landing page. */
@@ -78,6 +82,9 @@ export function ChatPane({
   isLoading,
   lastError,
   supportsVision = false,
+  modelId,
+  modelOptions,
+  onModelChange,
   selection,
   variant = "studio",
   initialInput = "",
@@ -536,6 +543,10 @@ export function ChatPane({
           </button>
         </div>
 
+        <div className="flex items-center justify-between gap-2 px-1">
+          <AIModelSelector value={modelId} options={modelOptions} onChange={onModelChange} disabled={isLoading || addingImages} />
+          <span className="hidden text-[10px] text-muted-foreground sm:inline">Shift + Enter for a new line</span>
+        </div>
         {variant === "welcome" && (
           <p className="px-1 text-center text-[10px] text-zinc-600">
             Include dimensions in millimeters for a more accurate first result.

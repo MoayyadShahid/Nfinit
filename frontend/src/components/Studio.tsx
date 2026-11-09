@@ -13,14 +13,9 @@ import { EditorPane } from "@/components/EditorPane";
 import { Paywall, type PaywallReason } from "@/components/Paywall";
 import { VersionRail, type RailVersion } from "@/components/VersionRail";
 import { ViewportPane } from "@/components/ViewportPane";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import AIModelSelector, { type ModelOption } from "@/components/kokonutui/ai-model-selector";
+import ActionSearchBar, { type StudioCommand } from "@/components/kokonutui/action-search-bar";
+import { EXPORT_FORMATS } from "@/lib/exports";
 import {
   getBillingStatus,
   savePendingAction,
@@ -78,6 +73,12 @@ import {
   ArrowRight,
   Box,
   Code2,
+  Download,
+  FilePlus2,
+  FolderOpen,
+  History,
+  Maximize,
+  Save,
   RotateCcw,
   Ruler,
   X,
@@ -214,6 +215,8 @@ export default function Studio({
   const [lastRunId, setLastRunId] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(true);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [commandsOpen, setCommandsOpen] = useState(false);
+  const [fitRequest, setFitRequest] = useState(0);
   // The version rail starts collapsed on phones, where width is scarce. It is
   // only drawn after the studio initialises, so reading storage here cannot
   // differ from the server's markup.
@@ -260,7 +263,13 @@ export default function Studio({
   });
 
   const modelConfig = useMemo(() => getModelConfig(modelId), [modelId]);
-  const modelOptions = localAgents === null ? MODEL_CONFIGS : [...LOCAL_MODEL_CONFIGS, ...MODEL_CONFIGS];
+  const modelOptions: ModelOption[] = localAgents === null ? MODEL_CONFIGS : [
+    ...LOCAL_MODEL_CONFIGS.map((model) => ({
+      ...model,
+      disabled: !localAgents.some((agent) => agent.id === model.id && agent.installed),
+    })),
+    ...MODEL_CONFIGS,
+  ];
 
   useEffect(() => {
     let active = true;
@@ -405,7 +414,7 @@ export default function Studio({
         isDirty &&
         !window.confirm("Discard unsaved changes and load another part?")
       ) {
-        return;
+        return false;
       }
       setIsProjectLoading(true);
       setError(null);
@@ -420,8 +429,10 @@ export default function Studio({
         if (project.latestRevision) {
           await applyRevision(project.latestRevision);
         }
+        return true;
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load project");
+        return false;
       } finally {
         setIsProjectLoading(false);
       }
@@ -570,7 +581,7 @@ export default function Studio({
 
   const startNewProject = useCallback(() => {
     if (isDirty && !window.confirm("Discard unsaved changes and start a new part?")) {
-      return;
+      return false;
     }
     setGlbUrl((previous) => {
       releaseGlbUrl(previous, meshCacheRef.current);
@@ -589,6 +600,7 @@ export default function Studio({
     setLastRunId(null);
     setIsDirty(true);
     setError(null);
+    return true;
   }, [isDirty, localAgents]);
 
   const loadRevision = useCallback(
@@ -1250,17 +1262,7 @@ export default function Studio({
 
   const workspaceTools = (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={modelId} onValueChange={setModelId} disabled={isLoading}>
-          <SelectTrigger aria-label="Design agent" className="w-52"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectGroup>{modelOptions.map((model) => (
-            <SelectItem key={model.id} value={model.id} disabled={model.id.startsWith("local/") && !localAgents?.find((agent) => agent.id === model.id)?.installed}>
-              {model.label}
-            </SelectItem>
-          ))}</SelectGroup></SelectContent>
-        </Select>
-        <span className="text-xs text-muted-foreground">{modelId.startsWith("local/") ? "Your agent account · local CAD" : "Hosted API"}</span>
-      </div>
+      {localAgents ? <p className="text-xs text-muted-foreground">{modelId.startsWith("local/") ? "Your agent account · local CAD" : "Hosted API"}</p> : null}
       {localAgents && !localAgents.some((agent) => agent.installed) ? <p className="text-xs text-muted-foreground">Install Claude Code or Codex, sign in in your terminal, then refresh.</p> : null}
       <details className="text-xs">
         <summary className="cursor-pointer py-1">References & copies{meshReference ? ` · ${meshReference.name}` : ""}</summary>
@@ -1346,8 +1348,53 @@ export default function Studio({
       }));
   }, [demo, demoReached, revisions]);
 
+  const busy = !hasInitialized || isLoading || isProjectLoading || isSaving;
+  const changeModel = (id: string) => {
+    const option = modelOptions.find((model) => model.id === id);
+    if (busy || !option || option.disabled || id === modelId) return;
+    setModelId(id);
+    setIsDirty(true);
+  };
+
+  const newPart = () => {
+    if (!startNewProject()) return;
+    stopDemoPlayback();
+    setDemo(null);
+  };
+  const openPart = async (id: string) => {
+    if (!(await loadProject(id))) return;
+    stopDemoPlayback();
+    setDemo(null);
+  };
+
+  const commands: StudioCommand[] = [
+    { id: "new-part", label: "New part", group: "Actions", icon: FilePlus2, disabled: busy,
+      onSelect: newPart },
+    { id: "save-part", label: projectId ? "Save revision" : "Save part", group: "Actions", icon: Save,
+      disabled: busy || (!isDirty && projectId !== null), onSelect: saveCurrentRevision },
+    { id: "fit-view", label: "Fit model in view", group: "Actions", icon: Maximize, keywords: ["zoom", "camera", "center"],
+      disabled: !glbUrl, onSelect: () => setFitRequest((value) => value + 1) },
+    { id: "advanced", label: advancedOpen ? "Close advanced editor" : "Open advanced editor", group: "Actions", icon: Code2,
+      disabled: busy, onSelect: () => handleAdvancedChange(!advancedOpen) },
+    ...EXPORT_FORMATS.map(({ id, label, desc }): StudioCommand => ({
+      id: `export-${id}`, label: `Export ${label}`, group: "Export", icon: Download,
+      keywords: [desc], disabled: busy, onSelect: () => handleExport(id),
+    })),
+    ...projects.map((project): StudioCommand => ({
+      id: `project-${project.id}`, label: project.name, group: "Open part", icon: FolderOpen,
+      disabled: busy || project.id === projectId,
+      onSelect: () => openPart(project.id),
+    })),
+    ...(railVersions ?? []).map((version): StudioCommand => ({
+      id: `version-${version.number}`, label: `Version ${version.number} · ${version.title}`, group: "Versions", icon: History,
+      disabled: busy || !version.built || version.number === (demo ? demoStep : currentRevision),
+      onSelect: () => demo ? selectDemoStep(demo, version.number) : loadRevision(version.number),
+    })),
+  ];
+
   return (
     <div className="wb theme-page flex h-dvh flex-col overflow-hidden">
+      <ActionSearchBar open={commandsOpen} onOpenChange={setCommandsOpen} commands={commands} onError={setError} />
       <CommandBar
         viewer={viewer}
         onExport={handleExport}
@@ -1359,9 +1406,11 @@ export default function Studio({
         onAdvancedChange={handleAdvancedChange}
         billing={billing}
         onBillingError={setError}
-        onProjectChange={loadProject}
-        onNewProject={startNewProject}
+        onProjectChange={openPart}
+        onNewProject={newPart}
         onSave={saveCurrentRevision}
+        onOpenCommands={() => setCommandsOpen(true)}
+        busy={busy}
       />
 
       {!hasInitialized ? (
@@ -1387,6 +1436,9 @@ export default function Studio({
                 onSend={sendOrPaywall}
                 isLoading={isLoading || isProjectLoading}
                 lastError={error}
+                modelId={modelId}
+                modelOptions={modelOptions}
+                onModelChange={changeModel}
                 supportsVision={modelConfig?.supportsVision ?? false}
                 selection={selectedFace}
                 variant="welcome"
@@ -1479,6 +1531,7 @@ export default function Studio({
             <div className="h-full overflow-hidden rounded-2xl border border-[var(--hairline)] bg-[var(--clay)]">
               <ViewportPane
                 glbUrl={glbUrl}
+                fitRequest={fitRequest}
                 code={code}
                 isLoading={isLoading || isProjectLoading}
                 previewUrl={isLoading ? buildPreview?.url : undefined}
@@ -1538,6 +1591,9 @@ export default function Studio({
                   onSend={sendOrPaywall}
                   isLoading={isLoading || isProjectLoading}
                   lastError={error}
+                  modelId={modelId}
+                  modelOptions={modelOptions}
+                  onModelChange={changeModel}
                   supportsVision={modelConfig?.supportsVision ?? false}
                   selection={selectedFace}
                   runEvents={isLoading ? runEvents : undefined}
@@ -1616,27 +1672,7 @@ export default function Studio({
                 <h2 className="text-sm font-semibold">Advanced editor</h2>
                 <p className="text-[10px] text-zinc-600">Edit build123d source directly</p>
               </div>
-              <Select
-                value={modelId}
-                onValueChange={(value) => {
-                  setModelId(value);
-                  setIsDirty(true);
-                }}
-              >
-                <SelectTrigger
-                  aria-label="Generation model"
-                  className="h-8 w-[180px] border-[var(--hairline)] bg-transparent text-xs"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>{modelOptions.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.label}
-                    </SelectItem>
-                  ))}</SelectGroup>
-                </SelectContent>
-              </Select>
+              <AIModelSelector value={modelId} options={modelOptions} onChange={changeModel} disabled={busy} />
               <button
                 type="button"
                 onClick={() => setAdvancedOpen(false)}

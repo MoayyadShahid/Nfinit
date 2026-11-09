@@ -1,16 +1,16 @@
 "use client";
 
 import type { RunEvent } from "@/lib/types";
-import { AlertTriangle, Check, Loader2 } from "lucide-react";
+import AILoadingState from "@/components/kokonutui/ai-loading";
 import { useEffect, useMemo, useState } from "react";
 
 const STAGE_LABELS: Record<string, string> = {
-  retrieve: "Patterns",
-  plan: "Plan",
-  generate: "Code",
-  inspect: "Check",
-  repair: "Fix",
-  mesh: "3D view",
+  retrieve: "Finding useful patterns",
+  plan: "Planning your part",
+  generate: "Building the geometry",
+  inspect: "Checking the geometry",
+  repair: "Refining the geometry",
+  mesh: "Preparing the 3D view",
 };
 
 type Step = {
@@ -19,12 +19,16 @@ type Step = {
   status: "running" | "done" | "failed";
   message: string;
   durationMs: number | null;
+  attempt: number | null;
 };
 
 /** Fold started/finished events into one row per step. */
 function stepsOf(events: RunEvent[]): Step[] {
   const steps: Step[] = [];
+  const seen = new Set<number>();
   for (const event of events) {
+    if (seen.has(event.seq)) continue;
+    seen.add(event.seq);
     // Build previews are shown in the viewport, not as steps.
     if (event.stage === "snapshot") continue;
     if (event.status === "started") {
@@ -34,18 +38,27 @@ function stepsOf(events: RunEvent[]): Step[] {
         status: "running",
         message: event.message,
         durationMs: null,
+        attempt: event.attempt,
       });
       continue;
     }
+    if (!["complete", "passed", "failed"].includes(event.status)) continue;
     const open = [...steps]
       .reverse()
-      .find((step) => step.stage === event.stage && step.status === "running");
+      .find((step) =>
+        step.stage === event.stage &&
+        step.status === "running" &&
+        // Finished trace events omit attempt; pair those with the latest
+        // open occurrence, including numbered repair starts.
+        (event.attempt === null || step.attempt === event.attempt)
+      );
     const finished: Step = {
       key: open?.key ?? `${event.seq}`,
       stage: event.stage,
       status: event.status === "failed" ? "failed" : "done",
       message: event.message || open?.message || "",
       durationMs: event.durationMs,
+      attempt: event.attempt,
     };
     if (open) steps[steps.indexOf(open)] = finished;
     else steps.push(finished);
@@ -74,52 +87,15 @@ export function RunProgress({
   const steps = useMemo(() => stepsOf(events), [events]);
 
   return (
-    <div
-      className="theme-inset rounded-xl border px-3 py-2.5 text-[11px]"
-      aria-live="polite"
-    >
-      <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-[var(--ink)]">
-        <span>Building your part</span>
-        {startedAt !== null && (
-          <span className="font-mono text-[10px] text-zinc-500">
-            {elapsed(now - startedAt)}
-          </span>
-        )}
-      </div>
-      {steps.length === 0 ? (
-        <div className="flex items-center gap-2 text-zinc-500">
-          <Loader2 className="size-3 shrink-0 animate-spin" />
-          Starting the agent…
-        </div>
-      ) : (
-        <ol className="space-y-1">
-          {steps.map((step) => (
-            <li key={step.key} className="flex items-start gap-2 text-zinc-500">
-              {step.status === "running" ? (
-                <Loader2 className="mt-0.5 size-3 shrink-0 animate-spin text-[var(--accent)]" />
-              ) : step.status === "failed" ? (
-                <AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-400" />
-              ) : (
-                <Check className="mt-0.5 size-3 shrink-0 text-emerald-400" />
-              )}
-              <span className="min-w-0">
-                <span className="text-zinc-400">
-                  {STAGE_LABELS[step.stage] ?? step.stage}
-                </span>
-                {" · "}
-                <span className={step.status === "running" ? "text-[var(--ink-2)]" : ""}>
-                  {step.message}
-                </span>
-                {step.durationMs !== null && (
-                  <span className="ml-1 text-zinc-600">
-                    ({(step.durationMs / 1000).toFixed(1)} s)
-                  </span>
-                )}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
+    <AILoadingState
+      elapsed={startedAt === null ? null : elapsed(now - startedAt)}
+      steps={steps.map((step) => ({
+        id: step.key,
+        label: STAGE_LABELS[step.stage] ?? step.stage,
+        status: step.status === "failed" ? "error" : step.status,
+        detail: step.message,
+        durationMs: step.durationMs,
+      }))}
+    />
   );
 }

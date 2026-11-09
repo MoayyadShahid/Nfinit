@@ -16,13 +16,16 @@
     "@supabase/supabase-js": "^2.117.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "lucide-react": "^0.574.0",
+    "motion": "^14.10.1",
     "next": "16.4.3",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.1",
-    "three": "^0.182.0"
+    "three": "^0.182.0",
+    "vaul": "^1.1.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
