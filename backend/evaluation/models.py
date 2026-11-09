@@ -112,7 +112,6 @@ class LiveEvaluationConfig(BaseModel):
     name: str
     description: str
     models: list[LiveModelConfig]
-    langfuse_dataset: str
 
     @model_validator(mode="after")
     def validate_unique_models(self):

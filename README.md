@@ -175,11 +175,9 @@ Clicking a model face adds its local point and normal to the next request, so pr
 Retrieval works without external credentials. The default local corpus,
 `backend/agent/retrieval/corpus/build123d-v0.10.0.jsonl`, is ranked with
 deterministic lexical scoring (common words such as "with" and "the" are
-ignored). When Pinecone is configured, the same graph node uses an
-integrated-embedding index and falls back to the local corpus on service
-errors. Only the latest text request and selected surface type are used as the
-search query. LangFuse receives a hash and length, not the query or retrieved
-source.
+ignored). Only the latest text request and selected surface type are used as
+the search query. Search runs against the bundled files; no embeddings API,
+vector database, or external search service is required.
 
 The shipped corpus has 367 unique patterns, all from build123d 0.10.0 (the
 version in `poetry.lock`, tag commit `fa8e936`):
@@ -211,10 +209,9 @@ CAD_SANDBOX_MODE=fork poetry run python -m agent.retrieval.ingest \
   --output agent/retrieval/corpus/build123d-v0.10.0.jsonl
 ```
 
-Add `--pinecone` to upload the same patterns, `--no-tests` to leave out the
-unit tests, or `--skip-sandbox` to keep policy-valid tests without building
-them. The command prints the source revision and each source's count. The
-default quality gate requires at least 100 unique patterns.
+Use `--no-tests` to leave out the unit tests, or `--skip-sandbox` to keep
+policy-valid tests without building them. The command prints the source revision
+and each source's count. The default quality gate requires at least 100 unique patterns.
 
 CadQuery's tests are not included: CadQuery runs on the same OpenCASCADE
 kernel but has a different API (`cq.Workplane(...)`), so its snippets would
@@ -222,11 +219,6 @@ teach calls that the build123d sandbox does not have.
 
 Set `PATTERN_RAG_ENABLED=false` to disable retrieval, or
 `PATTERN_RAG_LOCAL_CORPUS` to use another corpus file.
-
-Set `PINECONE_API_KEY` and either `PINECONE_INDEX_HOST` (preferred) or
-`PINECONE_INDEX_NAME`. The index must use integrated embedding with its text
-field mapped to `chunk_text`. Use a versioned namespace such as
-`build123d-patterns-v1`.
 
 build123d is Apache-2.0. Its `LICENSE` and `NOTICE` ship next to the corpus
 (`LICENSE-build123d`, `NOTICE-build123d`); keep them with any exported or
@@ -338,12 +330,9 @@ The limits can be tuned with the `CAD_SANDBOX_*` variables documented in
 
 Every CAD run receives a UUID that is returned as `runId`. Node latency and
 OpenRouter token usage are included in the API response and shown in the chat.
-When `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` are configured, the backend
-also exports nested run, node, and generation observations to LangFuse.
-
-Tracing is disabled automatically when credentials are absent. Prompts, source
-code, and image data are never exported: traces contain only counts, hashes,
-geometry results, timing, model identifiers, and token usage.
+Progress events and evaluation reports stay in Nfinit. Optional Python debug
+logging records run IDs, node names, status and timing, without prompt, code
+or image payloads. No telemetry service or cloud tracing account is needed.
 
 ## Project persistence
 
@@ -387,7 +376,7 @@ The backend includes a typed evaluation runner with two modes:
 - **Replay** re-executes recorded model code in the real CAD sandbox. It is
   deterministic, free, and suitable for local development or CI.
 - **Live** runs selected OpenRouter models through the full LangGraph workflow.
-  It requires `OPENROUTER_API_KEY` and sends traces to LangFuse when configured.
+  It requires `OPENROUTER_API_KEY` and writes the same local JSON reports.
 
 Run the included smoke fixtures from `backend/`:
 
@@ -411,22 +400,16 @@ python -m evaluation.cli \
 
 The quality-first matrix pins Claude Sonnet 5.5 and Claude Opus 5.5, the models the
 studio ships, so comparisons
-remain reproducible even when OpenRouter's `*-latest` aliases change. Add
-`--publish-langfuse` to create privacy-safe dataset items and attach overall,
-per-metric, repair, latency, and token scores to each run trace. Prompt text,
-generated code, and images remain redacted.
+remain reproducible even when OpenRouter's `*-latest` aliases change.
+Reports include overall and per-metric results, repairs, latency, and token costs.
 
 The **Live CAD model evaluation** GitHub workflow runs both models on demand.
 Choose `smoke` for six paid agent runs or `cad50` for the complete 110-run
-comparison. Configure these repository secrets before running it:
-
-- `OPENROUTER_API_KEY`
-- `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY` when publishing is enabled
+comparison. Configure the `OPENROUTER_API_KEY` repository secret before running it.
 
 The weekly smoke schedule is skipped unless the repository variable
-`ENABLE_SCHEDULED_PAID_EVALS` is exactly `true`. `LANGFUSE_BASE_URL` can
-optionally override the default LangFuse Cloud endpoint. Reports are retained as
-workflow artifacts for 90 days.
+`ENABLE_SCHEDULED_PAID_EVALS` is exactly `true`. Reports are retained as workflow
+artifacts for 90 days.
 
 Reports compare pass rate, geometry accuracy, policy compliance, repair count,
 latency, and token usage by model. A nonzero exit code indicates a regression.
@@ -435,8 +418,8 @@ The `cad50.json` benchmark contains 55 balanced cases across primitives,
 subtractive features, patterns, sketch profiles, edge finishing, mechanical
 parts, iterative edits, selected-face edits, failure recovery,
 manufacturing-oriented products, and dimension reading (stacked and overall
-heights). The file keeps its `cad50` name so that earlier reports and the
-LangFuse dataset stay comparable. Validate all canonical outputs locally with:
+heights). The file keeps its `cad50` name so earlier reports stay comparable.
+Validate all canonical outputs locally with:
 
 ```bash
 python -m evaluation.cli \

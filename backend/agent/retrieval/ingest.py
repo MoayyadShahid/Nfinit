@@ -2,14 +2,10 @@ import argparse
 import ast
 import hashlib
 import json
-import os
 import re
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
-
-from pinecone import Pinecone
 
 from execution.policy import CodePolicyError, validate_cad_code
 
@@ -443,50 +439,6 @@ def write_jsonl(patterns: list[PatternRecord], output: Path) -> None:
     )
 
 
-def _pinecone_index():
-    api_key = os.getenv("PINECONE_API_KEY")
-    index_host = os.getenv("PINECONE_INDEX_HOST")
-    index_name = os.getenv("PINECONE_INDEX_NAME")
-    if not api_key or not (index_host or index_name):
-        raise ValueError(
-            "PINECONE_API_KEY and either PINECONE_INDEX_HOST or "
-            "PINECONE_INDEX_NAME are required."
-        )
-    client = Pinecone(api_key=api_key)
-    return (
-        client.index(host=index_host)
-        if index_host
-        else client.index(index_name)
-    )
-
-
-def upsert_patterns(
-    patterns: list[PatternRecord],
-    *,
-    namespace: str,
-    batch_size: int = 90,
-) -> int:
-    index = _pinecone_index()
-    submitted = 0
-    for offset in range(0, len(patterns), batch_size):
-        batch = patterns[offset : offset + batch_size]
-        records: list[dict[str, Any]] = [
-            {
-                "_id": pattern.id,
-                "chunk_text": (
-                    f"{pattern.title}\n{pattern.summary}\n"
-                    f"Keywords: {', '.join(pattern.keywords)}\n"
-                    f"{pattern.code}"
-                ),
-                **pattern.model_dump(exclude={"id"}),
-            }
-            for pattern in batch
-        ]
-        index.upsert_records(namespace=namespace, records=records)
-        submitted += len(records)
-    return submitted
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Extract real patterns from an official build123d checkout."
@@ -496,14 +448,9 @@ def main() -> None:
     parser.add_argument(
         "--repository-url", default="https://github.com/gumyr/build123d"
     )
-    parser.add_argument("--output", type=Path)
+    parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--replays", type=Path)
     parser.add_argument("--seed-corpus", type=Path)
-    parser.add_argument("--pinecone", action="store_true")
-    parser.add_argument(
-        "--namespace",
-        default=os.getenv("PINECONE_NAMESPACE", "build123d-patterns-v1"),
-    )
     parser.add_argument("--minimum-patterns", type=int, default=100)
     parser.add_argument(
         "--no-tests",
@@ -548,11 +495,6 @@ def main() -> None:
         )
     if args.output:
         write_jsonl(patterns, args.output)
-    submitted = (
-        upsert_patterns(patterns, namespace=args.namespace)
-        if args.pinecone
-        else 0
-    )
     print(
         json.dumps(
             {
@@ -561,8 +503,6 @@ def main() -> None:
                 "tests": len(test_patterns),
                 "replays": len(replay_patterns),
                 "curated": len(seed_patterns),
-                "submitted": submitted,
-                "namespace": args.namespace if args.pinecone else None,
                 "revision": args.revision,
             },
             sort_keys=True,

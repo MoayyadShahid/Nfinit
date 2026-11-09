@@ -1,26 +1,8 @@
-from contextlib import contextmanager
+import logging
+
+import pytest
 
 from agent.tracing import RunTracer, summarize_messages, summarize_text
-
-
-class FakeObservation:
-    def __init__(self):
-        self.updates = []
-
-    def update(self, **kwargs):
-        self.updates.append(kwargs)
-        return self
-
-
-class FakeLangfuse:
-    def __init__(self):
-        self.observations = []
-
-    @contextmanager
-    def start_as_current_observation(self, **kwargs):
-        observation = FakeObservation()
-        self.observations.append((kwargs, observation))
-        yield observation
 
 
 def test_message_summary_redacts_text_and_images():
@@ -55,30 +37,21 @@ def test_text_summary_is_stable_without_retaining_content():
     assert "same private prompt" not in str(first)
 
 
-def test_run_tracer_creates_correlated_root_and_child_observations():
-    client = FakeLangfuse()
-    tracer = RunTracer("12345678-1234-1234-1234-123456789abc", client=client)
+def test_local_observations_log_timing_without_private_payloads(caplog):
+    tracer = RunTracer("local-run")
+    with caplog.at_level(logging.DEBUG, logger="agent.tracing"):
+        with tracer.observation("node.plan", input="private-prompt") as observation:
+            observation.update(output="private-code", metadata={"image": "private-image"})
+    assert "local-run" in caplog.text
+    assert "node.plan" in caplog.text
+    assert "duration_ms=" in caplog.text
+    assert "private-" not in caplog.text
 
-    with tracer.observation(
-        "nfinit.cad.run",
-        as_type="agent",
-        input={"message_count": 1},
-        root=True,
-    ) as root:
-        with tracer.observation(
-            "node.plan",
-            as_type="chain",
-            input={"redacted": True},
-        ) as child:
-            child.update(output={"characters": 20})
-        root.update(output={"valid": True})
 
-    root_args, root_observation = client.observations[0]
-    child_args, child_observation = client.observations[1]
-    assert root_args["trace_context"]["trace_id"] == (
-        "12345678123412341234123456789abc"
-    )
-    assert root_args["metadata"]["run_id"] == tracer.run_id
-    assert child_args["metadata"]["run_id"] == tracer.run_id
-    assert root_observation.updates == [{"output": {"valid": True}}]
-    assert child_observation.updates == [{"output": {"characters": 20}}]
+def test_failed_observation_preserves_error_without_logging_its_payload(caplog):
+    with caplog.at_level(logging.DEBUG, logger="agent.tracing"):
+        with pytest.raises(ValueError, match="private-code"):
+            with RunTracer("local-run").observation("node.generate"):
+                raise ValueError("private-code")
+    assert "level=ERROR" in caplog.text
+    assert "private-code" not in caplog.text

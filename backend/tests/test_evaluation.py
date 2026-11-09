@@ -223,7 +223,6 @@ def test_quality_first_live_config_uses_pinned_flagship_models():
         "anthropic/claude-opus-5.5",
     ]
     assert all(model.supports_structured_outputs for model in config.models)
-    assert config.langfuse_dataset == "nfinit-cad50-v1"
 
 
 def test_cad50_benchmark_has_balanced_complete_coverage():
