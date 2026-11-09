@@ -126,17 +126,12 @@ PRODUCTION_SETTINGS = {
     "NFNIT_DATABASE_URL": "postgresql://example",
     "SUPABASE_URL": SUPABASE_URL,
     "NFNIT_MESH_URL_SECRET": "a" * 64,
-    "STRIPE_SECRET_KEY": "rk_test_x",
-    "STRIPE_WEBHOOK_SECRET": "whsec_x",
-    "STRIPE_PRICE_ID": "price_x",
-    "APP_URL": "https://nfinit.dev",
     "CORS_ORIGINS": "https://nfinit.dev,https://www.nfinit.dev",
 }
 
 
 def _production(monkeypatch, **overrides):
     monkeypatch.delenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", raising=False)
-    monkeypatch.delenv("NFNIT_ALLOW_FREE_ACCESS", raising=False)
     for name, value in {**PRODUCTION_SETTINGS, **overrides}.items():
         if value is None:
             monkeypatch.delenv(name, raising=False)
@@ -182,9 +177,7 @@ def test_local_bypass_is_refused_in_production(monkeypatch):
         validate_project_configuration()
 
 
-@pytest.mark.parametrize(
-    "missing", ["NFNIT_MESH_URL_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
-)
+@pytest.mark.parametrize("missing", ["NFNIT_MESH_URL_SECRET", "CORS_ORIGINS"])
 def test_production_refuses_to_start_without_a_required_secret(monkeypatch, missing):
     _production(monkeypatch, **{missing: None})
 
@@ -192,23 +185,8 @@ def test_production_refuses_to_start_without_a_required_secret(monkeypatch, miss
         validate_project_configuration()
 
 
-def test_running_without_billing_must_be_explicit(monkeypatch):
-    _production(monkeypatch, STRIPE_SECRET_KEY=None, STRIPE_WEBHOOK_SECRET=None)
-    monkeypatch.setenv("NFNIT_ALLOW_FREE_ACCESS", "true")
-
-    validate_project_configuration()
-
-
 def test_production_rejects_a_weak_link_secret(monkeypatch):
     _production(monkeypatch, NFNIT_MESH_URL_SECRET="short")
 
     with pytest.raises(RuntimeError, match="at least 32 bytes"):
-        validate_project_configuration()
-
-
-@pytest.mark.parametrize("app_url", ["http://nfinit.dev", "https://nfinit.dev/path"])
-def test_production_rejects_an_unsafe_app_url(monkeypatch, app_url):
-    _production(monkeypatch, APP_URL=app_url)
-
-    with pytest.raises(RuntimeError, match="exact HTTPS production origin"):
         validate_project_configuration()

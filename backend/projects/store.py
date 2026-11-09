@@ -1,13 +1,12 @@
 import json
 import os
 import sqlite3
-import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import ContextManager, Protocol
+from typing import Protocol
 from uuid import uuid4
 
 from .models import (
@@ -20,7 +19,6 @@ from .models import (
     ProjectState,
     ProjectSummary,
     RunEvent,
-    SubscriptionRecord,
 )
 
 
@@ -126,10 +124,6 @@ def event_within_budget(event: RunEvent) -> RunEvent | None:
 
 
 class ProjectStoreProtocol(Protocol):
-    def billing_operation_lock(self, user_id: str) -> ContextManager[None]:
-        """Serialize checkout creation and destructive billing changes."""
-        ...
-
     def create_project(
         self, request: ProjectCreate, *, user_id: str
     ) -> ProjectDetail: ...
@@ -234,12 +228,6 @@ class ProjectStoreProtocol(Protocol):
         self, run_id: str, *, user_id: str, after: int = 0
     ) -> list[RunEvent]: ...
 
-    def get_subscription(self, *, user_id: str) -> SubscriptionRecord | None: ...
-
-    def save_subscription(
-        self, subscription: SubscriptionRecord, *, user_id: str
-    ) -> None: ...
-
     def hit_sandbox_rate(
         self,
         *,
@@ -274,9 +262,6 @@ def _timestamp() -> str:
 
 
 class ProjectStore:
-    _billing_locks_guard = threading.Lock()
-    _billing_locks: dict[tuple[str, str], threading.RLock] = {}
-
     def __init__(self, path: Path):
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -296,19 +281,6 @@ class ProjectStore:
             raise
         finally:
             connection.close()
-
-    @contextmanager
-    def billing_operation_lock(self, user_id: str):
-        """Local equivalent of the PostgreSQL per-user advisory lock.
-
-        The key includes the resolved database path so separately constructed
-        store objects in the same local process still serialize one account.
-        """
-        key = (str(self.path.resolve()), user_id)
-        with self._billing_locks_guard:
-            lock = self._billing_locks.setdefault(key, threading.RLock())
-        with lock:
-            yield
 
     def _initialize(self):
         with self._connect() as connection:
@@ -377,15 +349,7 @@ class ProjectStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_cad_runs_user_created
                     ON cad_runs(user_id, created_at DESC);
-                CREATE TABLE IF NOT EXISTS subscriptions (
-                    user_id TEXT PRIMARY KEY,
-                    stripe_customer_id TEXT NOT NULL UNIQUE,
-                    stripe_subscription_id TEXT,
-                    status TEXT NOT NULL DEFAULT 'none',
-                    current_period_end TEXT,
-                    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
-                    updated_at TEXT NOT NULL
-                );
+                DROP TABLE IF EXISTS subscriptions;
                 CREATE TABLE IF NOT EXISTS project_meshes (
                     project_id TEXT PRIMARY KEY
                         REFERENCES projects(id) ON DELETE CASCADE,
@@ -794,9 +758,6 @@ class ProjectStore:
             connection.execute("DELETE FROM cad_runs WHERE user_id = ?", (user_id,))
             connection.execute("DELETE FROM projects WHERE user_id = ?", (user_id,))
             connection.execute(
-                "DELETE FROM subscriptions WHERE user_id = ?", (user_id,)
-            )
-            connection.execute(
                 "DELETE FROM sandbox_rate_events WHERE user_id = ?", (user_id,)
             )
             connection.execute(
@@ -1202,53 +1163,6 @@ class ProjectStore:
         if row is None:
             raise RunNotFoundError(run_id)
         return self._run(row)
-
-    def get_subscription(self, *, user_id: str) -> SubscriptionRecord | None:
-        with self._connect() as connection:
-            row = connection.execute(
-                "SELECT * FROM subscriptions WHERE user_id = ?",
-                (user_id,),
-            ).fetchone()
-        if row is None:
-            return None
-        return SubscriptionRecord(
-            stripe_customer_id=row["stripe_customer_id"],
-            stripe_subscription_id=row["stripe_subscription_id"],
-            status=row["status"],
-            current_period_end=row["current_period_end"],
-            cancel_at_period_end=bool(row["cancel_at_period_end"]),
-        )
-
-    def save_subscription(
-        self, subscription: SubscriptionRecord, *, user_id: str
-    ) -> None:
-        with self._connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO subscriptions (
-                    user_id, stripe_customer_id, stripe_subscription_id, status,
-                    current_period_end, cancel_at_period_end, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    stripe_customer_id = excluded.stripe_customer_id,
-                    stripe_subscription_id = excluded.stripe_subscription_id,
-                    status = excluded.status,
-                    current_period_end = excluded.current_period_end,
-                    cancel_at_period_end = excluded.cancel_at_period_end,
-                    updated_at = excluded.updated_at
-                """,
-                (
-                    user_id,
-                    subscription.stripe_customer_id,
-                    subscription.stripe_subscription_id,
-                    subscription.status,
-                    subscription.current_period_end.isoformat()
-                    if subscription.current_period_end
-                    else None,
-                    int(subscription.cancel_at_period_end),
-                    _timestamp(),
-                ),
-            )
 
 
 @lru_cache(maxsize=1)

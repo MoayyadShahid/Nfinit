@@ -52,7 +52,7 @@ export default function ActionSearchBar({ open, onOpenChange, commands, onError 
                 onSelect={() => {
                   if (item.disabled) return;
                   onOpenChange(false);
-                  // Existing handlers retain paywalls and discard confirmations.
+                  // Existing handlers keep their discard confirmations.
                   Promise.resolve().then(item.onSelect).catch(() => onError("The action could not be completed. Please try again."));
                 }}
               >

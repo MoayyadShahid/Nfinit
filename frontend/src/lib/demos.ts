@@ -2,12 +2,10 @@ import type { AgentTraceStep, ModelInspection, RunEvent } from "@/lib/types";
 
 /**
  * Demo parts: short build stories built by `backend/demos/build.py` and
- * served as static files, so anyone can replay them without the backend or a
- * subscription. Each step is one version of the part, like a point on a CAD
- * timeline.
+ * served as static files, so anyone can replay them without the backend. Each
+ * step is one version of the part, like a point on a CAD timeline.
  */
 export const DEMO_ROOT = "/demos";
-export const FIRST_DEMO = "fpv-drone";
 
 export type DemoSummary = {
   slug: string;

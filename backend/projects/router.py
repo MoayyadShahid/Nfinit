@@ -13,7 +13,6 @@ from fastapi import (
 from execution import RevisionComparison, compare_code
 
 from .auth import get_current_user_id
-from .billing import SubscribedUserId
 from .limits import SandboxUserId
 from .models import (
     ProjectCreate,
@@ -46,7 +45,7 @@ def _not_found(error: LookupError) -> HTTPException:
 
 
 @router.post("", response_model=ProjectDetail, status_code=status.HTTP_201_CREATED)
-def create_project(request: ProjectCreate, store: Store, user_id: SubscribedUserId):
+def create_project(request: ProjectCreate, store: Store, user_id: UserId):
     return store.create_project(request, user_id=user_id)
 
 
@@ -89,7 +88,7 @@ def delete_project(project_id: str, store: Store, user_id: UserId):
 
 @router.put("/{project_id}/thumbnail", status_code=status.HTTP_204_NO_CONTENT)
 async def put_thumbnail(
-    project_id: str, request: Request, store: Store, user_id: SubscribedUserId
+    project_id: str, request: Request, store: Store, user_id: UserId
 ):
     content_type = request.headers.get("content-type", "").split(";")[0].strip()
     if content_type not in THUMBNAIL_TYPES:
@@ -129,7 +128,7 @@ def get_thumbnail(project_id: str, store: Store, user_id: UserId):
     status_code=status.HTTP_201_CREATED,
 )
 def create_revision(
-    project_id: str, request: RevisionCreate, store: Store, user_id: SubscribedUserId
+    project_id: str, request: RevisionCreate, store: Store, user_id: UserId
 ):
     try:
         return store.add_revision(project_id, request.state, user_id=user_id)

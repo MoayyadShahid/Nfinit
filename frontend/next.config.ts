@@ -16,8 +16,7 @@ const SECURITY_HEADERS = [
   {
     key: "Content-Security-Policy",
     value:
-      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; " +
-      "form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
+      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
   },
 ];
 

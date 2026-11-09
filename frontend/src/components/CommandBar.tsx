@@ -13,12 +13,10 @@ import type { ProjectSummary } from "@/lib/projects";
 import { Wordmark } from "@/components/brand/Wordmark";
 import Link from "next/link";
 import { AccountMenu } from "@/components/AccountMenu";
-import { SubscribeButton } from "@/components/SubscribeButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import SmoothDrawer from "@/components/kokonutui/smooth-drawer";
 import { Button } from "@/components/ui/button";
 import { EXPORT_FORMATS, type ExportFormat } from "@/lib/exports";
-import { canSubscribe, type BillingStatus } from "@/lib/billing";
 import {
   ChevronDown,
   Code2,
@@ -52,9 +50,6 @@ interface CommandBarProps {
   onSave: () => void;
   onOpenCommands: () => void;
   busy: boolean;
-  /** The user's plan: free users get "Start building", everyone the account menu. */
-  billing?: BillingStatus | null;
-  onBillingError?: (message: string) => void;
   viewer?: Viewer | null;
 }
 
@@ -71,8 +66,6 @@ export function CommandBar({
   onSave,
   onOpenCommands,
   busy,
-  billing,
-  onBillingError,
   viewer = null,
 }: CommandBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
@@ -175,15 +168,6 @@ export function CommandBar({
           <Search />
         </Button>
         <ThemeToggle />
-        {canSubscribe(billing ?? null) && (
-          <div className="hidden sm:block">
-            <SubscribeButton
-              size="sm"
-              taxAtCheckout={billing?.taxAtCheckout ?? false}
-              onError={onBillingError}
-            />
-          </div>
-        )}
         <button
           type="button"
           onClick={() => onAdvancedChange(!advancedOpen)}
@@ -234,7 +218,7 @@ export function CommandBar({
             </div>
           )}
         </div>
-        {viewer && <AccountMenu viewer={viewer} billing={billing ?? null} onError={onBillingError} />}
+        {viewer && <AccountMenu viewer={viewer} />}
       </div>
     </header>
   );

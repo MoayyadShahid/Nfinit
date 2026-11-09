@@ -144,26 +144,6 @@ class CadRunRecord(BaseModel):
     events: list[RunEvent] = Field(default_factory=list)
 
 
-# Stripe keeps retrying a past_due card, so access continues until it gives up
-# and the subscription becomes unpaid or canceled.
-ACTIVE_SUBSCRIPTION_STATUSES = frozenset({"active", "trialing", "past_due"})
-
-
-class SubscriptionRecord(BaseModel):
-    """The user's Stripe subscription as last reported by Stripe. A customer
-    created for Checkout but never subscribed has status "none"."""
-
-    stripe_customer_id: str
-    stripe_subscription_id: str | None = None
-    status: str = "none"
-    current_period_end: datetime | None = None
-    cancel_at_period_end: bool = False
-
-    @property
-    def active(self) -> bool:
-        return self.status in ACTIVE_SUBSCRIPTION_STATUSES
-
-
 class RevisionMesh(BaseModel):
     """A short-lived link to a revision's GLB, plus its geometry facts."""
 

@@ -31,12 +31,10 @@ from execution import (
     stop_sandbox,
 )
 from projects import router as projects_router
-from projects.billing import billing_enabled
 from projects.body_limit import BodySizeLimitMiddleware
 from projects.limits import MAX_CODE_CHARS, SandboxUserId
 from projects.store import get_project_store
 from projects.account import router as account_router
-from projects.billing import router as billing_router
 from projects.meshes import router as meshes_router
 from projects.runs import router as runs_router
 from projects.config import validate_project_configuration
@@ -62,11 +60,6 @@ def _optional_service_status() -> dict[str, str]:
     return {
         "openrouter": "configured" if os.getenv("OPENROUTER_API_KEY") else "MISSING",
         "supabase": supabase,
-        "stripe": (
-            "enabled"
-            if billing_enabled()
-            else "disabled (everyone can generate and export)"
-        ),
     }
 
 
@@ -150,7 +143,6 @@ async def add_security_headers(request, call_next):
 
 app.include_router(projects_router)
 app.include_router(runs_router)
-app.include_router(billing_router)
 app.include_router(account_router)
 app.include_router(meshes_router)
 

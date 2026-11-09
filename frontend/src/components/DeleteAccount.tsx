@@ -42,12 +42,10 @@ export function DeleteAccount() {
       <h2 className="text-lg font-semibold text-[var(--ink)]">Delete account</h2>
       <p className="mt-2 text-[15px] leading-6 text-[var(--ink-2)]">
         This permanently deletes your account, all your projects and their history, your
-        part files and your run records. It also cancels your subscription at once,
-        without a refund for the rest of the month. You cannot undo this.
+        part files and your run records. You cannot undo this.
       </p>
       <p className="mt-2 text-[15px] leading-6 text-[var(--ink-2)]">
-        Export any parts you want to keep first. Stripe keeps its payment and tax records,
-        as the law requires.
+        Export any parts you want to keep first.
       </p>
       <label className="mt-5 block text-sm text-[var(--ink)]" htmlFor="confirm-delete">
         Type <strong>{CONFIRMATION}</strong> to confirm

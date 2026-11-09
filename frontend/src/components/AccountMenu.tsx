@@ -1,34 +1,17 @@
 "use client";
 
 import type { Viewer } from "@/components/CommandBar";
-import { SubscribeButton } from "@/components/SubscribeButton";
-import {
-  canManageBilling,
-  canSubscribe,
-  openBillingPortal,
-  planDetail,
-  type BillingStatus,
-} from "@/lib/billing";
-import { ChevronDown, CreditCard, LayoutGrid, LogOut, UserRound } from "lucide-react";
+import { ChevronDown, LayoutGrid, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 
 /**
- * Everything about the account in one place: who is signed in, the plan,
- * billing, the Account page and signing out. The studio and the Parts page
+ * Everything about the account in one place: who is signed in, their parts,
+ * the Account page and signing out. The studio and the Parts page
  * use the same menu.
  */
-export function AccountMenu({
-  viewer,
-  billing,
-  onError,
-}: {
-  viewer: Viewer;
-  billing: BillingStatus | null;
-  onError?: (message: string) => void;
-}) {
+export function AccountMenu({ viewer }: { viewer: Viewer }) {
   const [open, setOpen] = useState(false);
-  const [portalError, setPortalError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
 
@@ -50,17 +33,6 @@ export function AccountMenu({
 
   const label = viewer.name ?? viewer.email ?? "Account";
   const initial = label.charAt(0).toUpperCase();
-  const subscribed = Boolean(billing?.enabled && billing.active);
-  const detail = billing ? planDetail(billing) : null;
-
-  const manageBilling = () => {
-    setPortalError(null);
-    openBillingPortal().catch((e) => {
-      const message = e instanceof Error ? e.message : "Could not open billing.";
-      if (onError) onError(message);
-      else setPortalError(message);
-    });
-  };
 
   const item =
     "theme-control flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs text-[var(--ink)]";
@@ -92,36 +64,8 @@ export function AccountMenu({
             {viewer.email && viewer.name && (
               <p className="truncate text-xs text-[var(--ink-2)]">{viewer.email}</p>
             )}
-            {billing?.enabled && (
-              <div className="mt-3 flex items-center gap-2">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] ${
-                    subscribed
-                      ? "bg-[var(--accent)]/15 text-[var(--accent)]"
-                      : "bg-[var(--clay)] text-[var(--ink-2)]"
-                  }`}
-                >
-                  {subscribed ? "Subscribed" : "Free"}
-                </span>
-                {detail && <span className="truncate text-[11px] text-[var(--ink-2)]">{detail}</span>}
-              </div>
-            )}
-            {canSubscribe(billing) && (
-              <SubscribeButton
-                size="md"
-                taxAtCheckout={billing?.taxAtCheckout ?? false}
-                className="mt-3"
-                onError={onError}
-              />
-            )}
           </div>
           <div className="border-t border-[var(--hairline)] pt-1.5">
-            {canManageBilling(billing) && (
-              <button type="button" onClick={manageBilling} className={item}>
-                <CreditCard className="size-3.5 text-[var(--ink-2)]" />
-                Manage billing
-              </button>
-            )}
             <Link href="/parts" className={item} onClick={() => setOpen(false)}>
               <LayoutGrid className="size-3.5 text-[var(--ink-2)]" />
               Your parts
@@ -137,11 +81,6 @@ export function AccountMenu({
               </button>
             </form>
           </div>
-          {portalError && (
-            <p role="alert" className="px-3 pb-2 pt-1 text-xs text-[var(--danger)]">
-              {portalError}
-            </p>
-          )}
         </div>
       )}
     </div>

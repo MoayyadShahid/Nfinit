@@ -52,8 +52,7 @@ function dataUrlBytes(url: string): number {
 
 interface ChatPaneProps {
   messages: ChatMessage[];
-  /** Returning false keeps the text in the box (e.g. stopped by the paywall). */
-  onSend: (text: string, images?: string[]) => boolean | void;
+  onSend: (text: string, images?: string[]) => void;
   isLoading: boolean;
   lastError?: string | null;
   supportsVision?: boolean;
@@ -169,7 +168,7 @@ export function ChatPane({
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading || addingImages) return;
-    if (onSend(trimmed, images.length > 0 ? images : undefined) === false) return;
+    onSend(trimmed, images.length > 0 ? images : undefined);
     setInput("");
     setImages([]);
   };

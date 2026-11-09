@@ -20,14 +20,13 @@ def main():
         ).strip()
     env = {**os.environ, "NFNIT_LOCAL_AGENTS": "true",
            "NFNIT_LOCAL_TOKEN": secrets.token_urlsafe(32),
-           "NFNIT_ALLOW_LOCAL_AUTH_BYPASS": "true", "NFNIT_ALLOW_FREE_ACCESS": "true",
+           "NFNIT_ALLOW_LOCAL_AUTH_BYPASS": "true",
            "BACKEND_URL": "http://127.0.0.1:8000",
            "NEXT_PUBLIC_BACKEND_URL": "http://127.0.0.1:8000",
            "CORS_ORIGINS": "http://127.0.0.1:3000,http://localhost:3000"}
-    # Local mode never reads hosted billing or identity configuration from .env.
+    # Local mode never reads hosted identity configuration from .env.
     for name in ("SUPABASE_URL", "SUPABASE_JWT_SECRET", "NFNIT_DATABASE_URL",
                  "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-                 "STRIPE_SECRET_KEY", "STRIPE_PRICE_ID", "STRIPE_WEBHOOK_SECRET",
                  "RAILWAY_ENVIRONMENT_NAME"):
         env[name] = ""
     children = []

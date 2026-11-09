@@ -1,7 +1,6 @@
 import { Wordmark } from "@/components/brand/Wordmark";
 import { DeleteAccount } from "@/components/DeleteAccount";
 import { LegalLinks } from "@/components/LegalPage";
-import { PlanSection } from "@/components/PlanSection";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getAuthenticatedUser } from "@/lib/supabase/server";
@@ -51,8 +50,6 @@ export default async function AccountPage() {
             .
           </p>
         </section>
-
-        <PlanSection />
 
         <section className="mt-10">
           <DeleteAccount />
