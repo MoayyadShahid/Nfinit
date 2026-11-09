@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from demos.authored import parse_design
-from demos.build import ORDER
+from demos.build import ORDER, main_part_code
 from execution.policy import validate_cad_code
 
 DEMOS = Path(__file__).parents[2] / "frontend" / "public" / "demos"
@@ -94,3 +94,21 @@ def test_code_is_assembled_from_the_sections(tmp_path):
     assert design.code(2).endswith(
         "with BuildPart() as lid:\n    Box(size, size, 1)\n\nresult = Compound([block.part, lid.part])\n"
     )
+
+
+def test_main_part_code_returns_only_the_main_part(tmp_path):
+    path = tmp_path / "pair.cad"
+    path.write_text(
+        "# title: Pair\n# summary: S\n# part: block\n\n"
+        "# == step\n# prompt: A box.\n# plan: A box.\n# -- build\n    Box(1, 1, 1)\n\n"
+        "# == step\n# prompt: A lid.\n# plan: A lid.\n# -- extra\n"
+        "with BuildPart() as lid:\n    Box(1, 1, 1)\n"
+        "# -- result\nresult = Compound([block.part, lid.part])\n"
+    )
+    design = parse_design(path)
+
+    code = main_part_code(design, 2)
+
+    assert code.startswith(design.code(2))
+    assert code.rstrip().endswith("result = block.part")
+    validate_cad_code(code)

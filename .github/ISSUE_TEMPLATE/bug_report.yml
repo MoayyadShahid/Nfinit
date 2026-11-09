@@ -1,0 +1,35 @@
+name: Bug report
+description: Something in Nfinit does not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: prompt
+    attributes:
+      label: Prompt and code
+      description: The prompt you sent and, if the part did not build, the CAD code from the Code tab.
+      render: python
+  - type: input
+    id: agent
+    attributes:
+      label: Agent
+      description: Claude Code, Codex, or an API model (with its name).
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Operating system, browser, and the Nfinit commit (git rev-parse --short HEAD).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Errors from the terminal that runs npm run local, or from the browser console.
+      render: text
