@@ -23,14 +23,15 @@ geometry bugs, and a regression check for the specific requirement that failed.
 Do not treat a valid solid, rendered image, or matching volume as proof of a
 correct design. Keep held-out evaluation solutions out of retrieval corpora.
 
-Keep generated code inside the execution sandbox. Never expose a developer's
-local agent account on a hosted endpoint, bypass CLI permissions, or collect
+Keep generated code inside the execution sandbox. Never make the backend or a
+developer's local agent account reachable from another machine, bypass CLI
+permissions, or collect
 provider credentials in the Nfinit frontend. Do not include keys, private model
 files, local databases or conversation traces in a PR.
 
-Open issues for workflow gaps and narrowly scoped PRs for changes. The optional
-hosted deployment must keep its authentication and isolation when local features
-are added. See `docs/OPEN_SOURCE_WORKSPACE.md` for the architecture and limits.
+Open issues for workflow gaps and narrowly scoped PRs for changes. The public
+website is a read-only demo build (see `docs/DEMOS.md`); keep it free of API
+calls. See `docs/OPEN_SOURCE_WORKSPACE.md` for the architecture and limits.
 
 By contributing, you agree your contribution is licensed under the MIT license.
 Third-party components retain their own licenses and attribution.

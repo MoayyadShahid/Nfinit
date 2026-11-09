@@ -29,6 +29,11 @@ The GLB files are stored gzipped (`.glb.gz`, about 30% of their size), and
 `next.config.ts` serves them with `Content-Encoding: gzip`, so the browser
 decodes them; Vercel does not compress GLB files itself.
 
+**The public website.** Any Vercel build (or one with `NFNIT_DEMO_ONLY=true`)
+is a read-only demo with no backend: `/studio` opens the first demo part,
+`/parts` lists the demos, and the chat input, export and saving are replaced by
+a link to run Nfinit locally. `frontend/src/lib/site.ts` holds the flag.
+
 **Replay as a version history.** The replay panel shows a timeline with one
 point per version, named after the features it adds. "Build next version"
 plays the next version like a live run: the request appears in the chat, the

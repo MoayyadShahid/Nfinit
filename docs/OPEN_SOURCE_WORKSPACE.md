@@ -15,7 +15,7 @@ on the user's machine; prompts and reference images still reach the model provid
 4. Run `npm run local` at the root. Open `http://127.0.0.1:3000/studio`.
 
 `NFNIT_PYTHON=/path/to/python npm run local` selects an existing backend Python
-environment. No Supabase or OpenRouter credentials are required. Local pattern search
+environment. No cloud accounts or API keys are required. Local pattern search
 and run diagnostics also require no cloud service accounts. The
 launcher binds both services to loopback and uses SQLite. Existing local
 projects remain available. Ports 3000 and 8000 must be free.
@@ -23,9 +23,9 @@ projects remain available. Ports 3000 and 8000 must be free.
 ## Agent connection and loop
 
 The local launcher creates a random token shared only by the Next.js proxy and
-backend. A local-agent run requires that token, a loopback peer, explicit local
-mode, and no production/Supabase deployment. Provider credentials remain with
-the official CLI. Hosted API runs retain their existing controls.
+backend. A local-agent run requires that token, a loopback peer and explicit
+local mode. The API refuses to serve at all unless the launcher started it.
+Provider credentials remain with the official CLI.
 
 Each run launches the unmodified CLI in a fresh temporary workspace. Claude
 Code uses structured streaming input/output and only the Nfinit MCP tools.
@@ -53,8 +53,8 @@ Preview rendering samples meshes over 15,000 triangles and is not metrology.
 
 `check_measurement(name, actual, expected, tolerance=0.01)` must measure built
 geometry, never repeat the requested parameter. Failed checks make inspection
-fail and enter repair. The hosted loop also preserves images through later turns
-and repairs and prompts for these checks.
+fail and enter repair. The optional API loop also preserves images through later
+turns and repairs and prompts for these checks.
 
 The runtime controls subprocess lifetime and kills its process group at the
 deadline. An unavailable agent, invalid login, or exhausted usage allowance is
