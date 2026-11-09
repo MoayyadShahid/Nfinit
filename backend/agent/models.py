@@ -19,6 +19,14 @@ class FaceSelection(BaseModel):
     confidence: float | None = Field(default=None, ge=0, le=1)
 
 
+class MeshReference(BaseModel):
+    name: str = Field(max_length=200)
+    data: str = Field(max_length=14_000_000)
+    units: Literal["mm", "in"]
+    mode: Literal["preserve", "reconstruct"]
+    facts: dict[str, Any] = Field(default_factory=dict)
+
+
 class CadRunRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -31,6 +39,7 @@ class CadRunRequest(BaseModel):
         default=False, alias="supportsStructuredOutputs"
     )
     selection: FaceSelection | None = None
+    mesh_reference: MeshReference | None = Field(default=None, alias="meshReference")
 
 
 class ModelInspection(BaseModel):
@@ -40,6 +49,9 @@ class ModelInspection(BaseModel):
     volume_mm3: float | None = None
     bounding_box_mm: dict[str, float] | None = None
     error: str | None = None
+    checks: list[dict[str, Any]] = Field(default_factory=list)
+    verification: Literal["unverified", "measured", "failed"] = "unverified"
+    reference_comparison: dict[str, Any] | None = None
 
 
 class TraceStep(BaseModel):

@@ -1,4 +1,4 @@
-import type { ChatMessage, FaceSelection, ModelInspection } from "@/lib/types";
+import type { ChatMessage, FaceSelection, ModelInspection, MeshReference } from "@/lib/types";
 
 export type ProjectState = {
   code: string;
@@ -6,6 +6,7 @@ export type ProjectState = {
   modelId: string;
   selection: FaceSelection | null;
   lastRunId: string | null;
+  meshReference?: MeshReference | null;
 };
 
 /** A version in a list: enough to show and pick it, without its state. */

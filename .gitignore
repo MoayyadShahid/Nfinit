@@ -1,5 +1,7 @@
 # Root level - prevent accidental tracking of node_modules
 node_modules/
+__pycache__/
+*.py[cod]
 
 # OS files
 .DS_Store

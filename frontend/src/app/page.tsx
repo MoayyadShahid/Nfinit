@@ -22,11 +22,11 @@ export default function LandingPage() {
         <Wordmark />
         <nav className="flex items-center gap-1 sm:gap-2" aria-label="Main">
           <ThemeToggle />
-          <Link href="/login?next=/studio" className="wb-btn wb-btn-ghost wb-btn-sm">
-            Log in
+          <Link href="https://github.com/MoayyadShahid/Nfinit" className="wb-btn wb-btn-ghost wb-btn-sm">
+            Source code
           </Link>
           <Link href="/studio" className="wb-btn wb-btn-primary wb-btn-sm">
-            Start a part
+            Open studio
             <span className="wb-arrow" aria-hidden="true">
               →
             </span>
@@ -38,7 +38,7 @@ export default function LandingPage() {
         {/* Hero (§7) */}
         <section className="mx-auto grid max-w-[1264px] grid-cols-1 items-center gap-x-8 gap-y-8 px-4 pb-16 pt-8 sm:px-8 lg:grid-cols-12 lg:pb-24 lg:pt-12">
           <div className="flex flex-col justify-center gap-6 lg:col-span-7">
-            <p className="type-label">Describe → Refine → Print</p>
+            <p className="type-label">Open source · Your agent · Your CAD</p>
             <h1 className="type-display wb-hero-line mb-3">
               <span className="wb-rise-line">
                 <span style={riseDelay(0)}>
@@ -46,6 +46,8 @@ export default function LandingPage() {
                 </span>
               </span>
             </h1>
+            <p className="type-body-l">A free visual workspace for Claude Code and Codex. Start with a description, reference pictures, or an STL. Refine it, check it, and make it yours.</p>
+            <Link href="https://github.com/MoayyadShahid/Nfinit#run-locally" className="wb-btn wb-btn-ghost w-fit">Run locally · MIT license →</Link>
             <PromptBar />
           </div>
 

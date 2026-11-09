@@ -52,10 +52,10 @@ def _int_setting(name: str, default: int) -> int:
 
 
 def allowed_models() -> frozenset[str]:
+    from agent.local_access import LOCAL_MODELS, local_agents_enabled
     configured = os.getenv("CAD_ALLOWED_MODELS", "").strip()
-    if not configured:
-        return frozenset(DEFAULT_ALLOWED_MODELS)
-    return frozenset(model.strip() for model in configured.split(",") if model.strip())
+    models = frozenset(model.strip() for model in configured.split(",") if model.strip()) if configured else frozenset(DEFAULT_ALLOWED_MODELS)
+    return models | (frozenset(LOCAL_MODELS) if local_agents_enabled() else frozenset())
 
 
 def _too_large(detail: str) -> HTTPException:

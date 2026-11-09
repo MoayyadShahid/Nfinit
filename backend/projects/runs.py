@@ -28,6 +28,7 @@ from agent import (
     run_cad_agent,
 )
 from agent.graph import run_timeout_seconds
+from agent.local_access import LOCAL_MODELS, require_local_access
 from execution import BuildSnapshot, inspect_with_snapshots
 
 from .auth import get_current_user_id
@@ -147,6 +148,7 @@ def _save_to_project(
         model_id=request.model_id,
         selection=None,
         last_run_id=run_id,
+        mesh_reference=request.mesh_reference,
     )
     if request.project_id:
         try:
@@ -224,16 +226,21 @@ async def _execute_run(
         )
 
     try:
-        state = await run_cad_agent(
-            request, api_key, inspect_and_preview, run_id=run_id, on_event=record_event
-        )
+        if request.model_id in LOCAL_MODELS:
+            from agent.local import run_local_agent
+            state = await run_local_agent(request, inspect_and_preview, run_id=run_id, on_event=record_event)
+        else:
+            state = await run_cad_agent(
+                request, api_key, inspect_and_preview, run_id=run_id, on_event=record_event
+            )
     except CadRunTimeoutError as timeout:
         result = _result_of(timeout.state)
         error = str(timeout)
     except Exception as failure:
         logger.error("CAD agent run %s failed: %s", run_id, failure, exc_info=True)
         # The exception text can name internal services; keep it in the log.
-        error = "The CAD agent failed unexpectedly. Please try again."
+        error = (str(failure)[:500] if request.model_id in LOCAL_MODELS and isinstance(failure, ValueError)
+                 else "The CAD agent failed unexpectedly. Please try again.")
     else:
         if state["validation_error"]:
             result = _result_of(state)
@@ -327,7 +334,7 @@ def _spawn(coroutine) -> None:
 
 @router.post("", response_model=CadRunRecord, status_code=status.HTTP_202_ACCEPTED)
 async def start_run(
-    request: CadRunStart, store: Store, user_id: SubscribedUserId
+    request: CadRunStart, store: Store, user_id: SubscribedUserId, http_request: Request
 ):
     if not request.messages or request.messages[-1].role != "user":
         raise HTTPException(
@@ -335,8 +342,12 @@ async def start_run(
             detail="A non-empty message list ending with a user message is required.",
         )
     validate_run_request(request)
+    if request.plan_model_id in LOCAL_MODELS:
+        raise HTTPException(400, "Local agents manage their own planning. Select them as the main agent.")
+    if request.model_id in LOCAL_MODELS:
+        require_local_access(http_request)
     api_key = os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
+    if not api_key and request.model_id not in LOCAL_MODELS:
         raise HTTPException(
             status_code=503,
             detail="OPENROUTER_API_KEY is not configured on the backend.",
@@ -360,7 +371,7 @@ async def start_run(
         model_id=request.model_id,
     )
     _spawn(
-        _execute_run(run_id, request, user_id=user_id, store=store, api_key=api_key)
+        _execute_run(run_id, request, user_id=user_id, store=store, api_key=api_key or "")
     )
     return record
 

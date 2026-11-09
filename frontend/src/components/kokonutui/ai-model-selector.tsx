@@ -6,11 +6,14 @@ import { RadioGroup } from "radix-ui";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { getModelConfig, MODEL_CONFIGS } from "@/lib/constants";
+import { getModelConfig, MODEL_CONFIGS, type ModelConfig } from "@/lib/constants";
+
+export type ModelOption = ModelConfig & { disabled?: boolean };
 
 /** Models come only from the app allowlist. The backend owns reasoning effort. */
-export default function AIModelSelector({ value, onChange, disabled = false }: {
+export default function AIModelSelector({ value, options = MODEL_CONFIGS, onChange, disabled = false }: {
   value: string;
+  options?: readonly ModelOption[];
   onChange: (modelId: string) => void;
   disabled?: boolean;
 }) {
@@ -32,20 +35,22 @@ export default function AIModelSelector({ value, onChange, disabled = false }: {
           value={value}
           disabled={disabled}
           onValueChange={(id) => {
-            if (!disabled && getModelConfig(id)) onChange(id);
+            const option = options.find((item) => item.id === id);
+            if (!disabled && option && !option.disabled && getModelConfig(id)) onChange(id);
           }}
           className="flex flex-col gap-1"
         >
-          {MODEL_CONFIGS.map((option) => (
+          {options.map((option) => (
             <RadioGroup.Item
               key={option.id}
               value={option.id}
+              disabled={option.disabled}
               onClick={(event) => {
                 // Radix also clicks a radio when arrow keys move focus. Keep
                 // the picker open for keyboard exploration of both models.
                 if (event.detail > 0) setOpen(false);
               }}
-              className="flex min-h-14 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=checked]:bg-accent"
+              className="flex min-h-14 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring data-[state=checked]:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-xs font-medium">{option.label}</span>

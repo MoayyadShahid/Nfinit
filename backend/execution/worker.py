@@ -710,11 +710,51 @@ def _build_scope():
 
     scope["register_feature"] = register_feature
     scope["register_constraint"] = register_constraint
-    return scope, feature_records, constraint_records
+    scope["mesh_solid"] = _mesh_solid
+    checks = []
+
+    def check_measurement(name, actual, expected, tolerance=0.01):
+        if len(checks) >= 64 or not isinstance(name, str) or len(name) > 160:
+            raise ValueError("Use at most 64 named geometry checks.")
+        values = [float(actual), float(expected), float(tolerance)]
+        if not all(math.isfinite(v) for v in values) or values[2] < 0:
+            raise ValueError("Geometry checks require finite values and nonnegative tolerance.")
+        checks.append({"name": name, "actual": values[0], "expected": values[1],
+                       "tolerance": values[2], "passed": abs(values[0]-values[1]) <= values[2]})
+
+    scope["check_measurement"] = check_measurement
+    return scope, feature_records, constraint_records, checks
+
+
+def _mesh_solid(chunks):
+    """Decode only bounded numeric triangles; never a path, pickle or Python."""
+    import base64
+    import struct
+    import zlib
+    from build123d import Face, Wire, Shell, Solid
+    if not isinstance(chunks, list) or len(chunks) > 8:
+        raise ValueError("Invalid mesh payload.")
+    if any(not isinstance(c, str) or len(c) > 16000 for c in chunks):
+        raise ValueError("Invalid mesh chunk.")
+    decoder = zlib.decompressobj()
+    packed = decoder.decompress(base64.b64decode("".join(chunks), validate=True), 2000 * 72 + 1)
+    if not decoder.eof or decoder.unused_data or not packed or len(packed) > 2000 * 72 or len(packed) % 72:
+        raise ValueError("Mesh must contain at most 2,000 triangles.")
+    faces = []
+    for values in struct.iter_unpack("<9d", packed):
+        if any(not math.isfinite(v) or abs(v) > 1_000_000 for v in values):
+            raise ValueError("Invalid mesh coordinate.")
+        faces.append(Face(Wire.make_polygon([values[i:i+3] for i in (0, 3, 6)])))
+    solid = Solid(Shell(faces))
+    if solid.volume < 0:
+        solid.wrapped.Reverse()
+    if not solid.is_valid or not solid.is_manifold or abs(solid.volume) < 1e-9:
+        raise ValueError("Mesh could not be converted into a valid closed solid.")
+    return solid
 
 
 def _execute(code: str):
-    scope, feature_records, constraint_records = _build_scope()
+    scope, feature_records, constraint_records, checks = _build_scope()
     with contextlib.redirect_stdout(sys.stderr):
         exec(compile(code, "<generated-cad>", "exec"), scope)
 
@@ -742,14 +782,19 @@ def _execute(code: str):
         from build123d import Location
 
         result.location = Location()
-    return result, feature_records, constraint_records
+    return result, feature_records, constraint_records, checks
 
 
-def _inspect(result):
+def _inspect(result, checks=None):
     bounds = result.bounding_box().size
     solids = result.solids() if hasattr(result, "solids") else []
+    checks = checks or []
+    failed = [check["name"] for check in checks if not check["passed"]]
+    # Retrieval also contains legitimate 2D sketches and wires. Kernel
+    # validity applies to these too; solid count is a separate measured fact.
+    valid = bool(result.is_valid and math.isfinite(float(result.volume)) and not failed)
     return {
-        "valid": True,
+        "valid": valid,
         "shape_type": type(result).__name__,
         "solid_count": len(solids),
         "volume_mm3": round(float(result.volume), 3),
@@ -758,7 +803,10 @@ def _inspect(result):
             "y": round(float(bounds.Y), 3),
             "z": round(float(bounds.Z), 3),
         },
-        "error": None,
+        "checks": checks,
+        "verification": "failed" if failed else "measured" if checks else "unverified",
+        "error": ("Failed geometry checks: " + ", ".join(failed)) if failed else
+                 None if valid else "The result must contain valid geometry with finite volume.",
     }
 
 
@@ -1425,10 +1473,10 @@ def _export(result, operation: str, output_name: str):
 
 
 def handle_request(request: dict) -> dict:
-    result, feature_records, constraint_records = _execute(request["code"])
+    result, feature_records, constraint_records, checks = _execute(request["code"])
     operation = request["operation"]
     if operation == "inspect":
-        data = _inspect(result)
+        data = _inspect(result, checks)
         if request.get("snapshots"):
             # Previews must never fail an otherwise valid part.
             try:
@@ -1453,7 +1501,7 @@ def handle_request(request: dict) -> dict:
     if operation == "glb":
         # Geometry facts cost about a millisecond once the shape exists, and
         # save the viewer a second sandbox run just to read them.
-        data["inspection"] = _inspect(result)
+        data["inspection"] = _inspect(result, checks)
     return data
 
 
@@ -1495,7 +1543,7 @@ def _warm_up():
     import build123d  # noqa: F401
     import build123d.exporters3d  # noqa: F401
 
-    result, _, _ = _execute("result = Box(1, 1, 1)")
+    result, _, _, _ = _execute("result = Box(1, 1, 1)")
     _inspect(result)
 
 

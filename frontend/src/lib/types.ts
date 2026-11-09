@@ -29,6 +29,16 @@ export type ModelInspection = {
   solid_count?: number;
   volume_mm3?: number;
   bounding_box_mm?: { x: number; y: number; z: number };
+  verification?: "unverified" | "measured" | "failed";
+  checks?: { name: string; actual: number; expected: number; tolerance: number; passed: boolean }[];
+};
+
+export type MeshReference = {
+  name: string;
+  data: string;
+  units: "mm" | "in";
+  mode: "preserve" | "reconstruct";
+  facts: { triangles: number; closed: boolean; oriented: boolean; bounds: { x: number; y: number; z: number } };
 };
 
 export type FaceSelection = {

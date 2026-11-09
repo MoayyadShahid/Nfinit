@@ -7,6 +7,7 @@ All API traffic is fulfilled with fixtures; external browser requests are blocke
 import argparse
 import gzip
 import json
+import mimetypes
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +15,8 @@ from urllib.parse import parse_qs, urlparse
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
+MONACO_ROOT = ROOT.parent / "node_modules/monaco-editor"
+MONACO_PATH = re.compile(r"/npm/monaco-editor@\d+\.\d+\.\d+/min/vs/(.+)")
 SONNET = "anthropic/claude-sonnet-5.5"
 OPUS = "anthropic/claude-opus-5.5"
 STAMP = datetime.now(timezone.utc).isoformat()
@@ -32,23 +35,33 @@ PROJECT = {"id": "test-part", "name": "Cable bracket", "revisionCount": 2, "crea
 
 
 class Fixtures:
-    def __init__(self, page, base, active=True):
+    def __init__(self, page, base, active=True, local_agents=None):
         self.requests = []
         self.blocked = []
         self.errors = []
         self.active = active
+        self.local_agents = local_agents
         self.export_status = 200
         self.run_failed = False
         self.phase = 0
         self.base = urlparse(base)
         self.model = gzip.decompress(next((ROOT / "public/demos/fpv-drone").glob("*.glb.gz")).read_bytes())
         page.on("pageerror", lambda error: self.errors.append(str(error)))
-        page.route("**/*", self.route)
+        page.context.route("**/*", self.route)
 
     def route(self, route):
         request = route.request
         url = urlparse(request.url)
         path = url.path
+        # The loader's default CDN version can differ from npm's peer version.
+        # Use the installed package for this offline UI-integration test.
+        monaco_asset = MONACO_PATH.fullmatch(path)
+        if url.hostname == "cdn.jsdelivr.net" and monaco_asset:
+            root = (MONACO_ROOT / "min/vs").resolve()
+            asset = (root / monaco_asset.group(1)).resolve()
+            if asset.is_relative_to(root) and asset.is_file():
+                route.fulfill(path=str(asset), content_type=mimetypes.guess_type(str(asset))[0] or "application/octet-stream", headers={"Access-Control-Allow-Origin": "*"})
+                return
         if url.hostname not in ("127.0.0.1", "localhost"):
             self.blocked.append(request.url)
             route.abort()
@@ -62,7 +75,9 @@ class Fixtures:
         body = request.post_data_json if request.method == "POST" else None
         self.requests.append((request.method, path, body))
         status, data = 200, None
-        if path == "/api/billing/status":
+        if path == "/api/cad/local-agents":
+            status, data = (404, {"detail": "Not found"}) if self.local_agents is None else (200, {"local": True, "agents": self.local_agents})
+        elif path == "/api/billing/status":
             data = {"enabled": True, "active": self.active, "status": "active" if self.active else "none", "currentPeriodEnd": None, "cancelAtPeriodEnd": False, "taxAtCheckout": False}
         elif path == "/api/projects" and request.method == "GET":
             data = [PROJECT, {**PROJECT, "id": "untrusted-name", "name": UNTRUSTED}]
@@ -98,17 +113,17 @@ class Fixtures:
         route.fulfill(status=status, content_type="application/json", body=json.dumps(data))
 
 
-def open_studio(browser, base, *, mobile=False, active=True, project=False, reduced=False):
+def open_studio(browser, base, *, mobile=False, active=True, project=False, reduced=False, local_agents=None):
     context = browser.new_context(viewport={"width": 390 if mobile else 1440, "height": 844 if mobile else 1000}, is_mobile=mobile, has_touch=mobile, reduced_motion="reduce" if reduced else "no-preference")
     page = context.new_page()
-    fixture = Fixtures(page, base, active)
+    fixture = Fixtures(page, base, active, local_agents)
     # A locked account normally starts a demo. Suppress demo discovery in the
     # paywall fixture only; recorded demos are tested separately.
     if not active:
         page.route("**/demos/index.json", lambda route: route.fulfill(json={"demos": []}))
     page.goto(base + ("/studio?project=test-part" if project else "/studio?new=1"))
     page.wait_for_load_state("networkidle")
-    expect(page.get_by_role("button", name="Generation model: Claude Sonnet 5.5").first).to_be_visible()
+    expect(page.get_by_role("button", name=re.compile("^Generation model:")).first).to_be_visible()
     return context, page, fixture
 
 
@@ -298,6 +313,37 @@ def test_locked(browser, base):
     print("PASS unsubscribed users retain the paywall without paid requests")
 
 
+def test_local_agents(browser, base):
+    context, page, fixture = open_studio(browser, base, local_agents=[
+        {"id": "local/claude", "label": "Claude Code", "installed": False},
+        {"id": "local/codex", "label": "Codex", "installed": True},
+    ])
+    trigger = page.get_by_role("button", name="Generation model: Codex · local")
+    expect(trigger).to_be_visible()
+    trigger.click()
+    group = page.get_by_role("radiogroup", name="Generation model")
+    expect(group.get_by_role("radio")).to_have_count(4)
+    expect(group.get_by_role("radio", name=re.compile("Claude Code"))).to_be_disabled()
+    expect(group.get_by_role("radio", name=re.compile("Codex"))).to_be_checked()
+    group.get_by_role("radio", name=re.compile("Sonnet")).click()
+    palette(page, "Open advanced editor").get_by_role("option", name="Open advanced editor").click()
+    page.get_by_role("button", name="Generation model: Claude Sonnet 5.5").last.click()
+    expect(page.get_by_role("radio", name=re.compile("Claude Code"))).to_be_disabled()
+    page.get_by_role("radio", name=re.compile("Codex")).click()
+    page.get_by_role("button", name="Close advanced editor").click()
+    expect(trigger).to_be_visible()
+    page.get_by_text("References & copies", exact=True).click()
+    expect(page.get_by_role("button", name="Import STL", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Attach reference pictures")).to_be_visible()
+    page.get_by_placeholder("Describe the part you want to make…").fill("Make a local bracket")
+    page.get_by_role("button", name="Send request", exact=True).click()
+    expect(page.get_by_role("region", name="Build progress")).to_be_visible()
+    assert any(body and body.get("modelId") == "local/codex" for _, path, body in fixture.requests if path == "/api/cad/runs")
+    assert not fixture.errors, fixture.errors
+    context.close()
+    print("PASS local-agent selection, unavailable agents, editor synchronization and reference controls")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:3100")
@@ -321,6 +367,7 @@ def main():
             test_project(browser, args.base_url, shots)
             test_mobile(browser, args.base_url, shots)
             test_locked(browser, args.base_url)
+            test_local_agents(browser, args.base_url)
         finally:
             browser.close()
     print("All Studio control checks passed. All API requests were local fixtures.")
