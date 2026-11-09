@@ -66,6 +66,7 @@ export default function PrivacyPage() {
       title="Privacy Policy"
       summary={
         <ul>
+          <li>The local open-source workspace stores projects and original STL files on your machine. Prompts, reference images and CAD tool results are sent through your selected agent to its provider under your account. The hosted-service collection described below applies when you use the hosted deployment.</li>
           <li>
             We collect what we need to run Nfinit: your Google sign-in details, the
             prompts, images and parts you make, and your subscription status.

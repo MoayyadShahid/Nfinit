@@ -18,8 +18,9 @@ export default function TermsPage() {
       title="Terms of Service"
       summary={
         <ul>
+          <li>The locally installed open-source Nfinit software is free under the <a href="https://github.com/MoayyadShahid/Nfinit/blob/main/LICENSE">MIT license</a>. Your selected agent provider controls its own usage limits and charges. The subscription terms below apply to the optional hosted service.</li>
           <li>
-            Nfinit turns text descriptions into 3D CAD parts with AI. You can look at
+            The hosted Nfinit service turns text descriptions into 3D CAD parts with AI. You can look at
             the demo parts for free. Building, editing and exporting parts needs a
             subscription of {monthlyPrice} per month, plus applicable taxes.
           </li>

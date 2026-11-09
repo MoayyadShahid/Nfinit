@@ -4,6 +4,7 @@ import type {
   FaceSelection,
   ModelInspection,
   RunEvent,
+  MeshReference,
 } from "@/lib/types";
 import { BACKEND_ORIGIN, jsonRequest, requestJson } from "@/lib/projects";
 
@@ -37,6 +38,7 @@ export type StartRunRequest = {
   selection: FaceSelection | null;
   supportsStructuredOutputs: boolean;
   projectId: string | null;
+  meshReference?: MeshReference | null;
 };
 
 // Each poll is one small database read; a short interval keeps the step list
