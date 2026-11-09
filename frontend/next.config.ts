@@ -21,6 +21,12 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // The public site (any Vercel build) is a read-only demo with no backend;
+  // see src/lib/site.ts.
+  env: {
+    NEXT_PUBLIC_NFNIT_DEMO_ONLY:
+      process.env.VERCEL || process.env.NFNIT_DEMO_ONLY === "true" ? "true" : "false",
+  },
   turbopack: {
     root: path.resolve(__dirname, ".."),
   },

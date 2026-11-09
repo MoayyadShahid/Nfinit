@@ -73,6 +73,11 @@ interface ChatPaneProps {
    */
   versions?: { selected: number | null; onSelect: (version: number) => void };
   tools?: ReactNode;
+  /**
+   * Show the conversation without an input: this replaces the text box,
+   * attachments, send button and model menu (the public demo).
+   */
+  readOnly?: ReactNode;
 }
 
 export function ChatPane({
@@ -91,6 +96,7 @@ export function ChatPane({
   runStartedAt = null,
   versions,
   tools,
+  readOnly,
 }: ChatPaneProps) {
   const [input, setInput] = useState(initialInput);
   const [images, setImages] = useState<string[]>([]);
@@ -479,6 +485,12 @@ export function ChatPane({
               )}
             </button>
           )}
+          {readOnly ? (
+            <div className="flex min-h-[44px] flex-1 items-center px-2 text-xs leading-5 text-[var(--ink-2)]">
+              {readOnly}
+            </div>
+          ) : (
+          <>
           {supportsVision && (
             <>
               <input
@@ -540,13 +552,17 @@ export function ChatPane({
           >
             <ArrowUp className="size-4" strokeWidth={2.4} />
           </button>
+          </>
+          )}
         </div>
 
+        {!readOnly && (
         <div className="flex items-center justify-between gap-2 px-1">
           <AIModelSelector value={modelId} options={modelOptions} onChange={onModelChange} disabled={isLoading || addingImages} />
           <span className="hidden text-[10px] text-muted-foreground sm:inline">Shift + Enter for a new line</span>
         </div>
-        {variant === "welcome" && (
+        )}
+        {variant === "welcome" && !readOnly && (
           <p className="px-1 text-center text-[10px] text-zinc-600">
             Include dimensions in millimeters for a more accurate first result.
           </p>
