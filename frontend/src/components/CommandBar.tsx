@@ -16,6 +16,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import SmoothDrawer from "@/components/kokonutui/smooth-drawer";
 import { Button } from "@/components/ui/button";
 import { EXPORT_FORMATS, type ExportFormat } from "@/lib/exports";
+import { RUN_LOCALLY_URL } from "@/lib/site";
 import {
   ChevronDown,
   Code2,
@@ -44,6 +45,8 @@ interface CommandBarProps {
   onSave: () => void;
   onOpenCommands: () => void;
   busy: boolean;
+  /** The public demo: no parts, saving, code or export, only a way to run locally. */
+  demoOnly?: boolean;
 }
 
 export function CommandBar({
@@ -59,6 +62,7 @@ export function CommandBar({
   onSave,
   onOpenCommands,
   busy,
+  demoOnly = false,
 }: CommandBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -81,6 +85,35 @@ export function CommandBar({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [exportOpen]);
+
+  if (demoOnly) {
+    return (
+      <header className="theme-chrome relative z-[55] flex h-16 shrink-0 items-center gap-2 border-b px-3 backdrop-blur-xl sm:gap-3 sm:px-4 md:px-5">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+          <Wordmark href="/" size={20} />
+          <span className="hidden h-5 w-px bg-[var(--hairline)] sm:block" />
+          <Link
+            href="/parts"
+            title="All demo parts"
+            aria-label="All demo parts"
+            className="theme-control theme-muted flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs transition-colors hover:text-[var(--page-fg)]"
+          >
+            <LayoutGrid className="size-3.5" />
+            <span className="hidden sm:inline">Demo parts</span>
+          </Link>
+        </div>
+        <div className="flex shrink-0 items-center justify-end gap-2">
+          <ThemeToggle />
+          <Link
+            href={RUN_LOCALLY_URL}
+            className="theme-primary-button flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold shadow-sm transition-transform hover:scale-[1.02]"
+          >
+            Run locally
+          </Link>
+        </div>
+      </header>
+    );
+  }
 
   return (
     // backdrop-blur makes the header its own stacking context, so its z-50

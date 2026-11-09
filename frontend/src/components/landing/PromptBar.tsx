@@ -1,5 +1,6 @@
 "use client";
 
+import { DEMO_ONLY, RUN_LOCALLY_URL } from "@/lib/site";
 import { ArrowUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
@@ -60,7 +61,11 @@ function useTypewriter(running: boolean) {
   return text;
 }
 
-/** The hero control (spec §6). Submitting opens the studio with the prompt. */
+/**
+ * The hero control (spec §6). Submitting opens the studio with the prompt.
+ * On the public demo site there is no studio to build in, so it opens the
+ * guide to running Nfinit locally.
+ */
 export function PromptBar({
   className = "",
   centered = false,
@@ -93,6 +98,10 @@ export function PromptBar({
       return;
     }
     setSubmitting(true);
+    if (DEMO_ONLY) {
+      window.location.assign(RUN_LOCALLY_URL);
+      return;
+    }
     router.push(`/studio?prompt=${encodeURIComponent(prompt)}`);
   };
 
@@ -141,6 +150,16 @@ export function PromptBar({
       <div
         className={`mt-3.5 flex flex-wrap gap-2 ${centered ? "justify-center" : ""}`}
       >
+        {DEMO_ONLY && (
+          <p className="type-caption w-full">
+            This website is a demo. Nfinit runs on your computer with your Claude
+            Code or Codex login, so your prompt opens the setup guide.{" "}
+            <a href="/studio" className="underline underline-offset-4">
+              Watch a demo part
+            </a>
+            .
+          </p>
+        )}
         {CHIPS.map((chip) => (
           <button
             key={chip.label}

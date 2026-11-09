@@ -3,6 +3,7 @@
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { demoThumbnail, listDemos, type DemoSummary } from "@/lib/demos";
+import { DEMO_ONLY, RUN_LOCALLY_URL } from "@/lib/site";
 import {
   deleteProject,
   getProject,
@@ -269,7 +270,8 @@ function DemoCard({ demo }: { demo: DemoSummary }) {
 }
 
 export function PartsGallery() {
-  const [parts, setParts] = useState<ProjectSummary[] | null>(null);
+  // The public demo has no backend and no saved parts.
+  const [parts, setParts] = useState<ProjectSummary[] | null>(DEMO_ONLY ? [] : null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [demos, setDemos] = useState<DemoSummary[]>([]);
@@ -287,6 +289,7 @@ export function PartsGallery() {
   }, []);
 
   useEffect(() => {
+    if (DEMO_ONLY) return;
     let active = true;
     listProjects()
       .then((items) => {
@@ -325,11 +328,11 @@ export function PartsGallery() {
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
           <Link
-            href="/studio?new=1"
+            href={DEMO_ONLY ? RUN_LOCALLY_URL : "/studio?new=1"}
             className="theme-primary-button flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold shadow-sm transition-transform hover:scale-[1.02]"
           >
             <Plus className="size-3.5" />
-            New part
+            {DEMO_ONLY ? "Run locally" : "New part"}
           </Link>
         </div>
       </header>
@@ -339,7 +342,15 @@ export function PartsGallery() {
           <div>
             <p className="type-label mb-3">Library</p>
             <h1 className="type-h2">
-              Your <em>parts</em>
+              {DEMO_ONLY ? (
+                <>
+                  Demo <em>parts</em>
+                </>
+              ) : (
+                <>
+                  Your <em>parts</em>
+                </>
+              )}
             </h1>
           </div>
           {(parts?.length || demos.length) > 0 && (
@@ -387,22 +398,23 @@ export function PartsGallery() {
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {parts.length === 0 && !needle && (
               <Link
-                href="/studio?new=1"
+                href={DEMO_ONLY ? RUN_LOCALLY_URL : "/studio?new=1"}
                 className="theme-floating flex flex-col items-start justify-end gap-4 rounded-2xl border border-dashed p-6 transition-shadow hover:shadow-xl hover:shadow-black/10"
               >
                 <Box className="size-8 text-[var(--ink-2)]" strokeWidth={1.25} />
                 <span>
                   <span className="block text-[15px] font-semibold text-[var(--ink)]">
-                    Make your first part
+                    {DEMO_ONLY ? "Make your own parts" : "Make your first part"}
                   </span>
                   <span className="mt-1 block text-[13px] leading-5 text-[var(--ink-2)]">
-                    Describe something in the studio, and every valid model is saved
-                    here. The demo parts show how a part is built, version by version.
+                    {DEMO_ONLY
+                      ? "Nfinit is free and runs on your computer with your Claude Code or Codex login. The demo parts show how a part is built, version by version."
+                      : "Describe something in the studio, and every valid model is saved here. The demo parts show how a part is built, version by version."}
                   </span>
                 </span>
                 <span className="theme-primary-button flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold">
                   <Plus className="size-3.5" />
-                  New part
+                  {DEMO_ONLY ? "Run locally" : "New part"}
                 </span>
               </Link>
             )}

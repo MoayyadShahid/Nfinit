@@ -47,6 +47,7 @@ import {
   type DemoSummary,
 } from "@/lib/demos";
 import { sandboxRequest } from "@/lib/sandbox";
+import { DEMO_ONLY, RUN_LOCALLY_URL } from "@/lib/site";
 import { useBuildPreview } from "@/lib/useBuildPreview";
 import {
   getTextContent,
@@ -214,7 +215,8 @@ export default function Studio({
     }
     return window.innerWidth >= 640;
   });
-  const [hasInitialized, setHasInitialized] = useState(false);
+  // The public demo has no saved parts to load, so it is ready at once.
+  const [hasInitialized, setHasInitialized] = useState(DEMO_ONLY);
   const [inspection, setInspection] = useState<ModelInspection | null>(null);
   // A recorded demo being replayed (no project, no backend runs).
   const [demos, setDemos] = useState<DemoSummary[]>([]);
@@ -249,6 +251,7 @@ export default function Studio({
   ];
 
   useEffect(() => {
+    if (DEMO_ONLY) return;
     let active = true;
     requestJson<{ local: boolean; agents: { id: string; label: string; installed: boolean }[] }>("/cad/local-agents")
       .then((result) => {
@@ -957,6 +960,7 @@ export default function Studio({
   }, []);
 
   useEffect(() => {
+    if (DEMO_ONLY) return; // no backend: nothing saved to load or resume
     let active = true;
     let pending = readPendingRun();
     if (
@@ -1056,7 +1060,7 @@ export default function Studio({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key === "Enter") {
+      if (e.altKey && e.key === "Enter" && !DEMO_ONLY) {
         e.preventDefault();
         handleGenerate();
       }
@@ -1079,7 +1083,7 @@ export default function Studio({
   }, []);
 
   const showWelcome =
-    hasInitialized && !projectId && messages.length === 0 && glbUrl === null;
+    !DEMO_ONLY && hasInitialized && !projectId && messages.length === 0 && glbUrl === null;
 
   async function importReference(source: ImportedReference) {
     if (isDirty && !window.confirm("Import into a new project? Unsaved changes in this project will be left behind.")) return;
@@ -1158,7 +1162,8 @@ export default function Studio({
 
   useEffect(() => {
     if (demoOpened.current || !hasInitialized) return;
-    const slug = initialDemo;
+    // The public demo opens the first demo part when no other was asked for.
+    const slug = initialDemo ?? (DEMO_ONLY ? demos[0]?.slug : undefined);
     if (!slug || !demos.some((item) => item.slug === slug)) return;
     const timer = window.setTimeout(() => {
       demoOpened.current = true;
@@ -1260,7 +1265,7 @@ export default function Studio({
 
   return (
     <div className="wb theme-page flex h-dvh flex-col overflow-hidden">
-      <ActionSearchBar open={commandsOpen} onOpenChange={setCommandsOpen} commands={commands} onError={setError} />
+      <ActionSearchBar open={commandsOpen} onOpenChange={setCommandsOpen} commands={DEMO_ONLY ? [] : commands} onError={setError} />
       <CommandBar
         onExport={handleExport}
         projects={projects}
@@ -1273,6 +1278,7 @@ export default function Studio({
         onNewProject={newPart}
         onSave={saveCurrentRevision}
         onOpenCommands={() => setCommandsOpen(true)}
+        demoOnly={DEMO_ONLY}
         busy={busy}
       />
 
@@ -1350,7 +1356,7 @@ export default function Studio({
               onSelect={(number) =>
                 demo ? selectDemoStep(demo, number) : void loadRevision(number)
               }
-              onClose={demo ? exitDemo : undefined}
+              onClose={demo && !DEMO_ONLY ? exitDemo : undefined}
               footer={
                 demo ? (
                   <DemoControls
@@ -1460,7 +1466,21 @@ export default function Studio({
                   selection={selectedFace}
                   runEvents={isLoading ? runEvents : undefined}
                   runStartedAt={runStartedAt}
-                  tools={workspaceTools}
+                  tools={DEMO_ONLY ? undefined : workspaceTools}
+                  readOnly={
+                    DEMO_ONLY ? (
+                      <span>
+                        This is a demo.{" "}
+                        <a
+                          href={RUN_LOCALLY_URL}
+                          className="font-medium text-[var(--ink)] underline underline-offset-2"
+                        >
+                          Run Nfinit on your computer
+                        </a>{" "}
+                        to make your own parts with Claude Code or Codex.
+                      </span>
+                    ) : undefined
+                  }
                   versions={
                     demo
                       ? {

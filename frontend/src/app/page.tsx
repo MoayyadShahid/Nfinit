@@ -4,6 +4,7 @@ import { FlowHook } from "@/components/landing/FlowHook";
 import { HeroDrone } from "@/components/landing/HeroDrone";
 import { Plate } from "@/components/landing/Plate";
 import { PromptBar } from "@/components/landing/PromptBar";
+import { DEMO_ONLY } from "@/lib/site";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
@@ -25,7 +26,7 @@ export default function LandingPage() {
             Source code
           </Link>
           <Link href="/studio" className="wb-btn wb-btn-primary wb-btn-sm">
-            Open studio
+            {DEMO_ONLY ? "Watch a demo" : "Open studio"}
             <span className="wb-arrow" aria-hidden="true">
               →
             </span>
