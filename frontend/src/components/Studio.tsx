@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import {
   CommandBar,
   type ExportFormat,
-  type Viewer,
 } from "@/components/CommandBar";
 import { DemoControls } from "@/components/DemoReplay";
 import { EditorPane } from "@/components/EditorPane";
@@ -148,13 +147,11 @@ function releaseGlbUrl(
 }
 
 export default function Studio({
-  viewer,
   initialPrompt,
   initialProjectId,
   initialDemo,
   startNew = false,
 }: {
-  viewer?: Viewer | null;
   initialPrompt?: string;
   initialProjectId?: string;
   /** Open this demo, e.g. from /studio?demo=fpv-drone. */
@@ -1265,7 +1262,6 @@ export default function Studio({
     <div className="wb theme-page flex h-dvh flex-col overflow-hidden">
       <ActionSearchBar open={commandsOpen} onOpenChange={setCommandsOpen} commands={commands} onError={setError} />
       <CommandBar
-        viewer={viewer}
         onExport={handleExport}
         projects={projects}
         projectId={projectId}

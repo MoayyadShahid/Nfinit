@@ -1,8 +1,5 @@
 import Studio from "@/components/Studio";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { getAuthenticatedUser } from "@/lib/supabase/server";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Studio — nfinit",
@@ -31,35 +28,12 @@ export default async function StudioPage({
   const rawDemo = Array.isArray(params.demo) ? params.demo[0] : params.demo;
   const demo = rawDemo && /^[a-z0-9-]{1,40}$/.test(rawDemo) ? rawDemo : undefined;
 
-  const user = await getAuthenticatedUser();
-  if (isSupabaseConfigured() && !user) {
-    // Keep a prompt typed on the landing page through sign-in.
-    const query = new URLSearchParams();
-    if (prompt) query.set("prompt", prompt);
-    if (projectId) query.set("project", projectId);
-    const next = query.size ? `/studio?${query}` : "/studio";
-    redirect(`/login?next=${encodeURIComponent(next)}`);
-  }
-
   return (
     <Studio
       initialPrompt={prompt}
       initialProjectId={projectId}
       initialDemo={demo}
       startNew={startNew}
-      viewer={
-        user
-          ? {
-              email: user.email ?? null,
-              name:
-                user.user_metadata.full_name ??
-                user.user_metadata.name ??
-                user.email ??
-                null,
-              avatarUrl: user.user_metadata.avatar_url ?? null,
-            }
-          : null
-      }
     />
   );
 }

@@ -1,8 +1,6 @@
 "use client";
 
 import { Wordmark } from "@/components/brand/Wordmark";
-import type { Viewer } from "@/components/CommandBar";
-import { AccountMenu } from "@/components/AccountMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { demoThumbnail, listDemos, type DemoSummary } from "@/lib/demos";
 import {
@@ -270,7 +268,7 @@ function DemoCard({ demo }: { demo: DemoSummary }) {
   );
 }
 
-export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
+export function PartsGallery() {
   const [parts, setParts] = useState<ProjectSummary[] | null>(null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -333,7 +331,6 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
             <Plus className="size-3.5" />
             New part
           </Link>
-          {viewer && <AccountMenu viewer={viewer} />}
         </div>
       </header>
 

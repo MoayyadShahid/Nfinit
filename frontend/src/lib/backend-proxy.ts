@@ -1,6 +1,3 @@
-import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-
 const BACKEND_URL = (
   process.env.BACKEND_URL ||
   process.env.NEXT_PUBLIC_BACKEND_URL ||
@@ -54,11 +51,14 @@ async function readLimitedBody(request: Request): Promise<ArrayBuffer> {
   return body.buffer;
 }
 
+/**
+ * Nfinit is a local, single-user app: the API is only for the person on this
+ * machine. Never on a Vercel deployment, whatever the variable says: every
+ * visitor would share one user and run code on the backend.
+ */
 function localAuthBypassEnabled() {
   const explicit = process.env.NFNIT_ALLOW_LOCAL_AUTH_BYPASS;
-  // Never on the production deployment, whatever the variable says: the
-  // bypass would sign every visitor in as one shared user.
-  if (process.env.VERCEL_ENV === "production") return false;
+  if (process.env.VERCEL) return false;
   if (explicit !== undefined) {
     return ["1", "true", "yes", "on"].includes(explicit.trim().toLowerCase());
   }
@@ -81,7 +81,6 @@ function isSameOrigin(request: Request): boolean {
   }
 }
 
-/** Forward a request to the backend as the signed-in Supabase user. */
 /** Binary types that Vercel's CDN leaves uncompressed. */
 const COMPRESSIBLE_TYPES = [
   "model/gltf-binary",
@@ -103,6 +102,7 @@ function shouldCompress(request: Request, response: globalThis.Response): boolea
   );
 }
 
+/** Forward a request to the local backend. */
 export async function proxyToBackend(
   request: Request,
   segments: string[],
@@ -110,8 +110,8 @@ export async function proxyToBackend(
   // sandbox routes pass more: a cold OpenCASCADE import alone can take 90s.
   timeoutMs = 30_000
 ): Promise<Response> {
-  // Session cookies ride along on every request to this origin, so a request
-  // that changes data must also come from this origin (CSRF protection).
+  // Another website open in the same browser can send requests to this local
+  // server, so a request that changes data must come from this origin (CSRF).
   if (!["GET", "HEAD"].includes(request.method) && !isSameOrigin(request)) {
     return Response.json({ detail: "Cross-site request refused." }, { status: 403 });
   }
@@ -132,28 +132,11 @@ export async function proxyToBackend(
     headers.set("X-Nfinit-Local-Token", process.env.NFNIT_LOCAL_TOKEN);
   }
 
-  if (!isSupabaseConfigured() && !localAuthBypassEnabled()) {
+  if (!localAuthBypassEnabled()) {
     return Response.json(
-      { detail: "Production project authentication is not configured." },
+      { detail: "The Nfinit API runs only in the local workspace (npm run local)." },
       { status: 503 }
     );
-  }
-
-  if (isSupabaseConfigured()) {
-    const supabase = await createSupabaseServerClient();
-    if (!supabase) {
-      return Response.json({ detail: "Authentication required." }, { status: 401 });
-    }
-    // Forward the session's access token; the backend verifies its signature,
-    // expiry and audience on every request. Asking Supabase Auth here as well
-    // (getUser) cost a network round trip before every API call.
-    // getSession refreshes an expired token first.
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token;
-    if (!accessToken) {
-      return Response.json({ detail: "Authentication required." }, { status: 401 });
-    }
-    headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
   try {

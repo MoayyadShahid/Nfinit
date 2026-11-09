@@ -45,8 +45,7 @@ def test_import_original_survives_new_revision(tmp_path):
 
 def test_local_run_uses_agent_without_openrouter_key(tmp_path, monkeypatch):
     for name, value in {"NFNIT_LOCAL_AGENTS": "true", "NFNIT_LOCAL_TOKEN": "a"*40,
-                        "NFNIT_ALLOW_LOCAL_AUTH_BYPASS": "true", "OPENROUTER_API_KEY": "",
-                        "NFNIT_DATABASE_URL": "", "SUPABASE_URL": "", "RAILWAY_ENVIRONMENT_NAME": ""}.items():
+                        "NFNIT_ALLOW_LOCAL_AUTH_BYPASS": "true", "OPENROUTER_API_KEY": ""}.items():
         monkeypatch.setenv(name, value)
     store = ProjectStore(tmp_path / "projects.db")
     main.app.dependency_overrides[get_project_store] = lambda: store

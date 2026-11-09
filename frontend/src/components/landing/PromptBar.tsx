@@ -1,6 +1,5 @@
 "use client";
 
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { ArrowUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
@@ -61,17 +60,7 @@ function useTypewriter(running: boolean) {
   return text;
 }
 
-async function isSignedOut(): Promise<boolean> {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) return false; // Auth disabled: the studio is open.
-  const { data } = await supabase.auth.getSession();
-  return !data.session;
-}
-
-/**
- * The hero control (spec §6). Submitting opens the studio with the prompt,
- * or sends a signed-out visitor through /login with the prompt kept in `next`.
- */
+/** The hero control (spec §6). Submitting opens the studio with the prompt. */
 export function PromptBar({
   className = "",
   centered = false,
@@ -95,7 +84,7 @@ export function PromptBar({
   const ghost = reducedMotion || !typed ? EXAMPLES[0] : typed;
   const showGhost = !value && !focused;
 
-  const submit = async (event: FormEvent) => {
+  const submit = (event: FormEvent) => {
     event.preventDefault();
     if (submitting) return;
     const prompt = value.trim();
@@ -104,11 +93,7 @@ export function PromptBar({
       return;
     }
     setSubmitting(true);
-    const studioPath = `/studio?prompt=${encodeURIComponent(prompt)}`;
-    const destination = (await isSignedOut())
-      ? `/login?next=${encodeURIComponent(studioPath)}`
-      : studioPath;
-    router.push(destination);
+    router.push(`/studio?prompt=${encodeURIComponent(prompt)}`);
   };
 
   return (
