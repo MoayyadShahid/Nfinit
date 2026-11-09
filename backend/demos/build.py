@@ -19,7 +19,7 @@ import shutil
 from pathlib import Path
 
 from agent.graph import plan_summary
-from execution import build_mesh, inspect_with_snapshots
+from execution import build_mesh, inspect_code, inspect_with_snapshots
 
 from .authored import Design, load_designs
 
@@ -56,6 +56,15 @@ def _bounds(inspection) -> str:
     return f"Built {count} solid{'s' if count != 1 else ''}; bounds {size} mm."
 
 
+def main_part_code(design: Design, number: int) -> str:
+    """The script for version `number`, with only the main part as the result.
+
+    Assemblies can hold many solids on purpose, but the main part must be one
+    piece: a loose solid there is a modelling mistake the viewer would hide.
+    """
+    return design.code(number) + f"\nresult = {design.part}.part\n"
+
+
 def build_demo(design: Design, output: Path) -> dict:
     folder = output / design.slug
     # The gallery picture comes from frontend/scripts/render-demo-thumbnails.mjs.
@@ -73,6 +82,13 @@ def build_demo(design: Design, output: Path) -> dict:
         if not inspection.valid:
             shutil.rmtree(folder, ignore_errors=True)
             raise DemoFailed(f"{design.slug} step {number} did not build: {inspection.error}")
+        main = inspect_code(main_part_code(design, number))
+        if not main.valid or main.solid_count != 1:
+            shutil.rmtree(folder, ignore_errors=True)
+            found = main.solid_count if main.valid else main.error
+            raise DemoFailed(
+                f"{design.slug} step {number}: the main part ({design.part}) must be one solid, found {found}"
+            )
         built = build_mesh(code)
         _write_glb(folder / f"step-{number}.glb.gz", built.glb)
 
