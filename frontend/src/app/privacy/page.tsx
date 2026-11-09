@@ -39,16 +39,6 @@ const PROVIDERS: { name: string; purpose: string; data: string }[] = [
     data: "Your email address, card details and the billing details you enter at checkout",
   },
   {
-    name: "LangFuse (only if enabled)",
-    purpose: "Measures the speed, cost and errors of AI runs",
-    data: "Run IDs, step timings, token counts, costs and short fingerprints; never your prompts, images or code",
-  },
-  {
-    name: "Pinecone (only if enabled)",
-    purpose: "Finds CAD code examples that match your request",
-    data: "The text of your latest request",
-  },
-  {
     name: "Vercel",
     purpose: "Hosts the website",
     data: "Technical data such as IP address and pages requested",

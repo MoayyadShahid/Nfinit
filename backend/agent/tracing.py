@@ -1,11 +1,8 @@
 import hashlib
 import logging
-import os
 from contextlib import contextmanager
-from functools import lru_cache
+from time import perf_counter
 from typing import Any
-
-from langfuse import Langfuse
 
 logger = logging.getLogger(__name__)
 
@@ -47,36 +44,21 @@ def summarize_messages(messages: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-class NullObservation:
-    def update(self, **_kwargs):
+class LocalObservation:
+    def __init__(self):
+        self.level = "DEFAULT"
+
+    def update(self, **kwargs):
+        # Never retain prompt, source, image or result payloads in debug logs.
+        self.level = kwargs.get("level", self.level)
         return self
 
 
-@lru_cache(maxsize=1)
-def get_langfuse_client() -> Langfuse | None:
-    public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
-    secret_key = os.getenv("LANGFUSE_SECRET_KEY")
-    if not public_key or not secret_key:
-        return None
-
-    return Langfuse(
-        public_key=public_key,
-        secret_key=secret_key,
-        base_url=os.getenv("LANGFUSE_BASE_URL", "https://cloud.langfuse.com"),
-        environment=os.getenv("LANGFUSE_ENVIRONMENT", "development"),
-        release=os.getenv("LANGFUSE_RELEASE"),
-        tracing_enabled=True,
-    )
-
-
 class RunTracer:
-    def __init__(self, run_id: str, client: Langfuse | None = None):
-        self.run_id = run_id
-        self.client = client if client is not None else get_langfuse_client()
+    """Local timing diagnostics only. No telemetry client or network export."""
 
-    @property
-    def enabled(self) -> bool:
-        return self.client is not None
+    def __init__(self, run_id: str):
+        self.run_id = run_id
 
     @contextmanager
     def observation(
@@ -89,29 +71,13 @@ class RunTracer:
         model: str | None = None,
         root: bool = False,
     ):
-        if self.client is None:
-            yield NullObservation()
-            return
-
-        kwargs: dict[str, Any] = {
-            "name": name,
-            "as_type": as_type,
-            "input": input,
-            "metadata": {"run_id": self.run_id, **(metadata or {})},
-        }
-        if model:
-            kwargs["model"] = model
-        if root:
-            kwargs["trace_context"] = {"trace_id": self.run_id.replace("-", "")}
-
-        with self.client.start_as_current_observation(**kwargs) as observation:
-            yield observation
-
-
-def flush_tracing():
-    client = get_langfuse_client()
-    if client is not None:
+        observation = LocalObservation()
+        started = perf_counter()
         try:
-            client.flush()
-        except Exception:
-            logger.warning("Failed to flush LangFuse traces", exc_info=True)
+            yield observation
+        except BaseException:
+            observation.level = "ERROR"
+            raise
+        finally:
+            logger.debug("CAD observation run=%s node=%s level=%s duration_ms=%d",
+                         self.run_id, name, observation.level, round((perf_counter()-started)*1000))

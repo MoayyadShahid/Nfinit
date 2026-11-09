@@ -4,10 +4,8 @@ from collections import Counter
 import os
 from pathlib import Path
 
-from agent.tracing import flush_tracing
 
 from .config import load_live_config
-from .langfuse import publish_live_evaluation
 from .reporting import build_report, write_report
 from .runner import (
     evaluate_live,
@@ -30,16 +28,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config",
         type=Path,
-        help="Live model matrix and LangFuse dataset configuration.",
-    )
-    parser.add_argument(
-        "--publish-langfuse",
-        action="store_true",
-        help="Publish redacted dataset items and trace scores to LangFuse.",
-    )
-    parser.add_argument(
-        "--dataset-name",
-        help="Override the LangFuse dataset name from --config.",
+        help="Live model matrix configuration.",
     )
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--category", action="append", dest="categories")
@@ -53,24 +42,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 async def run(args: argparse.Namespace) -> int:
     live_config = load_live_config(args.config) if args.config else None
-    dataset_name = args.dataset_name or (
-        live_config.langfuse_dataset if live_config else None
-    )
-    if args.publish_langfuse:
-        if args.mode != "live":
-            raise ValueError("--publish-langfuse is only available in live mode.")
-        if not dataset_name:
-            raise ValueError(
-                "--dataset-name or a --config with langfuse_dataset is required "
-                "when publishing."
-            )
-        if not os.getenv("LANGFUSE_PUBLIC_KEY") or not os.getenv(
-            "LANGFUSE_SECRET_KEY"
-        ):
-            raise ValueError(
-                "LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required "
-                "when publishing."
-            )
     cases = filter_cases(
         load_cases(args.cases),
         set(args.case_ids or []),
@@ -125,14 +96,6 @@ async def run(args: argparse.Namespace) -> int:
         )
     print_run_errors(results)
 
-    if args.publish_langfuse:
-        assert dataset_name is not None
-        published = publish_live_evaluation(cases, report, dataset_name)
-        print(
-            f"Published {published.dataset_items} dataset item(s), "
-            f"{published.traces_scored} trace(s), and "
-            f"{published.scores_created} score(s) to LangFuse."
-        )
     return 0 if all(result.passed for result in results) else 1
 
 
@@ -155,8 +118,6 @@ def main() -> int:
     except ValueError as error:
         parser.error(str(error))
         return 2
-    finally:
-        flush_tracing()
 
 
 if __name__ == "__main__":

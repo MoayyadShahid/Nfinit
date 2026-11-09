@@ -18,7 +18,6 @@ from typing import Literal
 from agent import (
     FaceSelection,
     ModelInspection,
-    flush_tracing,
 )
 from execution import (
     SandboxError,
@@ -55,17 +54,6 @@ load_dotenv(Path(__file__).with_name(".env"))
 
 
 def _optional_service_status() -> dict[str, str]:
-    langfuse = (
-        "enabled"
-        if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY")
-        else "disabled (optional)"
-    )
-    pinecone = (
-        "enabled"
-        if os.getenv("PINECONE_API_KEY")
-        and (os.getenv("PINECONE_INDEX_HOST") or os.getenv("PINECONE_INDEX_NAME"))
-        else "local corpus (optional cloud RAG unset)"
-    )
     supabase = (
         "configured"
         if os.getenv("SUPABASE_URL") or os.getenv("NFNIT_DATABASE_URL")
@@ -73,8 +61,6 @@ def _optional_service_status() -> dict[str, str]:
     )
     return {
         "openrouter": "configured" if os.getenv("OPENROUTER_API_KEY") else "MISSING",
-        "langfuse": langfuse,
-        "pinecone": pinecone,
         "supabase": supabase,
         "stripe": (
             "enabled"
@@ -94,7 +80,6 @@ async def lifespan(_app: FastAPI):
     threading.Thread(target=start_sandbox, name="cad-sandbox-start", daemon=True).start()
     yield
     stop_sandbox()
-    flush_tracing()
     # Close pooled database connections, if this deployment uses Postgres.
     close = getattr(get_project_store(), "close", None)
     if callable(close):

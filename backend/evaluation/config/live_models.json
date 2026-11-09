@@ -18,6 +18,5 @@
       "plan_model_id": "anthropic/claude-haiku-5.5",
       "label": "Haiku 5.5 plans, Sonnet 5.5 codes"
     }
-  ],
-  "langfuse_dataset": "nfinit-cad50-v1"
+  ]
 }

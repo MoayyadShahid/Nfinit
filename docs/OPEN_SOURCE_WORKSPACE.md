@@ -15,7 +15,8 @@ on the user's machine; prompts and reference images still reach the model provid
 4. Run `npm run local` at the root. Open `http://127.0.0.1:3000/studio`.
 
 `NFNIT_PYTHON=/path/to/python npm run local` selects an existing backend Python
-environment. No Stripe, Supabase or OpenRouter credentials are required. The
+environment. No Stripe, Supabase or OpenRouter credentials are required. Local pattern search
+and run diagnostics also require no cloud service accounts. The
 launcher binds both services to loopback and uses SQLite. Existing local
 projects remain available. Ports 3000 and 8000 must be free.
 

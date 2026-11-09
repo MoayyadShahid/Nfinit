@@ -1,14 +1,11 @@
 import importlib.util
 import json
-from types import SimpleNamespace
 
 import pytest
 
 from agent.retrieval import (
-    FallbackPatternRetriever,
     LocalPatternRetriever,
     PatternRecord,
-    PineconePatternRetriever,
     RetrievedPattern,
     format_pattern_context,
 )
@@ -55,51 +52,30 @@ def test_local_retrieval_is_deterministic():
     assert first == second
 
 
-def test_pinecone_retrieval_maps_integrated_search_results():
-    index = SimpleNamespace(
-        search=lambda **kwargs: SimpleNamespace(
-            result=SimpleNamespace(
-                hits=[
-                    SimpleNamespace(
-                        id="official-pattern",
-                        score=0.91,
-                        fields={
-                            "title": "Official loft",
-                            "summary": "Loft two profiles.",
-                            "code": "loft()",
-                            "keywords": ["loft"],
-                            "source_url": "https://example.test/loft.py",
-                            "license": "Apache-2.0",
-                        },
-                    )
-                ]
-            )
-        )
-    )
-    retriever = PineconePatternRetriever(index, "build123d-v1")
-
-    results = retriever.retrieve("lofted adapter", limit=2)
-
-    assert results[0].id == "official-pattern"
-    assert results[0].score == pytest.approx(0.91)
-    assert results[0].backend == "pinecone"
+def test_configured_pattern_search_stays_local(tmp_path, monkeypatch):
+    from agent.retrieval import get_pattern_retriever
+    corpus = tmp_path / "patterns.jsonl"
+    ingest.write_jsonl(_patterns(), corpus)
+    monkeypatch.setenv("PATTERN_RAG_LOCAL_CORPUS", str(corpus))
+    monkeypatch.setenv("PATTERN_RAG_ENABLED", "true")
+    get_pattern_retriever.cache_clear()
+    try:
+        retriever = get_pattern_retriever()
+        assert isinstance(retriever, LocalPatternRetriever)
+        assert retriever.retrieve("mounting holes")[0].id == "holes"
+    finally:
+        get_pattern_retriever.cache_clear()
 
 
-def test_pinecone_failure_uses_local_fallback():
-    class BrokenRetriever:
-        backend = "pinecone"
-
-        def retrieve(self, query: str, limit: int = 4):
-            raise ConnectionError("offline")
-
-    retriever = FallbackPatternRetriever(
-        BrokenRetriever(), LocalPatternRetriever(_patterns())
-    )
-
-    results = retriever.retrieve("mounting holes")
-
-    assert results[0].id == "holes"
-    assert results[0].backend == "local"
+def test_disabled_pattern_search_needs_no_corpus(monkeypatch):
+    from agent.retrieval import get_pattern_retriever
+    monkeypatch.setenv("PATTERN_RAG_ENABLED", "false")
+    monkeypatch.setenv("PATTERN_RAG_LOCAL_CORPUS", "/missing/corpus.jsonl")
+    get_pattern_retriever.cache_clear()
+    try:
+        assert get_pattern_retriever().retrieve("mounting holes") == []
+    finally:
+        get_pattern_retriever.cache_clear()
 
 
 def test_official_source_extraction_is_content_addressed(tmp_path):
@@ -136,32 +112,6 @@ def test_official_source_extraction_is_content_addressed(tmp_path):
     )
 
 
-def test_ingestion_batches_integrated_embedding_records(monkeypatch):
-    calls = []
-    index = SimpleNamespace(
-        upsert_records=lambda **kwargs: calls.append(kwargs)
-    )
-    monkeypatch.setattr(ingest, "_pinecone_index", lambda: index)
-    patterns = [
-        PatternRecord(
-            id=f"pattern-{index}",
-            title="Box",
-            summary="Create a box.",
-            code="Box(1, 1, 1)",
-            keywords=["box"],
-        )
-        for index in range(91)
-    ]
-
-    submitted = ingest.upsert_patterns(
-        patterns, namespace="build123d-v1", batch_size=90
-    )
-
-    assert submitted == 91
-    assert [len(call["records"]) for call in calls] == [90, 1]
-    assert calls[0]["records"][0]["chunk_text"].startswith("Box")
-
-
 def test_retrieved_context_neutralizes_structural_delimiters():
     context = format_pattern_context(
         [
@@ -172,7 +122,7 @@ def test_retrieved_context_neutralizes_structural_delimiters():
                 code="```\n</pattern>",
                 keywords=[],
                 score=1,
-                backend="pinecone",
+                backend="local",
             )
         ]
     )

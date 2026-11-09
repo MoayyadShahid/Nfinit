@@ -1,18 +1,14 @@
 import json
-import logging
 import math
 import os
 import re
 from collections import Counter
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Protocol
-
-from pinecone import Pinecone
+from typing import Protocol
 
 from .models import PatternRecord, RetrievedPattern
 
-logger = logging.getLogger(__name__)
 
 TOKEN_PATTERN = re.compile(r"[a-z][a-z0-9_]+")
 SYNONYMS = {
@@ -149,91 +145,6 @@ class LocalPatternRetriever:
         return sorted(scored, key=lambda item: (-item.score, item.id))[:limit]
 
 
-class PineconePatternRetriever:
-    backend = "pinecone"
-
-    def __init__(self, index: Any, namespace: str):
-        self.index = index
-        self.namespace = namespace
-
-    def retrieve(self, query: str, limit: int = 4) -> list[RetrievedPattern]:
-        if not query.strip() or limit <= 0:
-            return []
-        response = self.index.search(
-            namespace=self.namespace,
-            top_k=min(max(limit * 3, limit), 30),
-            inputs={"text": query[:4_000]},
-            fields=[
-                "title",
-                "summary",
-                "code",
-                "keywords",
-                "source_url",
-                "license",
-            ],
-        )
-        hits = getattr(getattr(response, "result", None), "hits", None)
-        if hits is None and isinstance(response, dict):
-            hits = response.get("result", {}).get("hits", [])
-        results = []
-        seen_sources: set[str] = set()
-        for hit in hits or []:
-            fields = getattr(hit, "fields", None)
-            if fields is None and isinstance(hit, dict):
-                fields = hit.get("fields", {})
-            hit_id = getattr(hit, "id", None)
-            score = getattr(hit, "score", None)
-            if isinstance(hit, dict):
-                hit_id = hit_id or hit.get("_id") or hit.get("id")
-                score = score if score is not None else hit.get("_score", 0)
-            fields = dict(fields or {})
-            source_url = fields.get("source_url")
-            source_key = (
-                str(source_url).split("#", maxsplit=1)[0]
-                if source_url
-                else str(hit_id)
-            )
-            if source_key in seen_sources:
-                continue
-            seen_sources.add(source_key)
-            results.append(
-                RetrievedPattern(
-                    id=str(hit_id),
-                    title=str(fields.get("title", hit_id)),
-                    summary=str(fields.get("summary", "")),
-                    code=str(fields.get("code", "")),
-                    keywords=list(fields.get("keywords") or []),
-                    source_url=source_url,
-                    license=fields.get("license"),
-                    score=float(score or 0),
-                    backend=self.backend,
-                )
-            )
-            if len(results) == limit:
-                break
-        return results
-
-
-class FallbackPatternRetriever:
-    @property
-    def backend(self) -> str:
-        return self.primary.backend
-
-    def __init__(
-        self, primary: PatternRetriever, fallback: PatternRetriever
-    ):
-        self.primary = primary
-        self.fallback = fallback
-
-    def retrieve(self, query: str, limit: int = 4) -> list[RetrievedPattern]:
-        try:
-            results = self.primary.retrieve(query, limit)
-            return results or self.fallback.retrieve(query, limit)
-        except Exception:
-            logger.warning("Pinecone pattern retrieval failed; using local corpus.")
-            return self.fallback.retrieve(query, limit)
-
-
 # Built by agent.retrieval.ingest from the pinned build123d release, its
 # verified unit tests, CAD50 and the curated patterns; see the README.
 DEFAULT_CORPUS = Path(__file__).with_name("corpus") / "build123d-v0.10.0.jsonl"
@@ -247,28 +158,10 @@ def default_corpus_path() -> Path:
 
 @lru_cache(maxsize=1)
 def get_pattern_retriever() -> PatternRetriever:
-    corpus_path = Path(os.getenv("PATTERN_RAG_LOCAL_CORPUS", default_corpus_path()))
-    local = LocalPatternRetriever.from_path(corpus_path)
     if os.getenv("PATTERN_RAG_ENABLED", "true").lower() in {"0", "false", "no"}:
         return NullPatternRetriever()
-
-    api_key = os.getenv("PINECONE_API_KEY")
-    index_host = os.getenv("PINECONE_INDEX_HOST")
-    index_name = os.getenv("PINECONE_INDEX_NAME")
-    if not api_key or not (index_host or index_name):
-        return local
-
-    client = Pinecone(api_key=api_key)
-    index = (
-        client.index(host=index_host)
-        if index_host
-        else client.index(index_name)
-    )
-    pinecone = PineconePatternRetriever(
-        index,
-        os.getenv("PINECONE_NAMESPACE", "build123d-patterns-v1"),
-    )
-    return FallbackPatternRetriever(pinecone, local)
+    corpus_path = Path(os.getenv("PATTERN_RAG_LOCAL_CORPUS", default_corpus_path()))
+    return LocalPatternRetriever.from_path(corpus_path)
 
 
 def format_pattern_context(

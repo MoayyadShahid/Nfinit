@@ -1,3 +1,7 @@
+> Historical audit: the optional Langfuse and Pinecone integrations described
+> below were subsequently removed. Current builds keep CAD pattern search and
+> run diagnostics local; the findings below describe the audited revision.
+
 # Nfinit independent security audit
 
 Audit date: 2026-10-28  
