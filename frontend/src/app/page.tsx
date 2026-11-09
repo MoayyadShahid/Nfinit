@@ -42,7 +42,7 @@ export default function LandingPage() {
             <h1 className="type-display wb-hero-line mb-3">
               <span className="wb-rise-line">
                 <span style={riseDelay(0)}>
-                  Say it. <em>Hold it.</em>
+                  From words to <em>parts.</em>
                 </span>
               </span>
             </h1>
