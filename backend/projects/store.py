@@ -158,8 +158,6 @@ class ProjectStoreProtocol(Protocol):
 
     def delete_project(self, project_id: str, *, user_id: str) -> None: ...
 
-    def delete_account(self, *, user_id: str) -> None: ...
-
     def set_thumbnail(
         self, project_id: str, data: bytes, content_type: str, *, user_id: str
     ) -> None: ...
@@ -748,22 +746,6 @@ class ProjectStore:
             if cursor.rowcount == 0:
                 raise ProjectNotFoundError(project_id)
 
-    def delete_account(self, *, user_id: str) -> None:
-        """Delete everything stored for the user, in one transaction."""
-        with self._connect() as connection:
-            connection.execute("DELETE FROM run_events WHERE user_id = ?", (user_id,))
-            connection.execute(
-                "DELETE FROM project_meshes WHERE user_id = ?", (user_id,)
-            )
-            connection.execute("DELETE FROM cad_runs WHERE user_id = ?", (user_id,))
-            connection.execute("DELETE FROM projects WHERE user_id = ?", (user_id,))
-            connection.execute(
-                "DELETE FROM sandbox_rate_events WHERE user_id = ?", (user_id,)
-            )
-            connection.execute(
-                "DELETE FROM sandbox_active_leases WHERE user_id = ?", (user_id,)
-            )
-
     def set_thumbnail(
         self, project_id: str, data: bytes, content_type: str, *, user_id: str
     ) -> None:
@@ -1167,12 +1149,6 @@ class ProjectStore:
 
 @lru_cache(maxsize=1)
 def get_project_store() -> ProjectStoreProtocol:
-    database_url = os.getenv("NFNIT_DATABASE_URL", "").strip()
-    if database_url:
-        from .postgres_store import PostgresProjectStore
-
-        return PostgresProjectStore(database_url)
-
     default_path = Path(__file__).parents[1] / "data" / "nfinit.db"
     configured_path = Path(os.getenv("NFNIT_DATABASE_PATH", default_path))
     return ProjectStore(configured_path.expanduser())

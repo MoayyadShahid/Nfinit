@@ -1,5 +1,4 @@
 import { Wordmark } from "@/components/brand/Wordmark";
-import { LegalLinks } from "@/components/LegalPage";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { FlowHook } from "@/components/landing/FlowHook";
 import { HeroDrone } from "@/components/landing/HeroDrone";
@@ -86,7 +85,21 @@ export default function LandingPage() {
 
       <footer className="mx-auto flex max-w-[1264px] flex-wrap items-center justify-between gap-4 border-t border-[var(--hairline)] px-4 py-6 sm:px-8">
         <Wordmark size={18} />
-        <LegalLinks />
+        <p className="type-label">
+          <Link
+            href="https://github.com/MoayyadShahid/Nfinit/blob/main/LICENSE"
+            className="underline-offset-4 hover:underline"
+          >
+            MIT license
+          </Link>
+          {" · "}
+          <Link
+            href="https://github.com/MoayyadShahid/Nfinit"
+            className="underline-offset-4 hover:underline"
+          >
+            Source code
+          </Link>
+        </p>
         <p className="type-label">© 2026</p>
       </footer>
     </div>

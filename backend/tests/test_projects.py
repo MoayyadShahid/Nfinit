@@ -4,7 +4,6 @@ import pytest
 
 from projects import models as project_models
 from projects.models import ProjectCreate, ProjectState
-from projects.postgres_store import PostgresProjectStore
 from projects.store import (
     LEGACY_LOCAL_USER_ID,
     ProjectNotFoundError,
@@ -136,13 +135,6 @@ def test_project_store_isolates_projects_by_user(tmp_path):
         store.add_revision(
             created.id, initial_state(), user_id=OTHER_USER_ID
         )
-
-
-def test_postgres_store_rejects_malformed_project_ids_before_querying():
-    store = PostgresProjectStore("postgresql://unused")
-
-    with pytest.raises(ProjectNotFoundError):
-        store.get_project("not-a-uuid", user_id=USER_ID)
 
 
 def test_sqlite_store_assigns_existing_projects_to_local_identity(tmp_path):

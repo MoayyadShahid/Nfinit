@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 import type { ProjectSummary } from "@/lib/projects";
 import { Wordmark } from "@/components/brand/Wordmark";
 import Link from "next/link";
-import { AccountMenu } from "@/components/AccountMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import SmoothDrawer from "@/components/kokonutui/smooth-drawer";
 import { Button } from "@/components/ui/button";
@@ -31,11 +30,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const UNSAVED_PROJECT = "__unsaved__";
 
 export type { ExportFormat } from "@/lib/exports";
-export type Viewer = {
-  email: string | null;
-  name: string | null;
-  avatarUrl: string | null;
-};
 
 interface CommandBarProps {
   onExport: (format: ExportFormat) => void;
@@ -50,7 +44,6 @@ interface CommandBarProps {
   onSave: () => void;
   onOpenCommands: () => void;
   busy: boolean;
-  viewer?: Viewer | null;
 }
 
 export function CommandBar({
@@ -66,7 +59,6 @@ export function CommandBar({
   onSave,
   onOpenCommands,
   busy,
-  viewer = null,
 }: CommandBarProps) {
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -218,7 +210,6 @@ export function CommandBar({
             </div>
           )}
         </div>
-        {viewer && <AccountMenu viewer={viewer} />}
       </div>
     </header>
   );

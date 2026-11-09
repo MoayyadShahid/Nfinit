@@ -33,8 +33,6 @@ from execution import (
 from projects import router as projects_router
 from projects.body_limit import BodySizeLimitMiddleware
 from projects.limits import MAX_CODE_CHARS, SandboxUserId
-from projects.store import get_project_store
-from projects.account import router as account_router
 from projects.meshes import router as meshes_router
 from projects.runs import router as runs_router
 from projects.config import validate_project_configuration
@@ -52,14 +50,12 @@ load_dotenv(Path(__file__).with_name(".env"))
 
 
 def _optional_service_status() -> dict[str, str]:
-    supabase = (
-        "configured"
-        if os.getenv("SUPABASE_URL") or os.getenv("NFNIT_DATABASE_URL")
-        else "unset (SQLite + local auth bypass)"
-    )
     return {
-        "openrouter": "configured" if os.getenv("OPENROUTER_API_KEY") else "MISSING",
-        "supabase": supabase,
+        "openrouter": (
+            "configured"
+            if os.getenv("OPENROUTER_API_KEY")
+            else "unset (API models off; local agents need no key)"
+        ),
     }
 
 
@@ -73,10 +69,6 @@ async def lifespan(_app: FastAPI):
     threading.Thread(target=start_sandbox, name="cad-sandbox-start", daemon=True).start()
     yield
     stop_sandbox()
-    # Close pooled database connections, if this deployment uses Postgres.
-    close = getattr(get_project_store(), "close", None)
-    if callable(close):
-        close()
 
 
 app = FastAPI(title="Nfinit Geometry Engine", lifespan=lifespan)
@@ -143,7 +135,6 @@ async def add_security_headers(request, call_next):
 
 app.include_router(projects_router)
 app.include_router(runs_router)
-app.include_router(account_router)
 app.include_router(meshes_router)
 
 

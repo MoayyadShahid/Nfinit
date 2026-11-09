@@ -1,7 +1,7 @@
 import os
 
-# Fail-closed production config requires Postgres + Supabase unless this
-# flag is set. Tests keep the local SQLite bypass unless they delete it.
+# The API serves only the local single-user workspace, which sets this flag.
+# Tests keep it unless they delete it.
 os.environ.setdefault("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", "true")
 
 import pytest  # noqa: E402

@@ -4,7 +4,7 @@ import os
 import shutil
 
 from fastapi import HTTPException, Request
-from projects.config import is_production, local_auth_bypass_enabled
+from projects.config import local_auth_bypass_enabled
 
 LOCAL_MODELS = {"local/claude": ("claude", "Claude Code"), "local/codex": ("codex", "Codex")}
 
@@ -13,8 +13,6 @@ def local_agents_enabled() -> bool:
     return (
         os.getenv("NFNIT_LOCAL_AGENTS", "").lower() == "true"
         and local_auth_bypass_enabled()
-        and not is_production()
-        and not os.getenv("SUPABASE_URL")
         and len(os.getenv("NFNIT_LOCAL_TOKEN", "")) >= 32
     )
 

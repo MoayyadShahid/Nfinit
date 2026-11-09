@@ -15,8 +15,6 @@ def local_env(monkeypatch):
     monkeypatch.setenv("NFNIT_LOCAL_AGENTS", "true")
     monkeypatch.setenv("NFNIT_LOCAL_TOKEN", "a" * 40)
     monkeypatch.setenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", "true")
-    for name in ("NFNIT_DATABASE_URL", "SUPABASE_URL", "RAILWAY_ENVIRONMENT_NAME"):
-        monkeypatch.delenv(name, raising=False)
 
 
 def test_local_access_requires_token_and_loopback(local_env):
@@ -32,8 +30,11 @@ def test_local_access_requires_token_and_loopback(local_env):
         require_local_access(request)
 
 
-def test_hosted_deployment_cannot_enable_local_agents(local_env, monkeypatch):
-    monkeypatch.setenv("RAILWAY_ENVIRONMENT_NAME", "production")
+def test_local_agents_need_the_local_workspace(local_env, monkeypatch):
+    monkeypatch.delenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS")
+    assert not local_agents_enabled()
+    monkeypatch.setenv("NFNIT_ALLOW_LOCAL_AUTH_BYPASS", "true")
+    monkeypatch.setenv("NFNIT_LOCAL_TOKEN", "too-short")
     assert not local_agents_enabled()
 
 
