@@ -24,7 +24,7 @@ from agent.models import CadRunRequest
 
 from agent.graph import run_timeout_seconds
 
-from .billing import require_subscription
+from .auth import get_current_user_id
 from .store import (
     ProjectStoreProtocol,
     RunQuotaExceededError,
@@ -227,10 +227,10 @@ def sandbox_execution_slot(
 
 
 def limit_sandbox_calls(
-    user_id: Annotated[str, Depends(require_subscription)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
     store: Annotated[ProjectStoreProtocol, Depends(get_project_store)],
 ) -> Iterator[str]:
-    """A subscribed user's id, if they are under their sandbox call limit."""
+    """The signed-in user's id, if they are under their sandbox call limit."""
     with sandbox_execution_slot(store, user_id):
         check_sandbox_rate(store, user_id)
         yield user_id

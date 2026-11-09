@@ -3,18 +3,13 @@
 import { Wordmark } from "@/components/brand/Wordmark";
 import type { Viewer } from "@/components/CommandBar";
 import { AccountMenu } from "@/components/AccountMenu";
-import { Paywall } from "@/components/Paywall";
-import { SubscribeButton } from "@/components/SubscribeButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { canSubscribe } from "@/lib/billing";
 import { demoThumbnail, listDemos, type DemoSummary } from "@/lib/demos";
-import { useBillingStatus } from "@/lib/useBillingStatus";
 import {
   deleteProject,
   getProject,
   listProjects,
   renameProject,
-  SubscriptionRequiredError,
   thumbnailUrl,
   type ProjectSummary,
 } from "@/lib/projects";
@@ -60,7 +55,6 @@ function PartCard({
   onDeleted,
   onRestored,
   onError,
-  onSubscriptionRequired,
 }: {
   part: ProjectSummary;
   onRenamed: (part: ProjectSummary) => void;
@@ -68,7 +62,6 @@ function PartCard({
   /** Puts a part back after a delete that failed. */
   onRestored: (part: ProjectSummary) => void;
   onError: (message: string) => void;
-  onSubscriptionRequired: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(part.name);
@@ -125,11 +118,7 @@ function PartCard({
       link.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      if (e instanceof SubscriptionRequiredError) {
-        onSubscriptionRequired();
-      } else {
-        onError(e instanceof Error ? e.message : "Export failed");
-      }
+      onError(e instanceof Error ? e.message : "Export failed");
     } finally {
       setBusy(null);
     }
@@ -285,9 +274,7 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
   const [parts, setParts] = useState<ProjectSummary[] | null>(null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [showPaywall, setShowPaywall] = useState(false);
   const [demos, setDemos] = useState<DemoSummary[]>([]);
-  const billing = useBillingStatus();
 
   useEffect(() => {
     let active = true;
@@ -339,13 +326,6 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
         <Wordmark href="/" size={20} />
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
-          {canSubscribe(billing) && (
-            <SubscribeButton
-              size="sm"
-              taxAtCheckout={billing?.taxAtCheckout ?? false}
-              onError={setError}
-            />
-          )}
           <Link
             href="/studio?new=1"
             className="theme-primary-button flex h-9 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold shadow-sm transition-transform hover:scale-[1.02]"
@@ -353,7 +333,7 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
             <Plus className="size-3.5" />
             New part
           </Link>
-          {viewer && <AccountMenu viewer={viewer} billing={billing} onError={setError} />}
+          {viewer && <AccountMenu viewer={viewer} />}
         </div>
       </header>
 
@@ -434,7 +414,6 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
                 key={part.id}
                 part={part}
                 onError={setError}
-                onSubscriptionRequired={() => setShowPaywall(true)}
                 onRenamed={(updated) =>
                   setParts((previous) =>
                     previous?.map((item) =>
@@ -464,11 +443,6 @@ export function PartsGallery({ viewer }: { viewer: Viewer | null }) {
           </div>
         )}
       </main>
-      <Paywall
-        reason={showPaywall ? "export" : null}
-        onClose={() => setShowPaywall(false)}
-        taxAtCheckout={billing?.taxAtCheckout ?? false}
-      />
     </div>
   );
 }

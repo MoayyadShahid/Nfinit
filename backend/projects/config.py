@@ -18,14 +18,6 @@ def is_production() -> bool:
     )
 
 
-BILLING_SETTINGS = (
-    "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-    "STRIPE_PRICE_ID",
-    "APP_URL",
-)
-
-
 def _valid_production_origin(value: str) -> bool:
     if not value or "*" in value:
         return False
@@ -92,16 +84,10 @@ def validate_project_configuration() -> None:
         )
 
     required = ["NFNIT_MESH_URL_SECRET", "CORS_ORIGINS"]
-    # Without Stripe the paywall is off and every user gets paid features, so
-    # that must be a deliberate choice, not a missing variable.
-    if not _enabled(os.getenv("NFNIT_ALLOW_FREE_ACCESS")):
-        required += BILLING_SETTINGS
     unset = [name for name in required if not os.getenv(name, "").strip()]
     if unset:
         raise RuntimeError(
-            "Required production settings are missing: "
-            + ", ".join(unset)
-            + ". Set NFNIT_ALLOW_FREE_ACCESS=true to run without billing."
+            "Required production settings are missing: " + ", ".join(unset)
         )
 
     signing_secret = os.environ["NFNIT_MESH_URL_SECRET"].strip().encode()
@@ -109,10 +95,6 @@ def validate_project_configuration() -> None:
         raise RuntimeError(
             "NFNIT_MESH_URL_SECRET must contain at least 32 bytes in production."
         )
-
-    app_url = os.getenv("APP_URL", "").strip()
-    if app_url and not _valid_production_origin(app_url):
-        raise RuntimeError("APP_URL must be one exact HTTPS production origin.")
 
     origins = [item.strip() for item in os.environ["CORS_ORIGINS"].split(",")]
     invalid_origins = [origin for origin in origins if not _valid_production_origin(origin)]

@@ -1,5 +1,3 @@
-import { SubscriptionRequiredError } from "@/lib/projects";
-
 export type SandboxOperation =
   | "generate-mesh"
   | "inspect-model"
@@ -12,12 +10,10 @@ export async function sandboxRequest(
   body: unknown,
   init: { signal?: AbortSignal } = {}
 ): Promise<Response> {
-  const response = await fetch(`/api/cad/${operation}`, {
+  return fetch(`/api/cad/${operation}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     signal: init.signal,
   });
-  if (response.status === 402) throw new SubscriptionRequiredError();
-  return response;
 }

@@ -10,21 +10,11 @@ import {
 } from "@/components/CommandBar";
 import { DemoControls } from "@/components/DemoReplay";
 import { EditorPane } from "@/components/EditorPane";
-import { Paywall, type PaywallReason } from "@/components/Paywall";
 import { VersionRail, type RailVersion } from "@/components/VersionRail";
 import { ViewportPane } from "@/components/ViewportPane";
 import AIModelSelector, { type ModelOption } from "@/components/kokonutui/ai-model-selector";
 import ActionSearchBar, { type StudioCommand } from "@/components/kokonutui/action-search-bar";
 import { EXPORT_FORMATS } from "@/lib/exports";
-import {
-  getBillingStatus,
-  savePendingAction,
-  type PendingAction,
-  SubscriptionRequiredError,
-  takePendingAction,
-  waitForActiveSubscription,
-  type BillingStatus,
-} from "@/lib/billing";
 import { DEFAULT_MODEL, getModelConfig, MODEL_CONFIGS, LOCAL_MODEL_CONFIGS } from "@/lib/constants";
 import {
   addRevision,
@@ -50,7 +40,6 @@ import {
 } from "@/lib/runs";
 import {
   demoFile,
-  FIRST_DEMO,
   getDemo,
   listDemos,
   stepTitle,
@@ -119,8 +108,6 @@ function writePendingRun(pending: PendingRun | null) {
     // Storage can be unavailable (private mode); resuming is a convenience.
   }
 }
-
-const LAPSED_MESSAGE = "Subscribe to open and edit your parts again.";
 
 const DEFAULT_CODE = [
   "width, depth, height = 10.0, 10.0, 10.0",
@@ -246,13 +233,6 @@ export default function Studio({
   const demoOpened = useRef(false);
   // Code from a failed run, offered so the tokens spent on it are not lost.
   const [recoverableCode, setRecoverableCode] = useState<string | null>(null);
-  const [billing, setBilling] = useState<BillingStatus | null>(null);
-  const [paywall, setPaywall] = useState<PaywallReason | null>(null);
-  // Unknown status is not locked: the backend still answers 402 if it must.
-  const isLocked = billing !== null && !billing.active;
-  const [isActivating, setIsActivating] = useState(false);
-  // An action interrupted by the paywall, run once the subscription is live.
-  const [resumeAction, setResumeAction] = useState<PendingAction | null>(null);
   const mountedRef = useRef(true);
   const lastThumbnailRef = useRef<Blob | null>(null);
   const thumbnailContextRef = useRef({
@@ -316,13 +296,7 @@ export default function Studio({
         return url;
       });
     } catch (e) {
-      setError(
-        e instanceof SubscriptionRequiredError
-          ? LAPSED_MESSAGE
-          : e instanceof Error
-            ? e.message
-            : "Mesh generation failed"
-      );
+      setError(e instanceof Error ? e.message : "Mesh generation failed");
     }
   }, []);
 
@@ -366,13 +340,7 @@ export default function Studio({
       }
       show(entry);
     } catch (e) {
-      setError(
-        e instanceof SubscriptionRequiredError
-          ? LAPSED_MESSAGE
-          : e instanceof Error
-            ? e.message
-            : "Mesh generation failed"
-      );
+      setError(e instanceof Error ? e.message : "Mesh generation failed");
     }
   }, []);
 
@@ -561,11 +529,7 @@ export default function Studio({
         meshReference,
       });
     } catch (e) {
-      if (e instanceof SubscriptionRequiredError) {
-        setPaywall("build");
-      } else {
-        setError(e instanceof Error ? e.message : "Failed to save revision");
-      }
+      setError(e instanceof Error ? e.message : "Failed to save revision");
     } finally {
       setIsSaving(false);
     }
@@ -904,12 +868,7 @@ export default function Studio({
           meshReference,
         });
       } catch (e) {
-        if (e instanceof SubscriptionRequiredError) {
-          savePendingAction({ kind: "send", text: text.trim(), images: imageUrls });
-          setPaywall("build");
-        } else {
-          setError(e instanceof Error ? e.message : "Could not start generation");
-        }
+        setError(e instanceof Error ? e.message : "Could not start generation");
         setMessages((prev) => prev.slice(0, -1));
         setIsLoading(false);
         return;
@@ -931,19 +890,11 @@ export default function Studio({
     ]
   );
 
-  // Stopped at the paywall, the prompt stays in the box (ChatPane keeps its
-  // input when this returns false) and is replayed after Checkout.
-  const sendOrPaywall = useCallback(
+  const sendChat = useCallback(
     (text: string, imageUrls?: string[]) => {
-      if (isLocked) {
-        savePendingAction({ kind: "send", text: text.trim(), images: imageUrls });
-        setPaywall("build");
-        return false;
-      }
       void handleChatSend(text, imageUrls);
-      return true;
     },
-    [handleChatSend, isLocked]
+    [handleChatSend]
   );
 
   const recoverLastAttempt = useCallback(() => {
@@ -968,11 +919,6 @@ export default function Studio({
   const handleExport = useCallback(
     async (format: ExportFormat) => {
       setError(null);
-      if (isLocked) {
-        savePendingAction({ kind: "export", format });
-        setPaywall("export");
-        return;
-      }
       try {
         const res = await sandboxRequest("export-model", { code, format });
 
@@ -992,26 +938,10 @@ export default function Studio({
         a.click();
         URL.revokeObjectURL(url);
       } catch (e) {
-        if (e instanceof SubscriptionRequiredError) {
-          savePendingAction({ kind: "export", format });
-          setPaywall("export");
-        } else {
-          setError(e instanceof Error ? e.message : "Export failed");
-        }
+        setError(e instanceof Error ? e.message : "Export failed");
       }
     },
-    [code, isLocked]
-  );
-
-  const handleAdvancedChange = useCallback(
-    (open: boolean) => {
-      if (open && isLocked) {
-        setPaywall("build");
-        return;
-      }
-      setAdvancedOpen(open);
-    },
-    [isLocked]
+    [code]
   );
 
   const handleSelectionChange = useCallback(
@@ -1021,11 +951,6 @@ export default function Studio({
     },
     []
   );
-
-  const closePaywall = useCallback(() => {
-    takePendingAction();
-    setPaywall(null);
-  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1105,60 +1030,6 @@ export default function Studio({
       active = false;
     };
   }, [applyRevision, followRun, initialProjectId, startNew]);
-
-  useEffect(() => {
-    getBillingStatus()
-      .then((status) => {
-        if (mountedRef.current) setBilling(status);
-      })
-      .catch(() => {
-        // Unknown status leaves the studio open; the backend still enforces.
-      });
-  }, []);
-
-  // Back from Checkout: Stripe's webhook may land a moment after the
-  // redirect, so wait for it, then finish what the paywall interrupted.
-  useEffect(() => {
-    if (!hasInitialized) return;
-    const url = new URL(window.location.href);
-    const outcome = url.searchParams.get("checkout");
-    if (!outcome) return;
-    url.searchParams.delete("checkout");
-    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-    if (outcome !== "success") {
-      takePendingAction();
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setIsActivating(true);
-      void waitForActiveSubscription().then((status) => {
-        if (!mountedRef.current) return;
-        setIsActivating(false);
-        if (!status) {
-          setError(
-            "Payment received. Your subscription is still activating; refresh in a minute."
-          );
-          return;
-        }
-        setBilling(status);
-        setResumeAction(takePendingAction());
-      });
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [hasInitialized]);
-
-  useEffect(() => {
-    if (!resumeAction || isLocked) return;
-    const timer = window.setTimeout(() => {
-      setResumeAction(null);
-      if (resumeAction.kind === "send") {
-        void handleChatSend(resumeAction.text, resumeAction.images);
-      } else {
-        void handleExport(resumeAction.format);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [resumeAction, isLocked, handleChatSend, handleExport]);
 
   useEffect(() => {
     const latestRevision = revisions[0] ?? null;
@@ -1267,7 +1138,7 @@ export default function Studio({
       <details className="text-xs">
         <summary className="cursor-pointer py-1">References & copies{meshReference ? ` · ${meshReference.name}` : ""}</summary>
         <div className="flex max-h-64 flex-col gap-3 overflow-y-auto py-2">
-          <ReferenceImport disabled={isLoading || isProjectLoading || isLocked} onImport={importReference} />
+          <ReferenceImport disabled={isLoading || isProjectLoading} onImport={importReference} />
           {meshReference ? <>
             <p className="text-muted-foreground">{meshReference.mode === "preserve" ? "Faceted STL source" : "Approximate reconstruction reference"} · {meshReference.facts.triangles.toLocaleString()} triangles · {Object.values(meshReference.facts.bounds).join(" × ")} mm</p>
             <div className="flex flex-wrap gap-2">
@@ -1278,7 +1149,7 @@ export default function Studio({
                 link.href = url; link.download = meshReference.name; link.click();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
               }}>Download original STL</Button>
-              {meshReference.mode === "reconstruct" && !code.trim() ? <Button size="sm" disabled={isLoading} onClick={() => sendOrPaywall("Reconstruct an editable parametric copy of the imported STL. Preserve its measured dimensions, explain assumptions, and check the resulting geometry.")}>Reconstruct editable copy</Button> : null}
+              {meshReference.mode === "reconstruct" && !code.trim() ? <Button size="sm" disabled={isLoading} onClick={() => sendChat("Reconstruct an editable parametric copy of the imported STL. Preserve its measured dimensions, explain assumptions, and check the resulting geometry.")}>Reconstruct editable copy</Button> : null}
             </div>
           </> : null}
           {projectId ? <Button variant="outline" size="sm" disabled={isSaving || isLoading} onClick={() => void saveCopy()}>Save as a new copy</Button> : null}
@@ -1289,17 +1160,15 @@ export default function Studio({
   );
 
   useEffect(() => {
-    if (demoOpened.current || !hasInitialized || billing === null) return;
-    const slug =
-      initialDemo ??
-      (showWelcome && isLocked && !initialPrompt ? FIRST_DEMO : undefined);
+    if (demoOpened.current || !hasInitialized) return;
+    const slug = initialDemo;
     if (!slug || !demos.some((item) => item.slug === slug)) return;
     const timer = window.setTimeout(() => {
       demoOpened.current = true;
       void openDemo(slug);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [billing, demos, hasInitialized, initialDemo, initialPrompt, isLocked, openDemo, showWelcome]);
+  }, [demos, hasInitialized, initialDemo, openDemo]);
 
   const changeRailOpen = useCallback((open: boolean) => {
     setRailOpen(open);
@@ -1375,7 +1244,7 @@ export default function Studio({
     { id: "fit-view", label: "Fit model in view", group: "Actions", icon: Maximize, keywords: ["zoom", "camera", "center"],
       disabled: !glbUrl, onSelect: () => setFitRequest((value) => value + 1) },
     { id: "advanced", label: advancedOpen ? "Close advanced editor" : "Open advanced editor", group: "Actions", icon: Code2,
-      disabled: busy, onSelect: () => handleAdvancedChange(!advancedOpen) },
+      disabled: busy, onSelect: () => setAdvancedOpen(!advancedOpen) },
     ...EXPORT_FORMATS.map(({ id, label, desc }): StudioCommand => ({
       id: `export-${id}`, label: `Export ${label}`, group: "Export", icon: Download,
       keywords: [desc], disabled: busy, onSelect: () => handleExport(id),
@@ -1403,9 +1272,7 @@ export default function Studio({
         isDirty={isDirty}
         isSaving={isSaving}
         advancedOpen={advancedOpen}
-        onAdvancedChange={handleAdvancedChange}
-        billing={billing}
-        onBillingError={setError}
+        onAdvancedChange={setAdvancedOpen}
         onProjectChange={openPart}
         onNewProject={newPart}
         onSave={saveCurrentRevision}
@@ -1433,7 +1300,7 @@ export default function Studio({
             <div className="min-h-[380px] w-full max-w-3xl">
               <ChatPane
                 messages={messages}
-                onSend={sendOrPaywall}
+                onSend={sendChat}
                 isLoading={isLoading || isProjectLoading}
                 lastError={error}
                 modelId={modelId}
@@ -1545,7 +1412,6 @@ export default function Studio({
                 showSelectionCard={false}
                 onThumbnail={handleThumbnail}
                 onSelectionChange={handleSelectionChange}
-                onSelectBlocked={isLocked ? () => setPaywall("build") : undefined}
               />
             </div>
 
@@ -1588,7 +1454,7 @@ export default function Studio({
               <div className="pointer-events-auto w-full max-w-[620px]">
                 <ChatPane
                   messages={messages}
-                  onSend={sendOrPaywall}
+                  onSend={sendChat}
                   isLoading={isLoading || isProjectLoading}
                   lastError={error}
                   modelId={modelId}
@@ -1641,21 +1507,6 @@ export default function Studio({
           </button>
         </div>
       )}
-
-      {isActivating && (
-        <div
-          role="status"
-          className="theme-floating fixed left-1/2 top-20 z-[70] -translate-x-1/2 rounded-full border px-4 py-2 text-sm shadow-xl"
-        >
-          Activating your subscription…
-        </div>
-      )}
-
-      <Paywall
-        reason={paywall}
-        onClose={closePaywall}
-        taxAtCheckout={billing?.taxAtCheckout ?? false}
-      />
 
       {advancedOpen && (
         <>

@@ -527,7 +527,6 @@ interface ViewportPaneProps {
   /** Called once per loaded model with a 480×360 preview image. */
   onThumbnail?: (image: Blob) => void;
   /** When set, clicking a face calls this instead of selecting it. */
-  onSelectBlocked?: () => void;
 }
 
 function ViewportContent({
@@ -541,7 +540,6 @@ function ViewportContent({
   showSelectionCard = true,
   onSelectionChange,
   onThumbnail,
-  onSelectBlocked,
 }: ViewportPaneProps) {
   const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
   const [resolvedFace, setResolvedFace] = useState<FaceSelection | null>(null);
@@ -593,10 +591,6 @@ function ViewportContent({
 
   const selectFace = useCallback(
     async (selection: ThreeFaceSelection) => {
-      if (onSelectBlocked) {
-        onSelectBlocked();
-        return;
-      }
       setFaceSelection(selection);
       setResolvedFace(null);
       const geometricSelection: FaceSelection = {
@@ -657,7 +651,7 @@ function ViewportContent({
         // Positional selection remains usable when semantic resolution fails.
       }
     },
-    [code, glbUrl, modelInfo.topologyVersion, onSelectionChange, onSelectBlocked]
+    [code, glbUrl, modelInfo.topologyVersion, onSelectionChange]
   );
 
   useEffect(

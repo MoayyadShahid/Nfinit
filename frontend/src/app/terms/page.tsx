@@ -8,8 +8,7 @@ export const metadata: Metadata = {
   description: "The agreement between you and Nfinit.",
 };
 
-const { operator, location, contactEmail, governingLaw, courts, minimumAge, monthlyPrice } =
-  LEGAL;
+const { operator, location, contactEmail, governingLaw, courts, minimumAge } = LEGAL;
 const mail = `mailto:${contactEmail}`;
 
 export default function TermsPage() {
@@ -18,17 +17,10 @@ export default function TermsPage() {
       title="Terms of Service"
       summary={
         <ul>
-          <li>The locally installed open-source Nfinit software is free under the <a href="https://github.com/MoayyadShahid/Nfinit/blob/main/LICENSE">MIT license</a>. Your selected agent provider controls its own usage limits and charges. The subscription terms below apply to the optional hosted service.</li>
+          <li>The locally installed open-source Nfinit software is free under the <a href="https://github.com/MoayyadShahid/Nfinit/blob/main/LICENSE">MIT license</a>. Your selected agent provider controls its own usage limits and charges.</li>
           <li>
-            The hosted Nfinit service turns text descriptions into 3D CAD parts with AI. You can look at
-            the demo parts for free. Building, editing and exporting parts needs a
-            subscription of {monthlyPrice} per month, plus applicable taxes.
-          </li>
-          <li>
-            The subscription renews every month until you cancel. You can cancel at
-            any time with <strong>Manage billing</strong>, in your account menu or on
-            the <Link href="/account">Account page</Link>, and you keep access until
-            the end of the month you paid for.
+            The hosted Nfinit service turns text descriptions into 3D CAD parts with AI.
+            It is free to use.
           </li>
           <li>You own the parts you design and the prompts and images you give us.</li>
           <li>
@@ -52,7 +44,7 @@ export default function TermsPage() {
           how we handle your personal data.
         </p>
         <p>
-          When you sign in, subscribe or use the Service, you agree to these Terms. If you
+          When you sign in or use the Service, you agree to these Terms. If you
           do not agree, do not use the Service.
         </p>
       </Section>
@@ -61,7 +53,7 @@ export default function TermsPage() {
         <p>
           You must be at least {minimumAge} years old. If you are under 18, or under the age
           of majority where you live, a parent or legal guardian must agree to these Terms
-          for you and must make any purchase.
+          for you.
         </p>
         <p>
           If you use the Service for a company or other organization, you confirm that you
@@ -84,72 +76,13 @@ export default function TermsPage() {
           build123d CAD code. It runs that code to build a 3D part that you can view, change
           and export as STL or STEP files.
         </p>
-        <ul>
-          <li>
-            <strong>Free:</strong> you can view the demo parts and replay how they were
-            built.
-          </li>
-          <li>
-            <strong>Subscription:</strong> you can generate and edit parts, select faces to
-            change, use the code editor and export files.
-          </li>
-        </ul>
         <p>
           We work to keep the Service available and correct, but we can change, add or
-          remove features. If we remove a main feature that you pay for, we will tell you
-          first, and you can cancel.
+          remove features. If we remove a main feature, we will tell you first.
         </p>
       </Section>
 
-      <Section id="billing" title="5. Subscription, renewal and cancellation">
-        <ul>
-          <li>
-            <strong>Price:</strong> {monthlyPrice} per month, charged in US dollars, plus
-            applicable taxes such as GST/HST, sales tax or VAT. Checkout calculates the
-            tax from your billing address and shows the total before you pay. Your bank
-            can charge a fee to convert the currency.
-          </li>
-          <li>
-            <strong>Automatic renewal:</strong> your subscription renews automatically
-            every month, and we charge your payment method at the start of each month,
-            until you cancel.
-          </li>
-          <li>
-            <strong>How to cancel:</strong> select your account menu (your initial, top
-            right), then <strong>Manage billing</strong>, or select{" "}
-            <strong>Manage billing</strong> on the <Link href="/account">Account page</Link>.
-            Then select <strong>Cancel subscription</strong> on the page that opens. You can also email us at{" "}
-            <a href={mail}>{contactEmail}</a>. Cancellation stops the next renewal. You
-            keep access until the end of the month you already paid for.
-          </li>
-          <li>
-            <strong>Refunds:</strong> payments are not refundable for a partly used month,
-            except where the law requires a refund. If we charged you by mistake, or the
-            Service did not work for a large part of a month, email us and we will make it
-            right.
-          </li>
-          <li>
-            <strong>Price changes:</strong> we will tell you at least 30 days before a new
-            price applies to you. If you do not agree, you can cancel before it starts.
-          </li>
-          <li>
-            <strong>Failed payments:</strong> if a payment fails, our payment provider tries
-            again. If payment still fails, your subscription ends and the paid features
-            stop.
-          </li>
-          <li>
-            <strong>Payments:</strong> Stripe processes all payments. We never see or keep
-            your full card number.
-          </li>
-          <li>
-            <strong>Your copy:</strong> Stripe emails you a receipt for each payment. These
-            Terms are always available at <Link href="/terms">nfinit.dev/terms</Link>, and
-            we will email you a copy if you ask.
-          </li>
-        </ul>
-      </Section>
-
-      <Section id="your-content" title="6. Your content and your designs">
+      <Section id="your-content" title="5. Your content and your designs">
         <p>
           &ldquo;Your Content&rdquo; means the prompts, images and other material you give
           us, and the code, plans and 3D parts that the Service makes for you.{" "}
@@ -174,7 +107,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="ai-output" title="7. AI-generated output">
+      <Section id="ai-output" title="6. AI-generated output">
         <p>
           AI output can be wrong, incomplete or different from what you asked for. The
           same or a similar output can be made for other users. Before you use a design,
@@ -189,7 +122,7 @@ export default function TermsPage() {
         </ul>
       </Section>
 
-      <Section id="safety" title="8. Engineering and safety">
+      <Section id="safety" title="7. Engineering and safety">
         <p className="legal-callout">
           <strong>
             Nfinit is a design tool. It does not check that a part is strong enough, safe,
@@ -210,7 +143,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="acceptable-use" title="9. Acceptable use">
+      <Section id="acceptable-use" title="8. Acceptable use">
         <p>Do not use the Service to:</p>
         <ul>
           <li>break any law, or help another person break a law;</li>
@@ -221,7 +154,7 @@ export default function TermsPage() {
           <li>copy or infringe another person&rsquo;s intellectual property;</li>
           <li>
             attack, overload or interfere with the Service, or try to get around its
-            sandbox, security, usage limits or paywall;
+            sandbox, security or usage limits;
           </li>
           <li>
             copy, scrape, resell or give other people access to the Service, or use it to
@@ -239,7 +172,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="our-rights" title="10. Our software and open-source software">
+      <Section id="our-rights" title="9. Our software and open-source software">
         <p>
           We own the Nfinit software, name, logo and website, except for Your Content and
           third-party software. These Terms give you a personal, non-transferable right to
@@ -254,34 +187,32 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="feedback" title="11. Feedback">
+      <Section id="feedback" title="10. Feedback">
         <p>
           If you send us ideas or suggestions, we can use them without paying you or
           naming you. This does not give us any rights in Your Content.
         </p>
       </Section>
 
-      <Section id="termination" title="12. Ending this agreement">
+      <Section id="termination" title="11. Ending this agreement">
         <p>
           You can stop using the Service at any time. To delete your account and all your
           data, select <strong>Delete account</strong> on the{" "}
-          <Link href="/account">Account page</Link>. This also cancels your subscription
-          at once, without a refund for the rest of the month. You can also email us at{" "}
+          <Link href="/account">Account page</Link>. You can also email us at{" "}
           <a href={mail}>{contactEmail}</a>.
         </p>
         <p>
           We can suspend or close your account if you seriously or repeatedly break these
           Terms, if the law requires it, or if your use creates a risk to the Service or
           other people. When possible, we will tell you first and give you time to export
-          your designs. If we close the Service or your account for a reason that is not
-          your fault, we will refund the unused part of your current month.
+          your designs.
         </p>
         <p>
-          Sections 6 to 8, 10, 11 and 13 to 17 stay in effect after this agreement ends.
+          Sections 5 to 7, 9, 10 and 12 to 16 stay in effect after this agreement ends.
         </p>
       </Section>
 
-      <Section id="disclaimers" title="13. Disclaimers">
+      <Section id="disclaimers" title="12. Disclaimers">
         <p>
           We provide the Service &ldquo;as is&rdquo; and &ldquo;as available&rdquo;. To the
           extent the law allows, we make no warranties of any kind, express or implied,
@@ -297,7 +228,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="liability" title="14. Limitation of liability">
+      <Section id="liability" title="13. Limitation of liability">
         <p>To the extent the law allows:</p>
         <ul>
           <li>
@@ -318,7 +249,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="indemnity" title="15. Your responsibility to us">
+      <Section id="indemnity" title="14. Your responsibility to us">
         <p>
           If another person makes a claim against us because you broke these Terms or the
           law, or because of a part you made, sold or used, you agree to pay the reasonable
@@ -327,17 +258,16 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="changes" title="16. Changes to these Terms">
+      <Section id="changes" title="15. Changes to these Terms">
         <p>
           We can change these Terms. If a change is important, we will tell you by email or
           in the studio at least 14 days before it applies, unless the law or a security
           problem requires a faster change. The new Terms apply from the date shown at the
-          top of this page. If you do not agree, stop using the Service and cancel your
-          subscription.
+          top of this page. If you do not agree, stop using the Service.
         </p>
       </Section>
 
-      <Section id="law" title="17. Governing law and disputes">
+      <Section id="law" title="16. Governing law and disputes">
         <p>
           Please contact us first at <a href={mail}>{contactEmail}</a>. Most problems can be
           solved quickly this way.
@@ -355,7 +285,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="general" title="18. General">
+      <Section id="general" title="17. General">
         <p>
           These Terms and the Privacy Policy are the full agreement between you and us
           about the Service. If a court finds part of these Terms invalid, the rest stays in
@@ -366,7 +296,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section id="contact" title="19. Contact">
+      <Section id="contact" title="18. Contact">
         <p>
           {operator}
           <br />

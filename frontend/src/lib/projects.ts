@@ -39,14 +39,6 @@ export type ProjectDetail = ProjectSummary & {
   latestRevision: ProjectRevision | null;
 };
 
-/** The backend answered 402: this action needs a subscription. */
-export class SubscriptionRequiredError extends Error {
-  constructor() {
-    super("A subscription is required for this.");
-    this.name = "SubscriptionRequiredError";
-  }
-}
-
 function errorMessage(payload: unknown, fallback: string): string {
   if (
     payload &&
@@ -67,7 +59,6 @@ export async function requestJson<T>(
     ...init,
     cache: "no-store",
   });
-  if (response.status === 402) throw new SubscriptionRequiredError();
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(errorMessage(payload, `Request failed (${response.status})`));

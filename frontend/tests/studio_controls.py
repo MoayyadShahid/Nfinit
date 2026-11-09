@@ -35,13 +35,11 @@ PROJECT = {"id": "test-part", "name": "Cable bracket", "revisionCount": 2, "crea
 
 
 class Fixtures:
-    def __init__(self, page, base, active=True, local_agents=None):
+    def __init__(self, page, base, local_agents=None):
         self.requests = []
         self.blocked = []
         self.errors = []
-        self.active = active
         self.local_agents = local_agents
-        self.export_status = 200
         self.run_failed = False
         self.phase = 0
         self.base = urlparse(base)
@@ -77,8 +75,6 @@ class Fixtures:
         status, data = 200, None
         if path == "/api/cad/local-agents":
             status, data = (404, {"detail": "Not found"}) if self.local_agents is None else (200, {"local": True, "agents": self.local_agents})
-        elif path == "/api/billing/status":
-            data = {"enabled": True, "active": self.active, "status": "active" if self.active else "none", "currentPeriodEnd": None, "cancelAtPeriodEnd": False, "taxAtCheckout": False}
         elif path == "/api/projects" and request.method == "GET":
             data = [PROJECT, {**PROJECT, "id": "untrusted-name", "name": UNTRUSTED}]
         elif path == "/api/projects/test-part":
@@ -90,7 +86,7 @@ class Fixtures:
         elif re.fullmatch(r"/api/projects/test-part/revisions/[12]", path):
             data = revision(int(path[-1]))
         elif path == "/api/cad/export-model":
-            route.fulfill(status=self.export_status, content_type="application/json" if self.export_status != 200 else "application/octet-stream", body='{"detail":"Subscription required"}' if self.export_status != 200 else 'fixture CAD export')
+            route.fulfill(content_type="application/octet-stream", body="fixture CAD export")
             return
         elif path == "/api/cad/runs" or path.startswith("/api/cad/runs/ui-run"):
             if path.endswith("/stream"):
@@ -113,14 +109,10 @@ class Fixtures:
         route.fulfill(status=status, content_type="application/json", body=json.dumps(data))
 
 
-def open_studio(browser, base, *, mobile=False, active=True, project=False, reduced=False, local_agents=None):
+def open_studio(browser, base, *, mobile=False, project=False, reduced=False, local_agents=None):
     context = browser.new_context(viewport={"width": 390 if mobile else 1440, "height": 844 if mobile else 1000}, is_mobile=mobile, has_touch=mobile, reduced_motion="reduce" if reduced else "no-preference")
     page = context.new_page()
-    fixture = Fixtures(page, base, active, local_agents)
-    # A locked account normally starts a demo. Suppress demo discovery in the
-    # paywall fixture only; recorded demos are tested separately.
-    if not active:
-        page.route("**/demos/index.json", lambda route: route.fulfill(json={"demos": []}))
+    fixture = Fixtures(page, base, local_agents)
     page.goto(base + ("/studio?project=test-part" if project else "/studio?new=1"))
     page.wait_for_load_state("networkidle")
     expect(page.get_by_role("button", name=re.compile("^Generation model:")).first).to_be_visible()
@@ -283,12 +275,6 @@ def test_mobile(browser, base, shots):
     assert download.value.suggested_filename == "model.stl"
     exports = [body for _, path, body in fixture.requests if path == "/api/cad/export-model"]
     assert exports == [{"code": CODE, "format": "stl"}], exports
-    fixture.export_status = 402
-    trigger.click()
-    drawer.get_by_role("button", name=re.compile("STEP")).click()
-    expect(page.get_by_role("dialog", name="Take it into the real world.")).to_be_visible()
-    assert not any("checkout" in path for _, path, _ in fixture.requests)
-    page.get_by_role("button", name="Close", exact=True).click()
     for width in (320, 390, 768):
         page.set_viewport_size({"width": width, "height": 844})
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), f"overflow at {width}"
@@ -297,20 +283,7 @@ def test_mobile(browser, base, shots):
             assert 0 <= bounds["x"] and bounds["x"] + bounds["width"] <= width
     assert not fixture.errors, fixture.errors
     context.close()
-    print("PASS mobile drawer, reduced motion, focus/dismissal, export format and backend 402 paywall")
-
-
-def test_locked(browser, base):
-    context, page, fixture = open_studio(browser, base, mobile=True, active=False)
-    page.get_by_role("button", name="Export part", exact=True).click()
-    page.get_by_role("dialog", name="Export your part").get_by_role("button", name=re.compile("STL")).click()
-    expect(page.get_by_role("dialog", name="Take it into the real world.")).to_be_visible()
-    assert not any(path == "/api/cad/export-model" or "checkout" in path for _, path, _ in fixture.requests)
-    page.set_viewport_size({"width": 320, "height": 844})
-    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-    assert not fixture.errors, fixture.errors
-    context.close()
-    print("PASS unsubscribed users retain the paywall without paid requests")
+    print("PASS mobile drawer, reduced motion, focus/dismissal and export format")
 
 
 def test_local_agents(browser, base):
@@ -366,7 +339,6 @@ def main():
             test_desktop(browser, args.base_url, shots)
             test_project(browser, args.base_url, shots)
             test_mobile(browser, args.base_url, shots)
-            test_locked(browser, args.base_url)
             test_local_agents(browser, args.base_url)
         finally:
             browser.close()

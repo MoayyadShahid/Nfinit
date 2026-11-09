@@ -16,7 +16,7 @@ const PROVIDERS: { name: string; purpose: string; data: string }[] = [
   {
     name: "Supabase",
     purpose: "Database and sign-in",
-    data: "Your account details, projects, chat history, runs and subscription status",
+    data: "Your account details, projects, chat history and runs",
   },
   {
     name: "Google",
@@ -32,11 +32,6 @@ const PROVIDERS: { name: string; purpose: string; data: string }[] = [
     name: "Anthropic",
     purpose: "Claude AI models that write the CAD code",
     data: "The same data that OpenRouter receives, through OpenRouter",
-  },
-  {
-    name: "Stripe",
-    purpose: "Payments and receipts",
-    data: "Your email address, card details and the billing details you enter at checkout",
   },
   {
     name: "Vercel",
@@ -59,12 +54,11 @@ export default function PrivacyPage() {
           <li>The local open-source workspace stores projects and original STL files on your machine. Prompts, reference images and CAD tool results are sent through your selected agent to its provider under your account. The hosted-service collection described below applies when you use the hosted deployment.</li>
           <li>
             We collect what we need to run Nfinit: your Google sign-in details, the
-            prompts, images and parts you make, and your subscription status.
+            prompts, images and parts you make.
           </li>
           <li>
             Your prompts and images go to AI model providers so they can write your CAD
-            code. Payments go through Stripe. Section 4 lists every service that gets your
-            data.
+            code. Section 4 lists every service that gets your data.
           </li>
           <li>
             We do not sell your data, we do not show ads, we do not use tracking cookies,
@@ -122,10 +116,6 @@ export default function PrivacyPage() {
             AI tokens used and the cost.
           </li>
           <li>
-            <strong>Subscription data:</strong> your Stripe customer ID, subscription
-            status and renewal date. We do not receive or keep your full card number.
-          </li>
-          <li>
             <strong>Technical data:</strong> our hosting providers record technical logs,
             such as IP address, browser type, the pages and actions requested, times and
             errors. We use them to keep the Service working and secure.
@@ -150,7 +140,6 @@ export default function PrivacyPage() {
         <ul>
           <li>to sign you in and run your account;</li>
           <li>to generate, build, store and export your parts;</li>
-          <li>to process payments and manage your subscription;</li>
           <li>to find and fix errors, measure speed and cost, and prevent abuse;</li>
           <li>to answer your messages and send important notices about the Service; and</li>
           <li>to obey the law and protect our rights.</li>
@@ -201,7 +190,7 @@ export default function PrivacyPage() {
         <ul>
           <li>
             it is necessary to provide the Service you asked for, under our contract with
-            you (account, parts, payments);
+            you (account and parts);
           </li>
           <li>
             we have a legitimate interest in keeping the Service secure, fixing errors and
@@ -243,13 +232,14 @@ export default function PrivacyPage() {
           <li>
             <strong>Account deletion:</strong> when you select{" "}
             <strong>Delete account</strong> on the <Link href="/account">Account page</Link>,
-            we cancel your subscription and delete your account and all your data at once.
+            we delete your account and all your data at once.
             If you ask by email instead, we do this within 30 days. Copies in backups are
             deleted when the backups expire.
           </li>
           <li>
-            <strong>Payment and tax records:</strong> Stripe and we keep these for as long
-            as tax and accounting laws require, even after you close your account.
+            <strong>Past payment and tax records:</strong> if you paid for a subscription
+            before Nfinit became free, Stripe and we keep those records for as long as tax
+            and accounting laws require, even after you close your account.
           </li>
           <li>
             <strong>Technical logs:</strong> for the short period our hosting providers
@@ -274,9 +264,8 @@ export default function PrivacyPage() {
           rights.
         </p>
         <p>
-          You can do some of this yourself: delete a project in the studio, cancel your
-          subscription with <strong>Manage billing</strong>, and delete your account, both
-          on the <Link href="/account">Account page</Link>.
+          You can do some of this yourself: delete a project in the studio, and delete your
+          account on the <Link href="/account">Account page</Link>.
         </p>
         <p>
           <strong>Complaints:</strong> if you are not satisfied with our answer, you can

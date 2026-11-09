@@ -33,7 +33,6 @@ from execution import BuildSnapshot, inspect_with_snapshots
 
 from .auth import get_current_user_id
 from .meshes import store_mesh_for_code
-from .billing import SubscribedUserId
 from .limits import create_run_under_quota, validate_run_request
 from .models import (
     CadRunRecord,
@@ -334,7 +333,7 @@ def _spawn(coroutine) -> None:
 
 @router.post("", response_model=CadRunRecord, status_code=status.HTTP_202_ACCEPTED)
 async def start_run(
-    request: CadRunStart, store: Store, user_id: SubscribedUserId, http_request: Request
+    request: CadRunStart, store: Store, user_id: UserId, http_request: Request
 ):
     if not request.messages or request.messages[-1].role != "user":
         raise HTTPException(

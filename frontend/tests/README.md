@@ -1,7 +1,7 @@
 # Studio browser checks
 
 These Playwright checks use a local frontend and fixture API responses. They do
-not need a backend, an account, Stripe, or model credits. The script rejects a
+not need a backend, an account, or model credits. The script rejects a
 non-loopback base URL, intercepts all API requests, and blocks external browser
 requests. Monaco CDN paths are fulfilled from the locked local npm package so
 the advanced editor can be tested offline. It never creates production data.
@@ -38,5 +38,5 @@ Coverage includes model allowlisting and request wiring; keyboard navigation,
 focus restoration, search, and unsaved-change confirmation; revision switching;
 camera fitting without regeneration; progress/retry/error events; literal
 rendering of HTML-like input; busy controls; mobile drawer dismissal and export;
-reduced motion; frontend/backend subscription checks; and local-agent selection
+reduced motion; and local-agent selection
 with unavailable agents disabled and reference controls preserved.
