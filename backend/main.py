@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import binascii
 import logging
 import os
 import threading
@@ -11,6 +13,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
 
 from agent import (
     FaceSelection,
@@ -174,6 +177,40 @@ def health():
     # only say whether the process can answer; service inventory is useful
     # reconnaissance and should not be exposed anonymously.
     return {"status": "ok"}
+
+
+@app.get("/local-agents")
+def local_agents(request: Request):
+    from agent.local_access import agent_inventory, local_agents_enabled, require_local_access
+    if not local_agents_enabled():
+        return {"local": False, "agents": []}
+    require_local_access(request)
+    return {"local": True, "agents": agent_inventory()}
+
+
+class StlImportRequest(BaseModel):
+    data: str = Field(max_length=14_000_000)
+    units: Literal["mm", "in"]
+    mode: Literal["preserve", "reconstruct"] = "preserve"
+
+
+@app.post("/import-stl")
+async def import_stl(request: StlImportRequest, _user: SandboxUserId):
+    from execution.references import faceted_code, mesh_facts, parse_stl, render_views
+    try:
+        data = base64.b64decode(request.data, validate=True)
+        triangles = await asyncio.to_thread(parse_stl, data, 25.4 if request.units == "in" else 1.0)
+        facts = await asyncio.to_thread(mesh_facts, triangles)
+        views = await asyncio.to_thread(render_views, triangles)
+        code = await asyncio.to_thread(faceted_code, triangles) if request.mode == "preserve" else ""
+        inspection = await asyncio.to_thread(_inspect_code, code) if code else None
+        if inspection and not inspection.valid:
+            raise ValueError("The mesh did not form a valid solid. Repair the STL or choose reconstruction.")
+        return {"code": code, "facts": facts, "views": views,
+                "inspection": inspection.model_dump() if inspection else None,
+                "mode": request.mode}
+    except (ValueError, binascii.Error) as error:
+        raise HTTPException(400, str(error)) from error
 
 
 class GenerateMeshRequest(BaseModel):
