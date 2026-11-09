@@ -1,6 +1,6 @@
 # Security checklist
 
-Status of each item after the security hardening PR (#38) and the fixes for the independent audit in `docs/SECURITY_AUDIT.md` (October 2026).
+Status of each item after the security hardening PR (#38) and the fixes for the independent audit (October 2026).
 
 - **Done**: fixed or added in that PR.
 - **In place**: already handled before it; checked during the review.
