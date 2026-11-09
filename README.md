@@ -134,7 +134,7 @@ docs/       Architecture, local workspace, demos and security notes
 - [Architecture](docs/ARCHITECTURE.md): sandbox, semantic topology, persistence,
   pattern search and evaluations
 - [Demo parts](docs/DEMOS.md): how the example builds are made and rebuilt
-- [Security](docs/SECURITY.md)
+- [Security policy](SECURITY.md): how to report a vulnerability
 
 ## Contributing
 
