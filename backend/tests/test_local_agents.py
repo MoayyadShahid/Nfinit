@@ -1,3 +1,4 @@
+import hashlib
 import json
 from types import SimpleNamespace
 
@@ -8,6 +9,14 @@ from agent.local import agent_command, prepare_input
 from agent.local_access import local_agents_enabled, require_local_access
 from agent.models import CadRunRequest
 from agent.graph import _conversation_messages
+from agent.prompts import (
+    CAD_SYSTEM_PROMPT,
+    DIMENSION_READING_RULES,
+    KERNEL_PITFALLS,
+    PLANNER_PROMPT,
+    REVIEW_RULES,
+    local_agent_prompt,
+)
 
 
 @pytest.fixture
@@ -60,3 +69,27 @@ def test_reference_images_survive_followup(tmp_path):
     assert images[0].read_bytes() == b"hello"
     assert any(part["type"] == "image" for part in json.loads(payload)["message"]["content"])
     assert "Add holes" in (tmp_path / "context.txt").read_text()
+
+
+def test_local_prompt_has_the_dimension_pitfall_and_review_rules(tmp_path):
+    request = CadRunRequest(modelId="local/codex", messages=[{"role": "user", "content": "A 3 mm base with 12 mm walls"}])
+    _images, prompt = prepare_input(request, tmp_path)
+
+    assert prompt == local_agent_prompt((tmp_path / "context.txt").read_text())
+    for block in (DIMENSION_READING_RULES, KERNEL_PITFALLS, REVIEW_RULES):
+        assert block in prompt
+    assert "Return only executable Python code" not in prompt
+    assert "Return only Python code" not in prompt
+    assert prompt.index("<procedure>") < prompt.index("<available_api>")
+    assert prompt.endswith("user: A 3 mm base with 12 mm walls")
+
+
+def test_hosted_prompts_keep_their_wording():
+    # The planner is unchanged; the coder gains only the pitfalls.
+    assert hashlib.sha256(PLANNER_PROMPT.encode()).hexdigest() == (
+        "57b74437e8913507c46751d1c7c9b9233c8f8a32770003d576f20775c582746d"
+    )
+    assert DIMENSION_READING_RULES in PLANNER_PROMPT
+    assert CAD_SYSTEM_PROMPT.startswith("<role>\nYou are a production build123d CAD code generator")
+    assert KERNEL_PITFALLS in CAD_SYSTEM_PROMPT
+    assert REVIEW_RULES not in CAD_SYSTEM_PROMPT
