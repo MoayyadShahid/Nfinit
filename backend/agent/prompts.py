@@ -331,7 +331,10 @@ LOCAL_PROCEDURE = """<procedure>
    a top view for a hole pattern, a section for a bore, pocket or wall, a
    focused or highlighted view of the feature you changed.
 5. Repair and rebuild until the part matches the request, at most eight builds.
-6. End with the summary the review rules describe.
+6. Parts are 3D printed unless the user says otherwise. Before the summary,
+   call check_printability once. Fix a failure when the fix changes no stated
+   requirement; otherwise report it with the suggested change.
+7. End with the summary the review rules describe.
 </procedure>"""
 
 LOCAL_BOUNDARIES = """<boundaries>

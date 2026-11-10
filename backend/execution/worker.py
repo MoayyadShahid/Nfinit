@@ -1563,21 +1563,35 @@ def _query(result, query, checks, feature_records):
 
 
 DEFAULT_REVIEW_VIEWS = [{"camera": "iso"}, {"camera": "iso_back"}]
-_render_module = None
+_sibling_modules: dict = {}
 
 
-def _renderer():
-    """execution/render.py, loaded by path: the worker runs as a script."""
-    global _render_module
-    if _render_module is None:
+def _sibling(name):
+    """A module next to this file, loaded by path: the worker runs as a script."""
+    if name not in _sibling_modules:
         import importlib.util
 
         spec = importlib.util.spec_from_file_location(
-            "nfinit_render", Path(__file__).with_name("render.py")
+            f"nfinit_{name}", Path(__file__).with_name(f"{name}.py")
         )
-        _render_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(_render_module)
-    return _render_module
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _sibling_modules[name] = module
+    return _sibling_modules[name]
+
+
+def _renderer():
+    return _sibling("render")
+
+
+def _printability(result, profile):
+    module = _sibling("printability")
+    face_ids = []
+    if len(result.faces()) <= MAX_OWNERSHIP_FACES:
+        _, face_records = _entity_records(result)
+        face_ids = [record["payload"]["id"] for record in face_records]
+    facts = module.measure(result, profile, face_ids, _census(result))
+    return {"profile": profile, "facts": facts, "findings": module.findings(facts, profile)}
 
 
 def _view_label(view):
@@ -1965,6 +1979,8 @@ def handle_request(request: dict) -> dict:
         return data
     if operation == "render":
         return {"views": _render_views(result, request["views"], feature_records)}
+    if operation == "printability":
+        return _printability(result, request["profile"])
     if operation == "topology":
         return _topology(
             result,

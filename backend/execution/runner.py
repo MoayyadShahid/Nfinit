@@ -30,7 +30,8 @@ from .topology import TopologyAnalysis
 logger = logging.getLogger(__name__)
 
 SandboxOperation = Literal[
-    "inspect", "topology", "query", "review", "render", "glb", "step", "brep", "stl"
+    "inspect", "topology", "query", "review", "render", "printability",
+    "glb", "step", "brep", "stl",
 ]
 
 ISOLATED_BOOTSTRAP = (
@@ -253,6 +254,7 @@ def _run_worker(
     snapshots: bool = False,
     query: dict | None = None,
     views: list[dict] | None = None,
+    profile: dict | None = None,
 ) -> dict:
     worker = worker_path or Path(__file__).with_name("worker.py")
     timeout = timeout_seconds or float(
@@ -269,6 +271,8 @@ def _run_worker(
         payload["query"] = query
     if views is not None:
         payload["views"] = views
+    if profile is not None:
+        payload["profile"] = profile
 
     # Waiting for a free slot counts against the same deadline as the job.
     if not _job_slots.acquire(timeout=timeout):
@@ -530,8 +534,56 @@ def render_code(code: str, views: list[dict]) -> list[RenderedView]:
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
+# Conservative FDM defaults from public design guides (Hubs, Prusa, Formlabs).
+# They are starting points, not physics: a printer's own limits replace them.
+DEFAULT_PRINT_PROFILE = {
+    "process": "fdm",
+    "bed_mm": [220.0, 220.0, 250.0],
+    "nozzle_mm": 0.4,
+    "min_wall_mm": 1.2,
+    "overhang_limit_deg": 45.0,
+    "min_hole_mm": 2.0,
+    "max_support_ratio": 0.30,
+}
+
+
+def validate_profile(profile: dict | None) -> dict:
+    """The default print profile with valid overrides applied, or ValueError."""
+    clean = {**DEFAULT_PRINT_PROFILE, "bed_mm": list(DEFAULT_PRINT_PROFILE["bed_mm"])}
+    if profile is None:
+        return clean
+    if not isinstance(profile, dict) or set(profile) - set(DEFAULT_PRINT_PROFILE):
+        raise ValueError(f"A print profile takes only: {', '.join(DEFAULT_PRINT_PROFILE)}.")
+    if "process" in profile:
+        if profile["process"] not in ("fdm", "sla", "sls"):
+            raise ValueError("process must be fdm, sla or sls.")
+        clean["process"] = profile["process"]
+    if "bed_mm" in profile:
+        bed = profile["bed_mm"]
+        if not isinstance(bed, list) or len(bed) != 3:
+            raise ValueError("bed_mm must be [x, y, z].")
+        clean["bed_mm"] = [_number(value, "bed_mm", 10, 5000) for value in bed]
+    ranges = {"nozzle_mm": (0.05, 3), "min_wall_mm": (0.1, 20), "overhang_limit_deg": (0, 89),
+              "min_hole_mm": (0.1, 50), "max_support_ratio": (0, 10)}
+    for name, (low, high) in ranges.items():
+        if name in profile:
+            clean[name] = _number(profile[name], name, low, high)
+    return clean
+
+
+def printability_code(code: str, profile: dict | None = None) -> dict:
+    """Printability facts of the part, and findings against the profile."""
+    clean = validate_profile(profile)
+    validate_cad_code(code)
+    work_dir = Path(tempfile.mkdtemp(prefix="nfinit-print-"))
+    try:
+        return _run_worker(code, "printability", work_dir, profile=clean)
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
 def export_code(code: str, operation: SandboxOperation) -> SandboxArtifact:
-    if operation in ("inspect", "topology", "query", "review", "render"):
+    if operation in ("inspect", "topology", "query", "review", "render", "printability"):
         raise ValueError("Use the corresponding analysis function.")
     try:
         validate_cad_code(code)

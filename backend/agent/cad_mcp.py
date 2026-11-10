@@ -16,13 +16,14 @@ from agent.acceptance import (  # noqa: E402
     parse_requirements,
     uncovered_numbers,
 )
-from execution import query_code, render_code, review_code  # noqa: E402
+from execution import printability_code, query_code, render_code, review_code  # noqa: E402
 from execution.references import compare_reference  # noqa: E402
 
 MAX_BUILDS = 8
 MAX_DECLARATIONS = 4
 MAX_QUERIES = 20
 MAX_EXTRA_IMAGES = 12
+MAX_PRINT_CHECKS = 3
 
 VIEW_SCHEMA = {
     "type": "object",
@@ -108,6 +109,12 @@ TOOLS = [
         "inspect_model. Does not use the build budget."),
      "annotations": {"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False},
      "inputSchema": VIEW_SCHEMA},
+    {"name": "check_printability", "description": (
+        "Check whether the current part prints with the user's print profile: bed fit, wall "
+        "thickness, overhangs that need support, support volume, the best of six orientations, "
+        "small holes and sealed cavities. Returns measured facts and findings with locations."),
+     "annotations": {"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False},
+     "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False}},
     {"name": "inspect_model", "description": (
         "Ask about the current part (the last one that built, or the starting design), without "
         "rebuilding: its faces, one face and its "
@@ -126,6 +133,7 @@ class CadTools:
         self.declarations = 0
         self.queries = 0
         self.images = 0
+        self.print_checks = 0
 
     def call(self, name, arguments):
         if name == "current_design":
@@ -137,6 +145,8 @@ class CadTools:
             return self.inspect(arguments)
         if name == "view_model":
             return self.view(arguments)
+        if name == "check_printability":
+            return self.printability()
         if name != "build_model":
             raise ValueError("Unknown CAD tool.")
         return self.build(arguments)
@@ -183,6 +193,19 @@ class CadTools:
         rendered = render_code(built.read_text(), views)
         self.images += count
         return {"content": _view_content(rendered)}
+
+    def printability(self):
+        built = self.workspace / "built.py"
+        if not built.exists():
+            raise ValueError("There is no part yet. Call build_model first.")
+        if self.print_checks >= MAX_PRINT_CHECKS:
+            raise ValueError("Printability was already checked three times in this run.")
+        self.print_checks += 1
+        profile = self.workspace / "profile.json"
+        report = printability_code(
+            built.read_text(), json.loads(profile.read_text()) if profile.exists() else None
+        )
+        return {"content": [{"type": "text", "text": json.dumps(report)}]}
 
     def build(self, arguments):
         code = arguments.get("code")
