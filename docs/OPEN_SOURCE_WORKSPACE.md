@@ -137,6 +137,12 @@ geometry, never repeat the requested parameter. Failed checks make inspection
 fail and enter repair. The optional API loop also preserves images through later
 turns and repairs and prompts for these checks.
 
+The studio shows this evidence for the part on screen in the card over the
+viewport, and under each agent reply: the verdict, each requirement with its
+measured value (assumed ones marked), warnings, printability findings and
+changes outside the request. "Show on part" highlights the faces a finding
+names.
+
 The runtime controls subprocess lifetime and kills its process group at the
 deadline: 900 seconds for a local agent (`CAD_LOCAL_RUN_TIMEOUT_SECONDS`), 300
 for an API run (`CAD_RUN_TIMEOUT_SECONDS`). An unavailable agent, invalid

@@ -10,6 +10,8 @@ import {
 import { DemoControls } from "@/components/DemoReplay";
 import { EditorPane } from "@/components/EditorPane";
 import { VersionRail, type RailVersion } from "@/components/VersionRail";
+import { VerificationPanel } from "@/components/VerificationPanel";
+import { cn } from "@/lib/utils";
 import { ViewportPane } from "@/components/ViewportPane";
 import AIModelSelector, { type ModelOption } from "@/components/kokonutui/ai-model-selector";
 import ActionSearchBar, { type StudioCommand } from "@/components/kokonutui/action-search-bar";
@@ -75,6 +77,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const LAST_PROJECT_KEY = "nfinit:last-project-id";
+const EMPTY_FACE_IDS: string[] = [];
 const RAIL_OPEN_KEY = "nfinit:version-rail-open";
 
 const VERSION_TIME = new Intl.DateTimeFormat(undefined, {
@@ -218,6 +221,23 @@ export default function Studio({
   // The public demo has no saved parts to load, so it is ready at once.
   const [hasInitialized, setHasInitialized] = useState(DEMO_ONLY);
   const [inspection, setInspection] = useState<ModelInspection | null>(null);
+  // Faces a check's "Show on part" points at, on the part they were found on.
+  const [warning, setWarning] = useState<{ url: string | null; faceIds: string[] }>({
+    url: null,
+    faceIds: [],
+  });
+  const warningFaceIds = warning.url === glbUrl ? warning.faceIds : EMPTY_FACE_IDS;
+  // The evidence of the run that produced the code on screen, if any.
+  const evidence = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message.role === "assistant" && message.agent?.inspection && message.content === code) {
+        return message.agent.inspection;
+      }
+    }
+    return null;
+  }, [messages, code]);
+  const showFaces = useCallback((faceIds: string[]) => setWarning({ url: glbUrl, faceIds }), [glbUrl]);
   // A recorded demo being replayed (no project, no backend runs).
   const [demos, setDemos] = useState<DemoSummary[]>([]);
   const [demo, setDemo] = useState<Demo | null>(null);
@@ -1156,7 +1176,6 @@ export default function Studio({
           {projectId ? <Button variant="outline" size="sm" disabled={isSaving || isLoading} onClick={() => void saveCopy()}>Save as a new copy</Button> : null}
         </div>
       </details>
-      {inspection?.checks?.length ? <p className="text-xs text-muted-foreground">{inspection.checks.filter((check) => check.passed).length}/{inspection.checks.length} geometry measurements passed. Unmeasured requirements still need review.</p> : null}
     </div>
   );
 
@@ -1414,11 +1433,17 @@ export default function Studio({
                 showSelectionCard={false}
                 onThumbnail={handleThumbnail}
                 onSelectionChange={handleSelectionChange}
+                warningFaceIds={warningFaceIds}
               />
             </div>
 
             <div className="pointer-events-none absolute right-3 top-3 z-20 hidden sm:block">
-              <div className="theme-floating pointer-events-auto w-[230px] rounded-2xl border p-3.5 shadow-xl shadow-black/10 backdrop-blur-xl">
+              <div
+                className={cn(
+                  "theme-floating pointer-events-auto max-h-[calc(100dvh-12rem)] overflow-y-auto rounded-2xl border p-3.5 shadow-xl shadow-black/10 backdrop-blur-xl",
+                  evidence ? "w-[300px]" : "w-[230px]"
+                )}
+              >
                 <div className="flex items-center gap-2">
                   <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--control-hover)] text-zinc-400">
                     <Ruler className="size-3.5" />
@@ -1449,6 +1474,7 @@ export default function Studio({
                     <span>{Math.round(inspection.volume_mm3 ?? 0).toLocaleString()} mm³</span>
                   </div>
                 )}
+                {evidence && <VerificationPanel inspection={evidence} onShowFaces={showFaces} framed={false} />}
               </div>
             </div>
 
@@ -1467,6 +1493,7 @@ export default function Studio({
                   runEvents={isLoading ? runEvents : undefined}
                   runStartedAt={runStartedAt}
                   tools={DEMO_ONLY ? undefined : workspaceTools}
+                  onShowFaces={showFaces}
                   readOnly={
                     DEMO_ONLY ? (
                       <span>

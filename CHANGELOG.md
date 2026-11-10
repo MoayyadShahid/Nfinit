@@ -20,6 +20,7 @@ All notable changes to Nfinit are listed here. The format follows [Keep a Change
 - Printability checks: bed fit, wall thickness, overhangs, support volume, orientation, small holes and sealed cavities, against an overridable FDM profile.
 - Edits are compared with the starting design, and removed features, broken constraints and lost holes or rounded edges are flagged.
 - Local agent tool results are shorter and report budgets and timings; local runs get a 900-second deadline (`CAD_LOCAL_RUN_TIMEOUT_SECONDS`).
+- Studio verification card: the verdict, each requirement with its measured value, warnings, printability findings and unrequested changes, with "Show on part" for faces a finding names.
 
 ### Changed
 - License is MIT.

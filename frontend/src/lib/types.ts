@@ -42,6 +42,59 @@ export type ModelInspection = {
   }[];
   /** Things that built but are probably wrong, such as a floating feature. */
   warnings?: string[];
+  /** A local agent's declared requirements, each with its measured status. */
+  acceptance?: Acceptance;
+  printability?: PrintabilityReport | { error: string };
+  /** For an edit: what changed since the starting design. */
+  changes?: ChangeReport | { error: string };
+};
+
+export type RequirementStatus = "passed" | "failed" | "review" | "unverified" | "not_measurable";
+
+export type Acceptance = {
+  verdict: "verified" | "partial" | "failed";
+  passed: number;
+  failed: number;
+  review?: number;
+  unverified: number;
+  not_measurable: number;
+  rows: {
+    id: string;
+    text: string;
+    status: RequirementStatus;
+    expected: unknown;
+    measured: unknown;
+    source: "user" | "assumed";
+    detail: string;
+  }[];
+  rejected_checks: string[];
+  assumptions: string[];
+  summary: string;
+};
+
+export type PrintFinding = {
+  rule: string;
+  status: "pass" | "fail" | "review" | "unverified";
+  measured: unknown;
+  limit: unknown;
+  where: [number, number, number] | null;
+  face_ids: string[];
+  suggestion: string;
+};
+
+export type PrintabilityReport = {
+  profile: Record<string, unknown>;
+  facts: Record<string, unknown>;
+  findings: PrintFinding[];
+};
+
+export type ChangeReport = {
+  bounds_delta_mm: Record<string, number>;
+  volume_delta_mm3: number;
+  features: { added: string[]; removed: string[]; modified: string[] };
+  constraints_violated: string[];
+  census_delta: Record<string, string>;
+  flags: string[];
 };
 
 export type CensusCylinder = {

@@ -1,6 +1,7 @@
 "use client";
 
 import { RunProgress } from "@/components/RunProgress";
+import { VerificationPanel } from "@/components/VerificationPanel";
 import AIModelSelector, { type ModelOption } from "@/components/kokonutui/ai-model-selector";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,6 +74,8 @@ interface ChatPaneProps {
    */
   versions?: { selected: number | null; onSelect: (version: number) => void };
   tools?: ReactNode;
+  /** Highlight the faces a check points at; an empty list clears it. */
+  onShowFaces?: (faceIds: string[]) => void;
   /**
    * Show the conversation without an input: this replaces the text box,
    * attachments, send button and model menu (the public demo).
@@ -97,6 +100,7 @@ export function ChatPane({
   versions,
   tools,
   readOnly,
+  onShowFaces,
 }: ChatPaneProps) {
   const [input, setInput] = useState(initialInput);
   const [images, setImages] = useState<string[]>([]);
@@ -341,6 +345,9 @@ export function ChatPane({
                       <p className="text-xs leading-5 text-zinc-400">
                         {planSummary || "Your part was generated and validated successfully."}
                       </p>
+                    )}
+                    {msg.agent.inspection && (
+                      <VerificationPanel inspection={msg.agent.inspection} onShowFaces={onShowFaces} />
                     )}
                     <details className="mt-2 border-t border-[var(--hairline)] pt-2 text-[11px]">
                       <summary className="cursor-pointer text-zinc-500 hover:text-zinc-300">
