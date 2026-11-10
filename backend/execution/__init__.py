@@ -10,6 +10,8 @@ from .runner import (
     inspect_code,
     inspect_with_snapshots,
     query_code,
+    render_code,
+    review_code,
     start_sandbox,
     stop_sandbox,
 )
@@ -32,6 +34,8 @@ __all__ = [
     "export_code",
     "inspect_code",
     "query_code",
+    "render_code",
+    "review_code",
     "start_sandbox",
     "stop_sandbox",
     "validate_cad_code",

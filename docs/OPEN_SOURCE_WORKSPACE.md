@@ -64,7 +64,8 @@ sandbox and returns:
   feature that does not touch the part) and registered features that own no
   faces of the final part;
 - explicitly authored measurements and any failures;
-- top, front and isometric images;
+- two shaded views from opposite corners, which together show every side,
+  drawn in the same sandbox run as the inspection;
 - envelope and volume comparison against an imported STL, where available;
 - an acceptance table: each declared requirement as passed, failed,
   unverified or judged from images. A requirement passes only through a
@@ -80,6 +81,15 @@ plane section. Face ids are the ones the studio's selection uses, so for an
 edit with a selected face the agent first looks up exactly what was picked.
 It has 20 questions per run.
 
+`view_model` draws up to four more views per call, 12 per run: any preset
+(iso, front, top, ...) or azimuth and elevation, in shaded, hidden-line or
+x-ray mode, with an optional section cut (cut faces drawn red), a face or
+feature to focus on, and faces or features to highlight. The renderer in
+`backend/execution/render.py` runs inside the sandbox: it shades the part's
+own tessellation and draws exact edges from the kernel's hidden-line removal,
+with a scale bar and an axis triad. Images show arrangement only; dimensions
+come from measurements.
+
 The agent can repair and rebuild up to eight times within the run deadline.
 The backend independently rebuilds the final source before accepting it, and
 computes the final acceptance verdict itself: `verified` when every measurable
@@ -87,8 +97,8 @@ requirement passed, `partial` when some are unverified, `failed` when any
 failed. A
 model without authored measurement checks is marked `unverified`; passing those
 checks establishes only the quantities checked. They are agent-authored tests,
-not an independent mechanical certification. Render failures remain explicit.
-Preview rendering samples meshes over 15,000 triangles and is not metrology.
+not an independent mechanical certification. Render failures remain explicit:
+a view that cannot be drawn is reported by name. Views are not metrology.
 
 `check_measurement(name, actual, expected, tolerance=0.01)` must measure built
 geometry, never repeat the requested parameter. Failed checks make inspection

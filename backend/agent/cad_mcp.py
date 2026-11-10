@@ -3,6 +3,7 @@
 No arbitrary paths, shell commands or network tools are exposed. This process
 serves one temporary design workspace and is killed with its owning agent.
 """
+import base64
 import json
 from pathlib import Path
 import sys
@@ -15,12 +16,41 @@ from agent.acceptance import (  # noqa: E402
     parse_requirements,
     uncovered_numbers,
 )
-from execution import inspect_code, query_code  # noqa: E402
-from execution.references import compare_reference, model_views  # noqa: E402
+from execution import query_code, render_code, review_code  # noqa: E402
+from execution.references import compare_reference  # noqa: E402
 
 MAX_BUILDS = 8
 MAX_DECLARATIONS = 4
 MAX_QUERIES = 20
+MAX_EXTRA_IMAGES = 12
+
+VIEW_SCHEMA = {
+    "type": "object",
+    "properties": {"views": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4,
+        "items": {
+            "type": "object",
+            "properties": {
+                "camera": {"description": (
+                    "iso, iso_back, front, back, right, left, top or bottom; or "
+                    "{\"azimuth\": degrees, \"elevation\": degrees}")},
+                "mode": {"enum": ["shaded", "hidden_line", "xray"]},
+                "section": {"type": "object", "description": (
+                    "Cut the part with a plane: {\"axis\": \"x\"|\"y\"|\"z\", \"at\": mm, "
+                    "\"keep\": \"below\"|\"above\"}. Cut faces are drawn red.")},
+                "focus": {"type": "string", "description": "A face id or feature id to centre and zoom on."},
+                "highlight": {"type": "array", "items": {"type": "string"}, "maxItems": 20,
+                              "description": "Face ids or feature ids drawn in orange."},
+                "size": {"enum": ["normal", "large"]},
+            },
+            "additionalProperties": False,
+        },
+    }},
+    "required": ["views"],
+    "additionalProperties": False,
+}
 
 QUERY_SCHEMA = {
     "type": "object",
@@ -64,12 +94,20 @@ TOOLS = [
      "inputSchema": DECLARE_SCHEMA},
     {"name": "build_model", "description": (
         "Build complete build123d source in the CAD sandbox. Returns measured geometry, the "
-        "acceptance table for the declared requirements, and top/front/isometric images. Review "
+        "acceptance table for the declared requirements, and two shaded views from opposite "
+        "corners that together show every side. Review "
         "these and repair failures. Name each check_measurement with the requirement id it proves. "
         "A successful build alone does not establish design correctness."),
      "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
      "inputSchema": {"type": "object", "properties": {"code": {"type": "string", "maxLength": 100000}},
                      "required": ["code"], "additionalProperties": False}},
+    {"name": "view_model", "description": (
+        "Draw up to four more views of the current part to answer a specific question: a top "
+        "view for a hole pattern, a section for a bore, pocket or wall, a focused or highlighted "
+        "view of the changed feature. Images show arrangement only; measure dimensions with "
+        "inspect_model. Does not use the build budget."),
+     "annotations": {"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False},
+     "inputSchema": VIEW_SCHEMA},
     {"name": "inspect_model", "description": (
         "Ask about the current part (the last one that built, or the starting design), without "
         "rebuilding: its faces, one face and its "
@@ -87,6 +125,7 @@ class CadTools:
         self.builds = 0
         self.declarations = 0
         self.queries = 0
+        self.images = 0
 
     def call(self, name, arguments):
         if name == "current_design":
@@ -96,6 +135,8 @@ class CadTools:
             return self.declare(arguments)
         if name == "inspect_model":
             return self.inspect(arguments)
+        if name == "view_model":
+            return self.view(arguments)
         if name != "build_model":
             raise ValueError("Unknown CAD tool.")
         return self.build(arguments)
@@ -131,6 +172,18 @@ class CadTools:
         answer = query_code(built.read_text(), arguments.get("query"))
         return {"content": [{"type": "text", "text": json.dumps(answer)}]}
 
+    def view(self, arguments):
+        built = self.workspace / "built.py"
+        if not built.exists():
+            raise ValueError("There is no part yet. Call build_model first.")
+        views = arguments.get("views")
+        count = len(views) if isinstance(views, list) else 0
+        if self.images + count > MAX_EXTRA_IMAGES:
+            raise ValueError(f"Only {MAX_EXTRA_IMAGES - self.images} more views are left in this run.")
+        rendered = render_code(built.read_text(), views)
+        self.images += count
+        return {"content": _view_content(rendered)}
+
     def build(self, arguments):
         code = arguments.get("code")
         if not isinstance(code, str) or len(code.encode()) > 100000:
@@ -141,7 +194,7 @@ class CadTools:
         if self.builds >= MAX_BUILDS:
             raise ValueError("The eight-build budget is exhausted. Report remaining failures.")
         self.builds += 1
-        inspection = inspect_code(code)
+        inspection, views = review_code(code)
         if (self.workspace / "reference.json").exists() and inspection.valid:
             inspection.reference_comparison = compare_reference(inspection, json.loads((self.workspace / "reference.json").read_text()))
         inspection.acceptance = evaluate(requirements, inspection.model_dump(), code)
@@ -150,15 +203,21 @@ class CadTools:
             # inspect_model answers about the last part that built.
             (self.workspace / "built.py").write_text(code)
         (self.workspace / "inspection.json").write_text(inspection.model_dump_json())
-        content = [{"type": "text", "text": inspection.model_dump_json()}]
-        if inspection.valid:
-            try:
-                for view in model_views(code):
-                    content.append({"type": "image", "mimeType": "image/png", "data": view.split(",", 1)[1]})
-            except Exception:
-                content.append({"type": "text", "text": "Rendered views unavailable; visual verification remains incomplete."})
+        content = [{"type": "text", "text": inspection.model_dump_json()}, *_view_content(views)]
         failed = not inspection.valid or inspection.acceptance["verdict"] == "failed"
         return {"content": content, "isError": failed}
+
+
+def _view_content(views):
+    content = []
+    for view in views:
+        if view.png:
+            content.append({"type": "text", "text": f"View: {view.name}"})
+            content.append({"type": "image", "mimeType": "image/png",
+                            "data": base64.b64encode(view.png).decode("ascii")})
+        else:
+            content.append({"type": "text", "text": f"View {view.name} could not be drawn: {view.error}"})
+    return content
 
 
 def main():
