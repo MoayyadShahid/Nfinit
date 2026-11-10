@@ -229,8 +229,9 @@ def test_view_model_draws_the_current_part_within_its_budget(tmp_path, monkeypat
     tools = CadTools(tmp_path)
 
     content = tools.call("view_model", {"views": [{"camera": "top"}, {"focus": "nope"}]})["content"]
-    assert [item["type"] for item in content] == ["text", "image", "text"]
-    assert "could not be drawn" in content[2]["text"]
+    assert [item["type"] for item in content] == ["text", "text", "image", "text"]
+    assert json.loads(content[0]["text"])["budget_left"]["views"] == 10
+    assert "could not be drawn" in content[3]["text"]
 
     for _ in range(2):
         tools.call("view_model", {"views": [{}] * 4})
@@ -241,7 +242,9 @@ def test_view_model_draws_the_current_part_within_its_budget(tmp_path, monkeypat
 def test_check_printability_uses_the_profile_and_a_budget(tmp_path, monkeypatch):
     checked = []
     monkeypatch.setattr("agent.cad_mcp.printability_code",
-                        lambda code, profile: checked.append(profile) or {"findings": []})
+                        lambda code, profile: checked.append(profile) or {
+                            "profile": profile, "findings": [],
+                            "facts": {"overhangs": {"area_mm2": 0}, "orientations": [], "not_measured": []}})
     (tmp_path / "built.py").write_text("result = Box(1, 1, 1)")
     (tmp_path / "profile.json").write_text(json.dumps({"min_wall_mm": 2.0}))
     tools = CadTools(tmp_path)

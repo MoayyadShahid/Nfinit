@@ -27,7 +27,7 @@ from agent import (
     CadRunTimeoutError,
     run_cad_agent,
 )
-from agent.graph import run_timeout_seconds
+from agent.graph import longest_run_timeout_seconds, run_timeout_seconds
 from agent.local_access import LOCAL_MODELS, require_local_access
 from execution import BuildSnapshot, inspect_with_snapshots
 
@@ -396,7 +396,7 @@ async def get_run(
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
     deadline = created_at + timedelta(
-        seconds=run_timeout_seconds() + STALE_RUN_GRACE_SECONDS
+        seconds=run_timeout_seconds(record.model_id) + STALE_RUN_GRACE_SECONDS
     )
     if record.status == "running" and datetime.now(timezone.utc) > deadline:
         try:
@@ -422,7 +422,7 @@ async def get_run(
 
 
 def _stream_deadline_seconds() -> float:
-    return run_timeout_seconds() + STALE_RUN_GRACE_SECONDS
+    return longest_run_timeout_seconds() + STALE_RUN_GRACE_SECONDS
 
 
 @router.post("/{run_id}/stream", response_model=RunStreamLink)

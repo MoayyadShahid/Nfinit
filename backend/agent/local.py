@@ -130,7 +130,7 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
             start_new_session=True, limit=2_000_000)
         try:
-            async with asyncio.timeout(run_timeout_seconds()):
+            async with asyncio.timeout(run_timeout_seconds(request.model_id)):
                 process.stdin.write(prompt.encode())
                 await process.stdin.drain()
                 process.stdin.close()
@@ -203,7 +203,7 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
                                       "message": state["trace"][0]["detail"]})
                 return state
         except TimeoutError as error:
-            raise CadRunTimeoutError(run_timeout_seconds(), state) from error
+            raise CadRunTimeoutError(run_timeout_seconds(request.model_id), state) from error
         finally:
             # Include MCP children, including after the parent exits normally.
             try:

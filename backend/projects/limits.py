@@ -22,7 +22,7 @@ from fastapi import Depends, HTTPException, status
 
 from agent.models import CadRunRequest
 
-from agent.graph import run_timeout_seconds
+from agent.graph import longest_run_timeout_seconds
 
 from .auth import get_current_user_id
 from .store import (
@@ -141,7 +141,7 @@ def create_run_under_quota(
     daily = _int_setting("CAD_MAX_RUNS_PER_DAY", 150)
     now = datetime.now(timezone.utc)
     # A run still "running" past its deadline died with its server.
-    running_since = now - timedelta(seconds=run_timeout_seconds() + 120)
+    running_since = now - timedelta(seconds=longest_run_timeout_seconds() + 120)
 
     try:
         return store.create_run_with_quota(

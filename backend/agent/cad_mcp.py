@@ -7,6 +7,7 @@ import base64
 import json
 from pathlib import Path
 import sys
+from time import perf_counter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -19,12 +20,10 @@ from agent.acceptance import (  # noqa: E402
 )
 from execution import printability_code, query_code, render_code, review_code  # noqa: E402
 from execution.references import compare_reference  # noqa: E402
+from agent.feedback import agent_view, printability_view  # noqa: E402
 
-MAX_BUILDS = 8
-MAX_DECLARATIONS = 4
-MAX_QUERIES = 20
-MAX_EXTRA_IMAGES = 12
-MAX_PRINT_CHECKS = 3
+# What one run may spend, reported back to the agent in every tool result.
+BUDGETS = {"builds": 8, "declarations": 4, "questions": 20, "views": 12, "print_checks": 3}
 
 VIEW_SCHEMA = {
     "type": "object",
@@ -130,27 +129,41 @@ TOOLS = [
 class CadTools:
     def __init__(self, workspace: Path):
         self.workspace = workspace
-        self.builds = 0
-        self.declarations = 0
-        self.queries = 0
-        self.images = 0
-        self.print_checks = 0
+        self.spent = dict.fromkeys(BUDGETS, 0)
+
+    @property
+    def builds(self):
+        return self.spent["builds"]
+
+    def left(self):
+        return {name: BUDGETS[name] - used for name, used in self.spent.items()}
+
+    def spend(self, kind, amount=1, message=None):
+        if self.spent[kind] + amount > BUDGETS[kind]:
+            raise ValueError(message or f"The {kind.replace('_', ' ')} budget of {BUDGETS[kind]} is used up.")
+        self.spent[kind] += amount
+
+    def reply(self, payload, started, extra=(), is_error=False):
+        payload = {**payload, "budget_left": self.left(), "ms": round((perf_counter() - started) * 1000)}
+        result = {"content": [{"type": "text", "text": json.dumps(payload, separators=(",", ":"))}, *extra]}
+        if is_error:
+            result["isError"] = True
+        return result
 
     def call(self, name, arguments):
         if name == "current_design":
             return {"content": [{"type": "text", "text": (self.workspace / "context.txt").read_text()
                                  + "\nCurrent code:\n" + (self.workspace / "model.py").read_text()}]}
-        if name == "declare_requirements":
-            return self.declare(arguments)
-        if name == "inspect_model":
-            return self.inspect(arguments)
-        if name == "view_model":
-            return self.view(arguments)
-        if name == "check_printability":
-            return self.printability()
-        if name != "build_model":
+        handlers = {
+            "declare_requirements": self.declare,
+            "inspect_model": self.inspect,
+            "view_model": self.view,
+            "check_printability": lambda _arguments: self.printability(),
+            "build_model": self.build,
+        }
+        if name not in handlers:
             raise ValueError("Unknown CAD tool.")
-        return self.build(arguments)
+        return handlers[name](arguments)
 
     def starting_point(self):
         """The starting design's topology and inspection, for an edit."""
@@ -171,68 +184,63 @@ class CadTools:
         path = self.workspace / "requirements.json"
         return json.loads(path.read_text()) if path.exists() else None
 
+    def built(self):
+        built = self.workspace / "built.py"
+        if not built.exists():
+            raise ValueError("There is no part yet. Call build_model first.")
+        return built.read_text()
+
     def declare(self, arguments):
-        if self.declarations >= MAX_DECLARATIONS:
-            raise ValueError("Requirements were already declared four times. Build with the current list.")
+        started = perf_counter()
         requirements = parse_requirements(arguments)
-        self.declarations += 1
+        self.spend("declarations", message="Requirements were already declared four times. Build with the current list.")
         (self.workspace / "requirements.json").write_text(json.dumps(requirements))
         request = self.workspace / "request.txt"
         missing = uncovered_numbers(request.read_text(), requirements) if request.exists() else []
-        result = {"declared": requirements}
+        # The agent wrote the list; echoing it back would only cost tokens.
+        result = {"declared": len(requirements["requirements"]),
+                  "ids": [item["id"] for item in requirements["requirements"]]}
         if missing:
             result["warning"] = (
                 "These numbers in the request appear in no requirement, bound or count: "
                 + ", ".join(f"{value:g}" for value in missing)
                 + ". Add a requirement for each one that is a dimension or a count."
             )
-        return {"content": [{"type": "text", "text": json.dumps(result)}]}
+        return self.reply(result, started)
 
     def inspect(self, arguments):
-        built = self.workspace / "built.py"
-        if not built.exists():
-            raise ValueError("There is no part yet. Call build_model first.")
-        if self.queries >= MAX_QUERIES:
-            raise ValueError("The 20-question budget is exhausted. Use the build results you have.")
-        self.queries += 1
-        answer = query_code(built.read_text(), arguments.get("query"))
-        return {"content": [{"type": "text", "text": json.dumps(answer)}]}
+        started = perf_counter()
+        code = self.built()
+        self.spend("questions", message="The 20-question budget is exhausted. Use the build results you have.")
+        return self.reply({"answer": query_code(code, arguments.get("query"))}, started)
 
     def view(self, arguments):
-        built = self.workspace / "built.py"
-        if not built.exists():
-            raise ValueError("There is no part yet. Call build_model first.")
+        started = perf_counter()
+        code = self.built()
         views = arguments.get("views")
         count = len(views) if isinstance(views, list) else 0
-        if self.images + count > MAX_EXTRA_IMAGES:
-            raise ValueError(f"Only {MAX_EXTRA_IMAGES - self.images} more views are left in this run.")
-        rendered = render_code(built.read_text(), views)
-        self.images += count
-        return {"content": _view_content(rendered)}
+        self.spend("views", count, f"Only {BUDGETS['views'] - self.spent['views']} more views are left in this run.")
+        rendered = render_code(code, views)
+        return self.reply({"views": [view.name for view in rendered]}, started, _view_content(rendered))
 
     def printability(self):
-        built = self.workspace / "built.py"
-        if not built.exists():
-            raise ValueError("There is no part yet. Call build_model first.")
-        if self.print_checks >= MAX_PRINT_CHECKS:
-            raise ValueError("Printability was already checked three times in this run.")
-        self.print_checks += 1
+        started = perf_counter()
+        code = self.built()
+        self.spend("print_checks", message="Printability was already checked three times in this run.")
         profile = self.workspace / "profile.json"
-        report = printability_code(
-            built.read_text(), json.loads(profile.read_text()) if profile.exists() else None
-        )
-        return {"content": [{"type": "text", "text": json.dumps(report)}]}
+        report = printability_code(code, json.loads(profile.read_text()) if profile.exists() else None)
+        (self.workspace / "printability.json").write_text(json.dumps(report))
+        return self.reply(printability_view(report), started)
 
     def build(self, arguments):
+        started = perf_counter()
         code = arguments.get("code")
         if not isinstance(code, str) or len(code.encode()) > 100000:
             raise ValueError("Supply at most 100 KB of CAD code.")
         requirements = self.requirements()
         if requirements is None:
             raise ValueError("Call declare_requirements first.")
-        if self.builds >= MAX_BUILDS:
-            raise ValueError("The eight-build budget is exhausted. Report remaining failures.")
-        self.builds += 1
+        self.spend("builds", message="The eight-build budget is exhausted. Report remaining failures.")
         previous = self.starting_point()
         inspection, views, topology = review_code(code, topology=previous is not None)
         if previous is not None and topology is not None:
@@ -245,9 +253,8 @@ class CadTools:
             # inspect_model answers about the last part that built.
             (self.workspace / "built.py").write_text(code)
         (self.workspace / "inspection.json").write_text(inspection.model_dump_json())
-        content = [{"type": "text", "text": inspection.model_dump_json()}, *_view_content(views)]
         failed = not inspection.valid or inspection.acceptance["verdict"] == "failed"
-        return {"content": content, "isError": failed}
+        return self.reply(agent_view(inspection.model_dump()), started, _view_content(views), failed)
 
 
 def _view_content(views):

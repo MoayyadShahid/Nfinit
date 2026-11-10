@@ -91,5 +91,5 @@ def test_a_new_part_has_no_change_report(tmp_path, monkeypatch):
     tools.call("declare_requirements", {"summary": "A box.", "requirements": []})
     reported = json.loads(tools.call("build_model", {"code": "result = Box(1, 1, 1)"})["content"][0]["text"])
 
-    assert reported["changes"] is None
+    assert "changes" not in reported
     assert json.loads((tmp_path / "previous.json").read_text()) == {}
