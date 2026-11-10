@@ -27,7 +27,8 @@ def agent_command(provider: str, workspace: Path, images: list[Path]) -> list[st
                 "--verbose", "--tools", "", "--strict-mcp-config", "--mcp-config", json.dumps(config),
                 "--setting-sources", "", "--allowedTools", "mcp__nfinit__current_design",
                 "mcp__nfinit__declare_requirements", "mcp__nfinit__build_model",
-                "mcp__nfinit__inspect_model", "mcp__nfinit__view_model"]
+                "mcp__nfinit__inspect_model", "mcp__nfinit__view_model",
+                "mcp__nfinit__check_printability"]
     command = [executable, "exec", "--json", "--ephemeral", "--ignore-user-config",
                "--skip-git-repo-check", "--sandbox", "read-only", "-C", str(workspace),
                "-c", f"mcp_servers.nfinit.command={json.dumps(sys.executable)}",
@@ -37,7 +38,8 @@ def agent_command(provider: str, workspace: Path, images: list[Path]) -> list[st
                "-c", 'mcp_servers.nfinit.tools.declare_requirements.approval_mode="approve"',
                "-c", 'mcp_servers.nfinit.tools.build_model.approval_mode="approve"',
                "-c", 'mcp_servers.nfinit.tools.inspect_model.approval_mode="approve"',
-               "-c", 'mcp_servers.nfinit.tools.view_model.approval_mode="approve"']
+               "-c", 'mcp_servers.nfinit.tools.view_model.approval_mode="approve"',
+               "-c", 'mcp_servers.nfinit.tools.check_printability.approval_mode="approve"']
     for image in images:
         command.extend(["--image", str(image)])
     return [*command, "-"]
@@ -81,6 +83,9 @@ def prepare_input(request, workspace: Path):
     (workspace / "request.txt").write_text(latest if isinstance(latest, str) else "\n".join(
         part.get("text", "") for part in latest if part.get("type") == "text"))
     (workspace / "model.py").write_text(request.code)
+    if request.print_profile is not None:
+        from execution.runner import validate_profile
+        (workspace / "profile.json").write_text(json.dumps(validate_profile(request.print_profile)))
     if request.code.strip():
         # inspect_model can answer about the current part before any build.
         (workspace / "built.py").write_text(request.code)
@@ -89,6 +94,15 @@ def prepare_input(request, workspace: Path):
         return images, json.dumps({"type": "user", "message": {"role": "user", "content": [
             {"type": "text", "text": prompt}, *blocks]}}) + "\n"
     return images, prompt
+
+
+def _final_printability(code: str, profile: dict | None) -> dict:
+    """Printability of the saved part; a failure is reported, never raised."""
+    from execution import printability_code
+    try:
+        return printability_code(code, profile)
+    except Exception as error:  # noqa: BLE001 - the part itself is still good
+        return {"error": f"Printability could not be measured: {str(error)[:300]}"}
 
 
 async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
@@ -164,6 +178,9 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
                 else:
                     detail += (f"{len(inspection.checks)} measurement checks." if inspection.checks
                                else "Design requirements remain unverified.")
+                if inspection.valid:
+                    inspection.printability = await asyncio.to_thread(
+                        _final_printability, state["code"], request.print_profile)
                 state["inspection"] = inspection.model_dump()
                 state["validation_error"] = inspection.error if not inspection.valid else None
                 failed = not inspection.valid or (inspection.acceptance or {}).get("verdict") == "failed"

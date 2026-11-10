@@ -236,3 +236,29 @@ def test_view_model_draws_the_current_part_within_its_budget(tmp_path, monkeypat
         tools.call("view_model", {"views": [{}] * 4})
     with pytest.raises(ValueError, match="2 more views"):
         tools.call("view_model", {"views": [{}] * 4})
+
+
+def test_check_printability_uses_the_profile_and_a_budget(tmp_path, monkeypatch):
+    checked = []
+    monkeypatch.setattr("agent.cad_mcp.printability_code",
+                        lambda code, profile: checked.append(profile) or {"findings": []})
+    (tmp_path / "built.py").write_text("result = Box(1, 1, 1)")
+    (tmp_path / "profile.json").write_text(json.dumps({"min_wall_mm": 2.0}))
+    tools = CadTools(tmp_path)
+
+    for _ in range(3):
+        tools.call("check_printability", {})
+    with pytest.raises(ValueError, match="three times"):
+        tools.call("check_printability", {})
+    assert checked == [{"min_wall_mm": 2.0}] * 3
+
+
+def test_print_profile_reaches_the_workspace(tmp_path):
+    from agent.local import prepare_input
+    from agent.models import CadRunRequest
+
+    request = CadRunRequest(modelId="local/codex", printProfile={"min_wall_mm": 0.8},
+                            messages=[{"role": "user", "content": "A bracket"}])
+    prepare_input(request, tmp_path)
+
+    assert json.loads((tmp_path / "profile.json").read_text())["min_wall_mm"] == 0.8

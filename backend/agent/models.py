@@ -40,6 +40,8 @@ class CadRunRequest(BaseModel):
     )
     selection: FaceSelection | None = None
     mesh_reference: MeshReference | None = Field(default=None, alias="meshReference")
+    # Overrides of the default FDM print profile; see execution.runner.
+    print_profile: dict[str, Any] | None = Field(default=None, alias="printProfile")
 
 
 class ModelInspection(BaseModel):
@@ -61,6 +63,8 @@ class ModelInspection(BaseModel):
     warnings: list[str] = Field(default_factory=list)
     # A local agent's declared requirements, each with its status for this build.
     acceptance: dict[str, Any] | None = None
+    # Overhangs, walls, supports and bed fit of the final part, with findings.
+    printability: dict[str, Any] | None = None
 
 
 class TraceStep(BaseModel):
