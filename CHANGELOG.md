@@ -12,6 +12,11 @@ All notable changes to Nfinit are listed here. The format follows [Keep a Change
 - loop20 benchmark: 20 cases for parts that build but are wrong (skipped fillets, floating features, misread heights, wrong hole patterns, edits that lose features), with a CI gate.
 - Feature census: every inspection counts holes, bosses and rounded edges from the part's faces.
 - The evaluation CLI can run cases through a local Claude Code or Codex CLI (`--agent`).
+- Local agents get the stacked-dimension rules, build123d pitfalls (each reproduced by a test) and rules for reviewing a build.
+- Inspections list each solid, reject inside-out and open solids, and warn about floating features and features that left no faces.
+- Local agents declare requirements before building, and every build is checked against them; checks that compare an input with itself are rejected.
+- `inspect_model` lets local agents ask about faces, edges, distances and sections without rebuilding.
+- Local agents see real rendered views of the part, drawn in the same sandbox run as each build, and can ask for more with `view_model`, including section cuts and highlighted features.
 
 ### Changed
 - License is MIT.
