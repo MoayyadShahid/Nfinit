@@ -36,10 +36,27 @@ native CLI sessions are not resumed across runs. Superseded assistant code is
 omitted from native-agent context; the current model is available through the
 CAD tool, alongside user requests and reference images.
 
+The agent's prompt (`local_agent_prompt` in `backend/agent/prompts.py`) gives
+it a numbered procedure, the rules for reading stacked dimensions ("a 3 mm base
+with 12 mm walls" is 15 mm tall), build123d pitfalls that build without an
+error, and rules for reviewing a build: never read a dimension off an image,
+turn visual doubts into measurements, and never drop a requested feature to make
+a build pass. Each pitfall is reproduced by a test in
+`backend/tests/test_prompt_pitfalls.py`.
+
 The agent reads the current design, plans the change, then calls `build_model`.
 The CAD tool executes code in Nfinit's sandbox and returns:
 
 - kernel validity, solid count, volume and bounds;
+- each solid's volume and bounds. An inside-out solid (negative volume) or an
+  open one makes the build invalid. Closedness uses the kernel's free-boundary
+  analysis, because build123d's `is_manifold` rejects plain spheres, cones and
+  filleted boxes;
+- a census of holes, bosses and rounded edges counted from the faces, and how
+  many faces each registered feature owns;
+- warnings for parts that built but are probably wrong: extra solids (a
+  feature that does not touch the part) and registered features that own no
+  faces of the final part;
 - explicitly authored measurements and any failures;
 - top, front and isometric images;
 - envelope and volume comparison against an imported STL, where available.

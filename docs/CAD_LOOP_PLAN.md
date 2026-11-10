@@ -1,6 +1,6 @@
 # CAD loop plan: match text-to-cad, then pass it
 
-Status: work package 0 done. Written 2026-11-10 against `main` at `52be5f3`.
+Status: work packages 0 to 2 done. Written 2026-11-10 against `main` at `52be5f3`.
 Progress and changes to the plan are recorded in section 10.
 
 This is a handoff document. It assumes you have the repository and nothing
@@ -996,3 +996,5 @@ For each work package, the pull request description must contain:
 | # | Pull request | Notes |
 | --- | --- | --- |
 | 0 | Benchmark that can see the problems | The feature census moved here from work package 2: the benchmark cannot score features without it, so the negative replays pass now instead of being marked `xfail`. The census is left out of `build_model`'s output until a prompt explains it, so the baseline measures the old loop. `max_solids_inverted` moves to work package 2, which adds per-solid volumes. |
+| 1 | Prompt: one template, pitfalls, review rules | Two draft pitfalls did not reproduce and were dropped (stale edge selections, coincident faces); one became "parts that touch only along an edge stay separate solids". The `Hole` pitfall was corrected: a hole cuts its depth below its location and the same distance above it. The runner now passes on Claude Code's own error text when a run stops. Results are in `docs/evaluations/loop20-results.md`. |
+| 2 | Strict validity and feature census | The census itself shipped in work package 0. build123d's `is_manifold` rejects plain spheres, cones and filleted boxes (three CAD50 parts failed with it), so closedness uses the kernel's free-boundary analysis instead; a stricter edge count also failed the mini-glider demo on a 0.4 mm edge that the kernel joins within tolerance. All demo steps and CAD50 parts pass. The census and warnings are now shown to the agent. Live results for work packages 2 to 7 were measured together on the combined branch; see `docs/evaluations/loop20-results.md`. |
