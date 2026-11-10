@@ -16,6 +16,7 @@ All notable changes to Nfinit are listed here. The format follows [Keep a Change
 - Inspections list each solid, reject inside-out and open solids, and warn about floating features and features that left no faces.
 - Local agents declare requirements before building, and every build is checked against them; checks that compare an input with itself are rejected.
 - `inspect_model` lets local agents ask about faces, edges, distances and sections without rebuilding.
+- Local agents see real rendered views of the part, drawn in the same sandbox run as each build, and can ask for more with `view_model`, including section cuts and highlighted features.
 
 ### Changed
 - License is MIT.

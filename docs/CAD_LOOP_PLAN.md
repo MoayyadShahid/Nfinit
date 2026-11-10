@@ -1,6 +1,6 @@
 # CAD loop plan: match text-to-cad, then pass it
 
-Status: work packages 0 to 4 done. Written 2026-11-10 against `main` at `52be5f3`.
+Status: work packages 0 to 5 done. Written 2026-11-10 against `main` at `52be5f3`.
 Progress and changes to the plan are recorded in section 10.
 
 This is a handoff document. It assumes you have the repository and nothing
@@ -1000,3 +1000,4 @@ For each work package, the pull request description must contain:
 | 2 | Strict validity and feature census | The census itself shipped in work package 0. build123d's `is_manifold` rejects plain spheres, cones and filleted boxes (three CAD50 parts failed with it), so closedness uses the kernel's free-boundary analysis instead; a stricter edge count also failed the mini-glider demo on a 0.4 mm edge that the kernel joins within tolerance. All demo steps and CAD50 parts pass. The census and warnings are now shown to the agent. Live results for work packages 2 to 7 were measured together on the combined branch; see `docs/evaluations/loop20-results.md`. |
 | 3 | Requirements contract and enforced acceptance | A failed verdict does not fail the run or discard the part, matching how the hosted path treats a size mismatch after its repairs; the verdict is stored and shown. Census entries do not settle requirements: a requirement says nothing about whether a count is of holes or bosses, so only a named check does. |
 | 4 | `inspect_model` tool | The starting design is available to `inspect_model` before the first build, so the agent can look up a selected face before changing anything (the plan said after the first build, which would have answered about the wrong part). |
+| 5 | Renderer, `view_model`, one sandbox run per build | The renderer and printability modules sit next to the worker and are loaded by file path, because the worker runs as a script; reads are not restricted by the Linux sandbox, so this works there. Highlighting is skipped inside section views (the cut changes the faces). |
