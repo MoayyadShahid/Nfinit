@@ -1,10 +1,9 @@
 import { Wordmark } from "@/components/brand/Wordmark";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { FlowHook } from "@/components/landing/FlowHook";
 import { HeroDrone } from "@/components/landing/HeroDrone";
 import { Plate } from "@/components/landing/Plate";
 import { PromptBar } from "@/components/landing/PromptBar";
-import { DEMO_ONLY } from "@/lib/site";
+import { DEMO_ONLY, RUN_LOCALLY_URL } from "@/lib/site";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
@@ -47,7 +46,7 @@ export default function LandingPage() {
               </span>
             </h1>
             <p className="type-body-l">A free visual workspace for Claude Code and Codex. Start with a description, reference pictures, or an STL. Refine it, check it, and make it yours.</p>
-            <Link href="https://github.com/MoayyadShahid/Nfinit#run-locally" className="wb-btn wb-btn-ghost w-fit">Run locally · MIT license →</Link>
+            <Link href={RUN_LOCALLY_URL} className="wb-btn wb-btn-ghost w-fit">Run locally · MIT license →</Link>
             <PromptBar />
           </div>
 
@@ -65,22 +64,6 @@ export default function LandingPage() {
           >
             <HeroDrone />
           </Plate>
-        </section>
-
-        {/* Flow: one part tells the story (§7) */}
-        <section
-          aria-label="How it works"
-          className="mx-auto max-w-[1264px] px-4 pb-24 sm:px-8 lg:pb-40"
-        >
-          <FlowHook />
-        </section>
-
-        {/* Close (§7): the only centred block */}
-        <section className="mx-auto max-w-[1264px] px-4 pb-24 text-center sm:px-8 lg:pb-40">
-          <h2 className="type-h1 mb-10">
-            Your next part, <em>rev A.</em>
-          </h2>
-          <PromptBar centered className="text-left" />
         </section>
       </main>
 

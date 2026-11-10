@@ -12,12 +12,6 @@ const EXAMPLES = [
   "a cable clip for a 6 mm desk edge",
 ];
 
-const CHIPS: { label: string; prompt: string }[] = [
-  { label: "fan mount", prompt: EXAMPLES[0] },
-  { label: "cable clip", prompt: EXAMPLES[2] },
-  { label: "pi case", prompt: EXAMPLES[1] },
-];
-
 const TYPE_MS = 38;
 const HOLD_MS = 2200;
 const DELETE_MS = 16;
@@ -66,13 +60,7 @@ function useTypewriter(running: boolean) {
  * On the public demo site there is no studio to build in, so it opens the
  * guide to running Nfinit locally.
  */
-export function PromptBar({
-  className = "",
-  centered = false,
-}: {
-  className?: string;
-  centered?: boolean;
-}) {
+export function PromptBar({ className = "" }: { className?: string }) {
   const router = useRouter();
   const inputId = useId();
   const formRef = useRef<HTMLFormElement>(null);
@@ -109,7 +97,7 @@ export function PromptBar({
     <div className={className}>
       <form
         ref={formRef}
-        className={`wb-prompt ${centered ? "mx-auto" : ""}`}
+        className="wb-prompt"
         onSubmit={submit}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
@@ -147,34 +135,16 @@ export function PromptBar({
           <ArrowUp className="size-4" strokeWidth={2.4} />
         </button>
       </form>
-      <div
-        className={`mt-3.5 flex flex-wrap gap-2 ${centered ? "justify-center" : ""}`}
-      >
-        {DEMO_ONLY && (
-          <p className="type-caption w-full">
-            This website is a demo. Nfinit runs on your computer with your Claude
-            Code or Codex login, so your prompt opens the setup guide.{" "}
-            <a href="/studio" className="underline underline-offset-4">
-              Watch a demo part
-            </a>
-            .
-          </p>
-        )}
-        {CHIPS.map((chip) => (
-          <button
-            key={chip.label}
-            type="button"
-            className="wb-chip"
-            aria-pressed={value === chip.prompt}
-            onClick={() => {
-              setValue(chip.prompt);
-              inputRef.current?.focus();
-            }}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
+      {DEMO_ONLY && (
+        <p className="type-caption mt-3.5">
+          This website is a demo. Nfinit runs on your computer with your Claude
+          Code or Codex login, so your prompt opens the setup guide.{" "}
+          <a href="/studio" className="underline underline-offset-4">
+            Watch a demo part
+          </a>
+          .
+        </p>
+      )}
     </div>
   );
 }

@@ -609,8 +609,7 @@ html[data-theme="porcelain"] .text-zinc-600 {
 
 .wb-prompt,
 .wb-prompt input,
-.wb-submit,
-.wb-chip {
+.wb-submit {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -620,9 +619,7 @@ html[data-theme="porcelain"] .text-zinc-600 {
 .wb-prompt input:focus,
 .wb-prompt input:focus-visible,
 .wb-submit:focus,
-.wb-submit:focus-visible,
-.wb-chip:focus,
-.wb-chip:focus-visible {
+.wb-submit:focus-visible {
   outline: none;
   box-shadow: none;
 }
@@ -714,32 +711,6 @@ html[data-theme="midnight"] .wb-submit:hover {
 .wb-submit:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.wb-chip {
-  padding: 6px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink-2);
-  font-size: 13px;
-  line-height: 1.3;
-  cursor: pointer;
-  transition:
-    color 160ms,
-    border-color 160ms;
-}
-
-.wb-chip:hover {
-  color: var(--ink);
-  border-color: var(--hairline-strong);
-}
-
-.wb-chip[aria-pressed="true"],
-.wb-chip[data-on="true"] {
-  color: var(--paper);
-  background: var(--ink);
-  border-color: var(--ink);
 }
 
 /* Plate + demo slot (§6, §7 "Visual assets"). */
@@ -909,87 +880,6 @@ html[data-theme="midnight"] .wb-submit:hover {
   animation-delay: var(--rise-delay, 0ms);
 }
 
-/* Flow diagram (§7). */
-.wb-sketch {
-  fill: none;
-  stroke: var(--construct);
-  stroke-width: 1.2;
-  stroke-linecap: round;
-  opacity: 0.75;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  transition: stroke-dashoffset 700ms var(--ease-draw);
-  transition-delay: var(--draw-delay, 0ms);
-}
-
-[data-active="true"] .wb-sketch,
-.wb-flow-static .wb-sketch {
-  stroke-dashoffset: 0;
-}
-
-.wb-part {
-  fill: var(--clay);
-}
-
-.wb-part-edge {
-  fill: none;
-  stroke: var(--hairline-strong);
-  stroke-width: 1;
-}
-
-.wb-face {
-  fill: var(--accent);
-}
-
-.wb-dim {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1;
-}
-
-.wb-dim-text {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  fill: var(--accent-text);
-}
-
-.wb-svg-label {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 9.5px;
-  letter-spacing: 0.06em;
-  fill: var(--muted);
-}
-
-.wb-layers line {
-  stroke: var(--ink);
-  stroke-opacity: 0.14;
-  stroke-width: 1;
-}
-
-.wb-stamp {
-  transform-box: fill-box;
-  transform-origin: center;
-  transform: rotate(-4deg);
-}
-
-[data-active="true"] .wb-stamp {
-  animation: wb-stamp 240ms var(--ease-out) 520ms both;
-}
-
-[data-active="true"] .wb-flow-nozzle {
-  animation: wb-flow-nozzle 2400ms steps(12) infinite;
-}
-
-.wb-flow-state {
-  opacity: 0;
-  transition: opacity 320ms var(--ease-out);
-}
-
-.wb-flow-state[data-active="true"] {
-  opacity: 1;
-}
-
 /* Auth error (§8). */
 .wb-error {
   padding: 12px 14px;
@@ -1057,32 +947,12 @@ html[data-theme="midnight"] .wb-submit:hover {
   }
 }
 
-@keyframes wb-flow-nozzle {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-120px);
-  }
-}
-
 @keyframes wb-rise {
   from {
     transform: translateY(105%);
   }
   to {
     transform: translateY(0);
-  }
-}
-
-@keyframes wb-stamp {
-  from {
-    transform: rotate(-8deg) scale(1.15);
-    opacity: 0;
-  }
-  to {
-    transform: rotate(-4deg) scale(1);
-    opacity: 1;
   }
 }
 
@@ -1122,24 +992,17 @@ html[data-theme="midnight"] .wb-submit:hover {
     clip-path: inset(55% 0 0 0);
   }
   .wb-nozzle,
-  .wb-flow-nozzle,
   .wb-loadline {
     display: none;
   }
   .wb-rise-line > span,
   .wb-caret,
-  .wb-dot-breath,
-  [data-active="true"] .wb-stamp {
+  .wb-dot-breath {
     animation: none;
   }
-  .wb-sketch,
-  .wb-flow-state,
   .wb-plate-prompt,
   .wb-plate-br {
     transition: none;
-  }
-  .wb-sketch {
-    stroke-dashoffset: 0;
   }
   .wb-btn,
   .wb-btn:active,
