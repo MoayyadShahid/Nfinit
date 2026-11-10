@@ -90,6 +90,24 @@ own tessellation and draws exact edges from the kernel's hidden-line removal,
 with a scale bar and an axis triad. Images show arrangement only; dimensions
 come from measurements.
 
+Parts are assumed to be 3D printed. Before its summary the agent calls
+`check_printability` (three times per run at most), and the backend checks the
+saved part once more. The check measures, inside the sandbox:
+
+- bed fit, including a 90 degree turn;
+- wall thickness, from 2,000 inward rays at fixed sample points;
+- overhangs steeper than the profile's limit, excluding faces on the bed, with
+  the largest areas located;
+- an upper bound on support volume;
+- the six axis-aligned orientations ranked by overhang area;
+- holes below the minimum size, and sealed cavities.
+
+Findings compare these with a print profile: conservative FDM defaults (220 ×
+220 × 250 mm bed, 1.2 mm walls, 45 degree overhangs, 2 mm holes) that a request
+can override with `printProfile`. The defaults come from public design guides
+and are starting points, not physics. Bridges, minimum feature size, warping
+and strength are reported as not measured.
+
 The agent can repair and rebuild up to eight times within the run deadline.
 The backend independently rebuilds the final source before accepting it, and
 computes the final acceptance verdict itself: `verified` when every measurable
