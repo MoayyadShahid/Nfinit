@@ -1,7 +1,9 @@
+from typing import Any
+
 from agent.models import ModelInspection, ModelUsage, TraceStep
 from agent.validation import validate_code
 
-from .models import EvaluationCase, EvaluationResult, MetricScore
+from .models import EvaluationCase, EvaluationResult, FeatureExpectation, MetricScore
 
 
 def _score(
@@ -16,6 +18,70 @@ def _score(
         value=value,
         expected=expected,
         message=success_message if passed else failure_message,
+    )
+
+
+CENSUS_LISTS = {"hole": "holes", "boss": "bosses", "rounded_edge": "rounded_edges"}
+
+
+def _score_feature(
+    feature: FeatureExpectation, census: dict[str, Any] | None
+) -> MetricScore:
+    rounded = feature.kind == "rounded_edge"
+    size_key = "radius_mm" if rounded else "diameter_mm"
+    target = feature.radius_mm if rounded else feature.diameter_mm
+    label = f"{feature.kind.replace('_', ' ')} of {size_key[:-3]} {target:g} mm"
+    expected = {
+        size_key: target,
+        "count": feature.count,
+        "min_count": feature.min_count,
+        "center_span_mm": feature.center_span_mm,
+    }
+    if not census or "error" in census:
+        reason = (census or {}).get("error", "the inspection has no census")
+        return MetricScore(
+            passed=False,
+            value=None,
+            expected=expected,
+            message=f"Feature census is not available: {reason}.",
+        )
+
+    matches = [
+        entry
+        for entry in census.get(CENSUS_LISTS[feature.kind], [])
+        if abs(entry[size_key] - target) <= feature.tolerance_mm
+    ]
+    count = sum(entry["count"] for entry in matches)
+    if feature.count is not None:
+        passed = count == feature.count
+    elif feature.min_count is not None:
+        passed = count >= feature.min_count
+    else:
+        passed = count >= 1
+
+    span = None
+    if feature.center_span_mm and passed:
+        centers = [center for entry in matches for center in entry.get("centers_mm", [])]
+        span = {
+            axis: round(
+                max(center[index] for center in centers)
+                - min(center[index] for center in centers),
+                3,
+            )
+            for index, axis in enumerate("xyz")
+        } if centers else {}
+        passed = all(
+            axis in span and abs(span[axis] - value) <= feature.tolerance_mm
+            for axis, value in feature.center_span_mm.items()
+        )
+
+    value = {"count": count, **({"center_span_mm": span} if span is not None else {})}
+    return MetricScore(
+        passed=passed,
+        value=value,
+        expected=expected,
+        message=f"Found {count} {label}." if passed else f"Expected {label}; found {count}"
+        + (f" with centres spanning {span}." if span else "."),
     )
 
 
@@ -95,6 +161,11 @@ def score_evaluation(
             },
             "Volume was within tolerance.",
             "Volume was outside tolerance.",
+        )
+
+    for index, feature in enumerate(expected.features):
+        scores[f"feature_{index}_{feature.kind}"] = _score_feature(
+            feature, inspection.census
         )
 
     repair_attempts = sum(step.node == "repair" for step in trace)

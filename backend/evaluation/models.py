@@ -12,6 +12,29 @@ from agent.models import (
 )
 
 
+class FeatureExpectation(BaseModel):
+    """Holes, bosses or rounded edges the part must have, read from its census."""
+
+    kind: Literal["hole", "boss", "rounded_edge"]
+    # A hole's or boss's diameter; a rounded edge's radius.
+    diameter_mm: float | None = Field(default=None, gt=0)
+    radius_mm: float | None = Field(default=None, gt=0)
+    count: int | None = Field(default=None, ge=0)
+    min_count: int | None = Field(default=None, ge=1)
+    # Extent of the matching centres, which does not depend on the origin.
+    center_span_mm: dict[Literal["x", "y", "z"], float] | None = None
+    tolerance_mm: float = Field(default=0.05, ge=0)
+
+    @model_validator(mode="after")
+    def validate_size(self):
+        size = self.radius_mm if self.kind == "rounded_edge" else self.diameter_mm
+        if size is None:
+            raise ValueError(
+                "A rounded edge needs radius_mm; a hole or boss needs diameter_mm."
+            )
+        return self
+
+
 class GeometryExpectation(BaseModel):
     valid: bool = True
     solid_count: int | None = None
@@ -22,6 +45,7 @@ class GeometryExpectation(BaseModel):
     max_repair_attempts: int | None = Field(default=3, ge=0)
     max_latency_ms: int | None = Field(default=None, gt=0)
     max_total_tokens: int | None = Field(default=None, gt=0)
+    features: list[FeatureExpectation] = Field(default_factory=list)
 
 
 class EvaluationCase(BaseModel):

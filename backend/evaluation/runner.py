@@ -165,3 +165,76 @@ async def evaluate_live(
                     )
                 )
     return results
+
+
+async def evaluate_local(
+    cases: list[EvaluationCase],
+    agent_ids: list[str],
+    inspector: InspectCode = inspect_code,
+) -> list[EvaluationResult]:
+    """Run each case through an installed Claude Code or Codex CLI.
+
+    This uses the developer's own CLI login and usage allowance, so it never
+    runs in CI.
+    """
+    from agent.local import run_local_agent
+
+    results = []
+    for agent_id in agent_ids:
+        for case in cases:
+            run_id = str(uuid4())
+            request = CadRunRequest(
+                messages=case.messages,
+                code=case.current_code,
+                modelId=agent_id,
+                selection=case.selection,
+            )
+            try:
+                state = await run_local_agent(request, inspector, run_id=run_id)
+                results.append(_score_state(case, agent_id, state, run_id))
+            except Exception as error:
+                state = getattr(error, "state", None)
+                if state and state.get("inspection"):
+                    results.append(
+                        _score_state(
+                            case, agent_id, state, run_id,
+                            error=f"{type(error).__name__}: {error}",
+                        )
+                    )
+                    continue
+                results.append(
+                    score_evaluation(
+                        case,
+                        agent_id,
+                        "",
+                        ModelInspection(valid=False, error=str(error)),
+                        [],
+                        ModelUsage(),
+                        error=f"{type(error).__name__}: {str(error)}",
+                        run_id=run_id,
+                    )
+                )
+    return results
+
+
+def _score_state(
+    case: EvaluationCase,
+    model_id: str,
+    state: dict,
+    run_id: str,
+    error: str | None = None,
+) -> EvaluationResult:
+    inspection = ModelInspection.model_validate(
+        state["inspection"]
+        or {"valid": False, "error": "Inspection result is missing."}
+    )
+    return score_evaluation(
+        case,
+        model_id,
+        state["code"],
+        inspection,
+        [TraceStep.model_validate(step) for step in state["trace"]],
+        ModelUsage.model_validate(state["usage"]),
+        error=error or state["validation_error"],
+        run_id=run_id,
+    )

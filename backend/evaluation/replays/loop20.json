@@ -1,0 +1,124 @@
+{
+  "replays": [
+    {
+      "case_id": "finish_vertical_fillets",
+      "model_id": "reference/loop20",
+      "code": "length, width, height = 40.0, 30.0, 12.0\nradius = 3.0\nwith BuildPart() as part:\n    Box(length, width, height)\n    fillet(part.edges().filter_by(Axis.Z), radius=radius)\ncheck_measurement(\"width\", part.part.bounding_box().size.X, length, 0.01)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "finish_top_edge_fillets",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(80, 50, 8)\n    fillet(part.edges().group_by(Axis.Z)[-1], radius=2)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "finish_cylinder_top_rim",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Cylinder(15, 20)\n    fillet(part.edges().group_by(Axis.Z)[-1], radius=2)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "finish_rounded_corners_hole",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(70, 40, 5)\n    fillet(part.edges().filter_by(Axis.Z), radius=6)\n    Hole(radius=5)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "detached_boss_on_plate",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(60, 40, 5, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, 5)):\n        Cylinder(5, 8, align=(Align.CENTER, Align.CENTER, Align.MIN))\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "detached_standoffs",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(80, 60, 4, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, 4)):\n        with GridLocations(60, 40, 2, 2):\n            Cylinder(4, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, 14)):\n        with GridLocations(60, 40, 2, 2):\n            Hole(radius=1.5)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "detached_gusset_bracket",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(50, 30, 5, align=(Align.CENTER, Align.MIN, Align.MIN))\n    Box(50, 5, 30, align=(Align.CENTER, Align.MIN, Align.MIN))\n    with BuildSketch(Plane.YZ):\n        Polygon((5, 5), (25, 5), (5, 25), align=None)\n    extrude(amount=2.5, both=True)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "detached_pin_on_block",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(30, 30, 20, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, 20)):\n        Cylinder(3, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "stacked_tray",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(80, 50, 15, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, 3)):\n        Box(76, 46, 12, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "stacked_knob",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Cylinder(15, 8, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, 8)):\n        Cylinder(7.5, 12, align=(Align.CENTER, Align.CENTER, Align.MIN))\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "stacked_open_box",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(60, 40, 24, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, 4)):\n        Box(54, 34, 20, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "stacked_lid_lip",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(70, 50, 3, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    Box(67, 47, 4, align=(Align.CENTER, Align.CENTER, Align.MAX))\n    Box(63, 43, 4, align=(Align.CENTER, Align.CENTER, Align.MAX), mode=Mode.SUBTRACT)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "holes_corner_four",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(80, 50, 6)\n    with GridLocations(68, 38, 2, 2):\n        Hole(radius=2)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "holes_bolt_circle",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Cylinder(30, 5)\n    with PolarLocations(22, 6):\n        Hole(radius=2.5)\n    Hole(radius=10)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "holes_vent_grid",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(100, 60, 3)\n    with GridLocations(15, 15, 5, 3):\n        Hole(radius=3)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "holes_counterbored",
+      "model_id": "reference/loop20",
+      "code": "with BuildPart() as part:\n    Box(50, 50, 10, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, 10)):\n        with GridLocations(36, 36, 2, 2):\n            CounterBoreHole(radius=2.25, counter_bore_radius=4, counter_bore_depth=4)\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "edit_thickness_keeps_features",
+      "model_id": "reference/loop20",
+      "code": "length, width, thickness = 70.0, 40.0, 8.0\nhole_diameter = 6.0\nhole_offset = 15.0\ncorner_radius = 4.0\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part,\n                     parameters={\"length\": length, \"width\": width, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner_radius)\n    register_feature(\"corner_fillets\", \"Corner fillets\", \"fillet\", part.part,\n                     parent_id=\"plate\", parameters={\"radius\": corner_radius})\n    with Locations((-(length / 2 - hole_offset), 0, 0), (length / 2 - hole_offset, 0, 0)):\n        Hole(radius=hole_diameter / 2)\n    register_feature(\"mounting_holes\", \"Mounting holes\", \"pattern\", part.part,\n                     parent_id=\"plate\", parameters={\"diameter\": hole_diameter})\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "edit_hole_size_keeps_corners",
+      "model_id": "reference/loop20",
+      "code": "length, width, thickness = 70.0, 40.0, 5.0\nhole_diameter = 8.0\nhole_offset = 15.0\ncorner_radius = 4.0\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part,\n                     parameters={\"length\": length, \"width\": width, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner_radius)\n    register_feature(\"corner_fillets\", \"Corner fillets\", \"fillet\", part.part,\n                     parent_id=\"plate\", parameters={\"radius\": corner_radius})\n    with Locations((-(length / 2 - hole_offset), 0, 0), (length / 2 - hole_offset, 0, 0)):\n        Hole(radius=hole_diameter / 2)\n    register_feature(\"mounting_holes\", \"Mounting holes\", \"pattern\", part.part,\n                     parent_id=\"plate\", parameters={\"diameter\": hole_diameter})\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "edit_add_centre_hole",
+      "model_id": "reference/loop20",
+      "code": "length, width, thickness = 70.0, 40.0, 5.0\nhole_diameter = 6.0\nhole_offset = 15.0\ncorner_radius = 4.0\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part,\n                     parameters={\"length\": length, \"width\": width, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner_radius)\n    register_feature(\"corner_fillets\", \"Corner fillets\", \"fillet\", part.part,\n                     parent_id=\"plate\", parameters={\"radius\": corner_radius})\n    with Locations((-(length / 2 - hole_offset), 0, 0), (length / 2 - hole_offset, 0, 0), (0, 0, 0)):\n        Hole(radius=hole_diameter / 2)\n    register_feature(\"mounting_holes\", \"Mounting holes\", \"pattern\", part.part,\n                     parent_id=\"plate\", parameters={\"diameter\": hole_diameter})\nresult = part.part",
+      "plan": "Recorded reference solution."
+    },
+    {
+      "case_id": "edit_lengthen_keeps_offsets",
+      "model_id": "reference/loop20",
+      "code": "length, width, thickness = 90.0, 40.0, 5.0\nhole_diameter = 6.0\nhole_offset = 15.0\ncorner_radius = 4.0\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part,\n                     parameters={\"length\": length, \"width\": width, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner_radius)\n    register_feature(\"corner_fillets\", \"Corner fillets\", \"fillet\", part.part,\n                     parent_id=\"plate\", parameters={\"radius\": corner_radius})\n    with Locations((-(length / 2 - hole_offset), 0, 0), (length / 2 - hole_offset, 0, 0)):\n        Hole(radius=hole_diameter / 2)\n    register_feature(\"mounting_holes\", \"Mounting holes\", \"pattern\", part.part,\n                     parent_id=\"plate\", parameters={\"diameter\": hole_diameter})\nresult = part.part",
+      "plan": "Recorded reference solution."
+    }
+  ]
+}

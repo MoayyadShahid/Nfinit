@@ -807,7 +807,123 @@ def _inspect(result, checks=None):
         "verification": "failed" if failed else "measured" if checks else "unverified",
         "error": ("Failed geometry checks: " + ", ".join(failed)) if failed else
                  None if valid else "The result must contain valid geometry with finite volume.",
+        "census": _census(result),
     }
+
+
+MAX_CENSUS_ENTRIES = 50
+MAX_CENSUS_CENTERS = 50
+
+
+def _census(result):
+    """Count holes, bosses and rounded edges from the part's faces.
+
+    Facts only: a census never fails an inspection. A failure is reported in
+    the census itself, so a missing count is not read as zero.
+    """
+    try:
+        return _count_features(result)
+    except Exception as error:  # noqa: BLE001
+        return {"error": f"{type(error).__name__}: {error}"[:300]}
+
+
+def _cylinder_facts(face, surface):
+    """Axis, angular span, axial range and concavity of a cylindrical face."""
+    cylinder = surface.Cylinder()
+    axis = cylinder.Axis()
+    location, direction = axis.Location(), axis.Direction()
+    origin = (location.X(), location.Y(), location.Z())
+    unit = (direction.X(), direction.Y(), direction.Z())
+    u0, u1 = surface.FirstUParameter(), surface.LastUParameter()
+    v0, v1 = surface.FirstVParameter(), surface.LastVParameter()
+    position = face.position_at(0.5, 0.5)
+    point = (position.X, position.Y, position.Z)
+    direction_out = face.normal_at(position)
+    normal = (direction_out.X, direction_out.Y, direction_out.Z)
+    offset = [point[index] - origin[index] for index in range(3)]
+    along = sum(offset[index] * unit[index] for index in range(3))
+    radial = [offset[index] - along * unit[index] for index in range(3)]
+    # A hole's surface faces its axis; a boss's or a rounded edge's faces away.
+    concave = sum(normal[index] * radial[index] for index in range(3)) < 0
+    return {
+        "radius": float(cylinder.Radius()),
+        "span": math.degrees(u1 - u0),
+        "v0": min(v0, v1),
+        "v1": max(v0, v1),
+        "origin": origin,
+        "unit": unit,
+        "concave": concave,
+    }
+
+
+def _count_features(result):
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.GeomAbs import GeomAbs_Cylinder, GeomAbs_Sphere, GeomAbs_Torus
+
+    cylinders: dict = {}
+    rounded = Counter()
+    face_counts = Counter()
+    for face in result.faces():
+        face_counts[face.geom_type.name.lower()] += 1
+        surface = BRepAdaptor_Surface(face.wrapped)
+        kind = surface.GetType()
+        if kind == GeomAbs_Cylinder:
+            facts = _cylinder_facts(face, surface)
+            # One hole can be split into several faces on the same surface.
+            group = cylinders.setdefault(
+                (_surface_key(face), facts["concave"]),
+                {**facts, "span": 0.0},
+            )
+            group["span"] += facts["span"]
+            group["v0"] = min(group["v0"], facts["v0"])
+            group["v1"] = max(group["v1"], facts["v1"])
+        elif kind == GeomAbs_Torus:
+            rounded[(round(surface.Torus().MinorRadius(), 3), "torus")] += 1
+        elif kind == GeomAbs_Sphere:
+            rounded[(round(surface.Sphere().Radius(), 3), "sphere")] += 1
+
+    full: dict = {"holes": {}, "bosses": {}}
+    partial = 0
+    for group in cylinders.values():
+        if group["span"] >= 359.0:
+            middle = (group["v0"] + group["v1"]) / 2
+            center = [
+                round(group["origin"][index] + middle * group["unit"][index], 3) + 0.0
+                for index in range(3)
+            ]
+            axis = [round(abs(value), 6) + 0.0 for value in group["unit"]]
+            length = round(group["v1"] - group["v0"], 3)
+            diameter = round(2 * group["radius"], 3)
+            entries = full["holes" if group["concave"] else "bosses"]
+            entry = entries.setdefault(
+                (diameter, tuple(axis), length),
+                {"diameter_mm": diameter, "count": 0, "axis": axis,
+                 "length_mm": length, "centers_mm": []},
+            )
+            entry["count"] += 1
+            if len(entry["centers_mm"]) < MAX_CENSUS_CENTERS:
+                entry["centers_mm"].append(center)
+        elif group["span"] < 180.0:
+            rounded[(round(group["radius"], 3), "cylinder")] += 1
+        else:
+            # Slot ends and other part-round faces.
+            partial += 1
+
+    census = {}
+    for name, entries in full.items():
+        values = sorted(
+            entries.values(), key=lambda entry: (-entry["count"], entry["diameter_mm"])
+        )
+        census[name] = values[:MAX_CENSUS_ENTRIES]
+        if len(values) > MAX_CENSUS_ENTRIES:
+            census[f"{name}_truncated"] = True
+    census["rounded_edges"] = [
+        {"radius_mm": radius, "count": count, "surface": surface}
+        for (radius, surface), count in sorted(rounded.items())
+    ][:MAX_CENSUS_ENTRIES]
+    census["partial_cylinders"] = partial
+    census["face_counts"] = dict(sorted(face_counts.items()))
+    return census
 
 
 def _vector(value, digits: int = 6):
