@@ -423,11 +423,17 @@ def change_report(
 
     flags = [f"Feature '{feature_id}' was removed." for feature_id in comparison.removed_feature_ids]
     flags += [f"Constraint '{constraint_id}' is no longer met." for constraint_id in violated]
-    flags += [
-        f"{key} went from {counts_before[key]} to {counts_after.get(key, 0)}."
-        for key in sorted(counts_before)
-        if counts_after.get(key, 0) < counts_before[key]
-    ]
+    # A resize moves features between sizes; only fewer of a kind is a loss.
+    for kind in ("Holes", "Bosses", "Rounded edges"):
+        before_total = sum(count for key, count in counts_before.items() if key.startswith(kind + " of"))
+        after_total = sum(count for key, count in counts_after.items() if key.startswith(kind + " of"))
+        if after_total < before_total:
+            lost = ", ".join(
+                f"{key[len(kind) + 4:]} {counts_before[key]} → {counts_after.get(key, 0)}"
+                for key in sorted(counts_before)
+                if key.startswith(kind + " of") and counts_after.get(key, 0) < counts_before[key]
+            )
+            flags.append(f"{kind} went from {before_total} to {after_total} ({lost}).")
     return {
         "bounds_delta_mm": {
             axis: round(bounds_after.get(axis, 0) - bounds_before.get(axis, 0), 3)
