@@ -115,6 +115,13 @@ can override with `printProfile`. The defaults come from public design guides
 and are starting points, not physics. Bridges, minimum feature size, warping
 and strength are reported as not measured.
 
+Every tool result reports the budgets left in the run (8 builds, 4
+requirement declarations, 20 questions, 12 extra views, 3 printability
+checks) and how long the call took. Results are kept short on purpose: each
+turn of a CLI agent rereads the whole conversation, so a long tool result is
+paid for again on every later turn. The backend keeps the full inspection;
+the agent gets the facts a decision needs (`backend/agent/feedback.py`).
+
 The agent can repair and rebuild up to eight times within the run deadline.
 The backend independently rebuilds the final source before accepting it, and
 computes the final acceptance verdict itself: `verified` when every measurable
@@ -131,8 +138,10 @@ fail and enter repair. The optional API loop also preserves images through later
 turns and repairs and prompts for these checks.
 
 The runtime controls subprocess lifetime and kills its process group at the
-deadline. An unavailable agent, invalid login, or exhausted usage allowance is
-reported; Nfinit never silently switches to paid API inference.
+deadline: 900 seconds for a local agent (`CAD_LOCAL_RUN_TIMEOUT_SECONDS`), 300
+for an API run (`CAD_RUN_TIMEOUT_SECONDS`). An unavailable agent, invalid
+login, or exhausted usage allowance is reported with the CLI's own reason;
+Nfinit never silently switches to paid API inference.
 
 ## Reference pictures
 
