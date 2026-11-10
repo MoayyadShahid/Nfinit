@@ -1,6 +1,6 @@
 # CAD loop plan: match text-to-cad, then pass it
 
-Status: work packages 0 to 6 done. Written 2026-11-10 against `main` at `52be5f3`.
+Status: work packages 0 to 7 done. Written 2026-11-10 against `main` at `52be5f3`.
 Progress and changes to the plan are recorded in section 10.
 
 This is a handoff document. It assumes you have the repository and nothing
@@ -1002,3 +1002,4 @@ For each work package, the pull request description must contain:
 | 4 | `inspect_model` tool | The starting design is available to `inspect_model` before the first build, so the agent can look up a selected face before changing anything (the plan said after the first build, which would have answered about the wrong part). |
 | 5 | Renderer, `view_model`, one sandbox run per build | The renderer and printability modules sit next to the worker and are loaded by file path, because the worker runs as a script; reads are not restricted by the Linux sandbox, so this works there. Highlighting is skipped inside section views (the cut changes the faces). |
 | 6 | Printability checks | `check_printability` takes no orientation input: every report already ranks the six orientations. The kernel keeps a face's first, finer mesh, so coarsening clears it before retrying; rays are only tested against triangles facing roughly against them. A 14,000-triangle plate with 196 holes takes about 5 s on an Apple silicon Mac. |
+| 7 | Edit safety | The starting design is measured by the bridge on the first build, in the same review run that draws views (`review_code(..., topology=True)`), not in `prepare_input`. A live loop20 run of work packages 2 to 7 together passed 20 of 20 but used about 87,000 tokens per case, twice work package 1, because tool results grew; work package 9 shortens them before the full measurement. |
