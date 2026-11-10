@@ -29,7 +29,9 @@ from .topology import TopologyAnalysis
 
 logger = logging.getLogger(__name__)
 
-SandboxOperation = Literal["inspect", "topology", "query", "glb", "step", "brep", "stl"]
+SandboxOperation = Literal[
+    "inspect", "topology", "query", "review", "render", "glb", "step", "brep", "stl"
+]
 
 ISOLATED_BOOTSTRAP = (
     "import json,runpy,sys;"
@@ -250,6 +252,7 @@ def _run_worker(
     selection: FaceSelection | None = None,
     snapshots: bool = False,
     query: dict | None = None,
+    views: list[dict] | None = None,
 ) -> dict:
     worker = worker_path or Path(__file__).with_name("worker.py")
     timeout = timeout_seconds or float(
@@ -264,6 +267,8 @@ def _run_worker(
         payload["snapshots"] = True
     if query is not None:
         payload["query"] = query
+    if views is not None:
+        payload["views"] = views
 
     # Waiting for a free slot counts against the same deadline as the job.
     if not _job_slots.acquire(timeout=timeout):
@@ -414,8 +419,119 @@ def query_code(code: str, query: dict) -> dict:
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
+VIEW_PRESETS = ("iso", "iso_back", "front", "back", "right", "left", "top", "bottom")
+VIEW_MODES = ("shaded", "hidden_line", "xray")
+MAX_VIEWS = 4
+MAX_HIGHLIGHTS = 20
+
+
+def validate_views(views) -> list[dict]:
+    """A bounded copy of view_model's views, or ValueError."""
+    if not isinstance(views, list) or not 1 <= len(views) <= MAX_VIEWS:
+        raise ValueError(f"views must be a list of 1 to {MAX_VIEWS} views.")
+    clean = []
+    for index, view in enumerate(views):
+        label = f"views[{index}]"
+        if not isinstance(view, dict):
+            raise ValueError(f"{label} must be an object.")
+        unknown = set(view) - {"camera", "mode", "section", "focus", "highlight", "size"}
+        if unknown:
+            raise ValueError(f"{label} does not take: {', '.join(sorted(unknown))}.")
+        item: dict = {}
+        camera = view.get("camera", "iso")
+        if isinstance(camera, str):
+            if camera not in VIEW_PRESETS:
+                raise ValueError(f"{label}.camera must be one of {', '.join(VIEW_PRESETS)} or an azimuth/elevation.")
+            item["camera"] = camera
+        elif isinstance(camera, dict) and set(camera) == {"azimuth", "elevation"}:
+            item["camera"] = {
+                "azimuth": _number(camera["azimuth"], "azimuth", -360, 360),
+                "elevation": _number(camera["elevation"], "elevation", -90, 90),
+            }
+        else:
+            raise ValueError(f"{label}.camera must be a preset name or {{azimuth, elevation}}.")
+        mode = view.get("mode", "shaded")
+        if mode not in VIEW_MODES:
+            raise ValueError(f"{label}.mode must be one of {', '.join(VIEW_MODES)}.")
+        item["mode"] = mode
+        if view.get("size", "normal") not in ("normal", "large"):
+            raise ValueError(f"{label}.size must be normal or large.")
+        item["size"] = view.get("size", "normal")
+        if "section" in view:
+            section = view["section"]
+            if not isinstance(section, dict) or set(section) - {"axis", "at", "keep"} \
+                    or section.get("axis") not in ("x", "y", "z") \
+                    or section.get("keep", "below") not in ("below", "above"):
+                raise ValueError(f"{label}.section needs axis x|y|z, at in mm, and keep below|above.")
+            item["section"] = {"axis": section["axis"], "at": _number(section.get("at"), "section.at"),
+                               "keep": section.get("keep", "below")}
+        if "focus" in view:
+            item["focus"] = _entity(view["focus"], f"{label}.focus")
+            if isinstance(item["focus"], list):
+                raise ValueError(f"{label}.focus must be a face id or a feature id.")
+        if "highlight" in view:
+            highlight = view["highlight"]
+            if not isinstance(highlight, list) or len(highlight) > MAX_HIGHLIGHTS:
+                raise ValueError(f"{label}.highlight must be a list of at most {MAX_HIGHLIGHTS} ids.")
+            item["highlight"] = []
+            for entity in highlight:
+                entity = _entity(entity, f"{label}.highlight")
+                if isinstance(entity, list):
+                    raise ValueError(f"{label}.highlight takes face ids and feature ids.")
+                item["highlight"].append(entity)
+        clean.append(item)
+    return clean
+
+
+@dataclass
+class RenderedView:
+    name: str
+    png: bytes | None = None
+    error: str | None = None
+
+
+def _read_views(data: dict, work_dir: Path) -> list[RenderedView]:
+    views = []
+    for item in data.pop("views", []):
+        if item.get("file"):
+            path = work_dir / item["file"]
+            if path.is_file() and path.parent == work_dir:
+                views.append(RenderedView(item["name"], png=path.read_bytes()))
+                continue
+        views.append(RenderedView(item["name"], error=item.get("error") or "The view was not written."))
+    return views
+
+
+def review_code(code: str) -> tuple[ModelInspection, list[RenderedView]]:
+    """Inspect the code and draw the two default views in one sandbox run."""
+    try:
+        validate_cad_code(code)
+    except CodePolicyError as error:
+        return ModelInspection(valid=False, error=f"sandbox_security_error: {error}"), []
+    work_dir = Path(tempfile.mkdtemp(prefix="nfinit-review-"))
+    try:
+        data = _run_worker(code, "review", work_dir)
+        views = _read_views(data, work_dir)
+        return ModelInspection.model_validate(data), views
+    except SandboxError as error:
+        return ModelInspection(valid=False, error=str(error)), []
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
+def render_code(code: str, views: list[dict]) -> list[RenderedView]:
+    """Draw the requested views of the part."""
+    clean = validate_views(views)
+    validate_cad_code(code)
+    work_dir = Path(tempfile.mkdtemp(prefix="nfinit-render-"))
+    try:
+        return _read_views(_run_worker(code, "render", work_dir, views=clean), work_dir)
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
 def export_code(code: str, operation: SandboxOperation) -> SandboxArtifact:
-    if operation in ("inspect", "topology", "query"):
+    if operation in ("inspect", "topology", "query", "review", "render"):
         raise ValueError("Use the corresponding analysis function.")
     try:
         validate_cad_code(code)

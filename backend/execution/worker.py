@@ -1562,6 +1562,63 @@ def _query(result, query, checks, feature_records):
     raise ValueError(f"Unsupported query kind '{kind}'.")
 
 
+DEFAULT_REVIEW_VIEWS = [{"camera": "iso"}, {"camera": "iso_back"}]
+_render_module = None
+
+
+def _renderer():
+    """execution/render.py, loaded by path: the worker runs as a script."""
+    global _render_module
+    if _render_module is None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "nfinit_render", Path(__file__).with_name("render.py")
+        )
+        _render_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_render_module)
+    return _render_module
+
+
+def _view_label(view):
+    camera = view.get("camera", "iso")
+    label = camera if isinstance(camera, str) else f"az {camera['azimuth']:g} el {camera['elevation']:g}"
+    return f"{label} {view.get('mode', 'shaded')}" + (" section" if view.get("section") else "")
+
+
+def _render_views(result, views, feature_records):
+    """Write each view as a PNG in the job directory; a failed view says why."""
+    renderer = _renderer()
+    faces = features = None
+    if any(view.get("highlight") or view.get("focus") for view in views):
+        faces, _, _, features = _query_index(result, feature_records)
+
+    def shapes_for(entity):
+        if entity in faces:
+            return [faces[entity]["shape"]]
+        if entity in features:
+            return [faces[face_id]["shape"] for face_id in features[entity]["ownedFaceIds"]]
+        raise ValueError(f"'{entity}' is not a face id or a feature id of this part.")
+
+    rendered = []
+    for index, view in enumerate(views):
+        label = _view_label(view)
+        try:
+            highlight = [shape for entity in view.get("highlight", []) for shape in shapes_for(entity)]
+            focus = None
+            if view.get("focus"):
+                from build123d import Compound
+
+                focus = Compound(children=shapes_for(view["focus"]))
+            png = renderer.render(result, view, highlight, focus)
+            name = f"view-{index}.png"
+            (Path.cwd() / name).write_bytes(png)
+            rendered.append({"name": label, "file": name})
+        except Exception as error:  # noqa: BLE001 - one bad view must not lose the others
+            rendered.append({"name": label, "error": f"{type(error).__name__}: {error}"[:300]})
+    return rendered
+
+
 def _bounded_answer(answer):
     """Drop list items until the answer fits the response limit."""
     encoded = json.dumps(answer)
@@ -1902,6 +1959,12 @@ def handle_request(request: dict) -> dict:
         return data
     if operation == "query":
         return _bounded_answer(_query(result, request["query"], checks, feature_records))
+    if operation == "review":
+        data = _inspect(result, checks, feature_records)
+        data["views"] = _render_views(result, DEFAULT_REVIEW_VIEWS, feature_records) if data["valid"] else []
+        return data
+    if operation == "render":
+        return {"views": _render_views(result, request["views"], feature_records)}
     if operation == "topology":
         return _topology(
             result,

@@ -326,7 +326,10 @@ LOCAL_PROCEDURE = """<procedure>
 4. Review the result: the acceptance table first, then the measurements, the
    census and warnings, then the images. Every requirement should pass. To
    learn about a face, an edge, a distance or a cross-section, call
-   inspect_model; do not rebuild just to measure.
+   inspect_model; do not rebuild just to measure. The two views from each
+   build show every side. Call view_model only to answer a specific question:
+   a top view for a hole pattern, a section for a bore, pocket or wall, a
+   focused or highlighted view of the feature you changed.
 5. Repair and rebuild until the part matches the request, at most eight builds.
 6. End with the summary the review rules describe.
 </procedure>"""

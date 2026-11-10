@@ -142,9 +142,8 @@ def test_wrong_size_or_solid_count_fails():
 def test_bridge_requires_a_declaration_and_reports_acceptance(tmp_path, monkeypatch):
     from agent.models import ModelInspection
 
-    monkeypatch.setattr("agent.cad_mcp.inspect_code", lambda code: ModelInspection.model_validate(
-        inspection(solid_count=2)))
-    monkeypatch.setattr("agent.cad_mcp.model_views", lambda code: [])
+    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code: (ModelInspection.model_validate(
+        inspection(solid_count=2)), []))
     (tmp_path / "request.txt").write_text("An 80 by 50 by 6 mm plate with four 4 mm holes and a 9 mm slot")
     tools = CadTools(tmp_path)
 
@@ -182,16 +181,15 @@ def test_inspect_model_answers_about_the_last_part_that_built(tmp_path, monkeypa
 
     asked = []
     monkeypatch.setattr("agent.cad_mcp.query_code", lambda code, query: asked.append((code, query)) or {"count": 0})
-    monkeypatch.setattr("agent.cad_mcp.model_views", lambda code: [])
     tools = CadTools(tmp_path)
 
     with pytest.raises(ValueError, match="no part yet"):
         tools.call("inspect_model", {"query": {"kind": "summary"}})
 
     tools.call("declare_requirements", declared(bounding_box_mm={}, solid_count=None, requirements=[]))
-    monkeypatch.setattr("agent.cad_mcp.inspect_code", lambda code: ModelInspection(valid=True))
+    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code: (ModelInspection(valid=True), []))
     tools.call("build_model", {"code": "result = Box(1, 1, 1)"})
-    monkeypatch.setattr("agent.cad_mcp.inspect_code", lambda code: ModelInspection(valid=False, error="broken"))
+    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code: (ModelInspection(valid=False, error="broken"), []))
     tools.call("build_model", {"code": "result = broken"})
     tools.call("inspect_model", {"query": {"kind": "faces"}})
 
@@ -219,3 +217,22 @@ def test_starting_design_can_be_inspected_before_a_build(tmp_path):
 
     assert (tmp_path / "built.py").read_text() == "result = Box(1, 1, 1)"
     assert (tmp_path / "request.txt").read_text() == "Add a hole here"
+
+
+def test_view_model_draws_the_current_part_within_its_budget(tmp_path, monkeypatch):
+    from execution.runner import RenderedView
+
+    drawn = []
+    monkeypatch.setattr("agent.cad_mcp.render_code", lambda code, views: drawn.append(views) or [
+        RenderedView("top shaded", png=b"png"), RenderedView("iso shaded", error="ValueError: nope")])
+    (tmp_path / "built.py").write_text("result = Box(1, 1, 1)")
+    tools = CadTools(tmp_path)
+
+    content = tools.call("view_model", {"views": [{"camera": "top"}, {"focus": "nope"}]})["content"]
+    assert [item["type"] for item in content] == ["text", "image", "text"]
+    assert "could not be drawn" in content[2]["text"]
+
+    for _ in range(2):
+        tools.call("view_model", {"views": [{}] * 4})
+    with pytest.raises(ValueError, match="2 more views"):
+        tools.call("view_model", {"views": [{}] * 4})

@@ -27,7 +27,7 @@ def agent_command(provider: str, workspace: Path, images: list[Path]) -> list[st
                 "--verbose", "--tools", "", "--strict-mcp-config", "--mcp-config", json.dumps(config),
                 "--setting-sources", "", "--allowedTools", "mcp__nfinit__current_design",
                 "mcp__nfinit__declare_requirements", "mcp__nfinit__build_model",
-                "mcp__nfinit__inspect_model"]
+                "mcp__nfinit__inspect_model", "mcp__nfinit__view_model"]
     command = [executable, "exec", "--json", "--ephemeral", "--ignore-user-config",
                "--skip-git-repo-check", "--sandbox", "read-only", "-C", str(workspace),
                "-c", f"mcp_servers.nfinit.command={json.dumps(sys.executable)}",
@@ -36,7 +36,8 @@ def agent_command(provider: str, workspace: Path, images: list[Path]) -> list[st
                "-c", 'mcp_servers.nfinit.tools.current_design.approval_mode="approve"',
                "-c", 'mcp_servers.nfinit.tools.declare_requirements.approval_mode="approve"',
                "-c", 'mcp_servers.nfinit.tools.build_model.approval_mode="approve"',
-               "-c", 'mcp_servers.nfinit.tools.inspect_model.approval_mode="approve"']
+               "-c", 'mcp_servers.nfinit.tools.inspect_model.approval_mode="approve"',
+               "-c", 'mcp_servers.nfinit.tools.view_model.approval_mode="approve"']
     for image in images:
         command.extend(["--image", str(image)])
     return [*command, "-"]
