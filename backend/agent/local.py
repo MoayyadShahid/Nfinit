@@ -26,7 +26,8 @@ def agent_command(provider: str, workspace: Path, images: list[Path]) -> list[st
         return [executable, "-p", "--input-format", "stream-json", "--output-format", "stream-json",
                 "--verbose", "--tools", "", "--strict-mcp-config", "--mcp-config", json.dumps(config),
                 "--setting-sources", "", "--allowedTools", "mcp__nfinit__current_design",
-                "mcp__nfinit__declare_requirements", "mcp__nfinit__build_model"]
+                "mcp__nfinit__declare_requirements", "mcp__nfinit__build_model",
+                "mcp__nfinit__inspect_model"]
     command = [executable, "exec", "--json", "--ephemeral", "--ignore-user-config",
                "--skip-git-repo-check", "--sandbox", "read-only", "-C", str(workspace),
                "-c", f"mcp_servers.nfinit.command={json.dumps(sys.executable)}",
@@ -34,7 +35,8 @@ def agent_command(provider: str, workspace: Path, images: list[Path]) -> list[st
                "-c", "mcp_servers.nfinit.tool_timeout_sec=110",
                "-c", 'mcp_servers.nfinit.tools.current_design.approval_mode="approve"',
                "-c", 'mcp_servers.nfinit.tools.declare_requirements.approval_mode="approve"',
-               "-c", 'mcp_servers.nfinit.tools.build_model.approval_mode="approve"']
+               "-c", 'mcp_servers.nfinit.tools.build_model.approval_mode="approve"',
+               "-c", 'mcp_servers.nfinit.tools.inspect_model.approval_mode="approve"']
     for image in images:
         command.extend(["--image", str(image)])
     return [*command, "-"]
@@ -78,6 +80,9 @@ def prepare_input(request, workspace: Path):
     (workspace / "request.txt").write_text(latest if isinstance(latest, str) else "\n".join(
         part.get("text", "") for part in latest if part.get("type") == "text"))
     (workspace / "model.py").write_text(request.code)
+    if request.code.strip():
+        # inspect_model can answer about the current part before any build.
+        (workspace / "built.py").write_text(request.code)
     prompt = local_agent_prompt(context)
     if request.model_id == "local/claude":
         return images, json.dumps({"type": "user", "message": {"role": "user", "content": [

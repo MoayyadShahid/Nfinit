@@ -1392,6 +1392,190 @@ def _topology(
     }
 
 
+MAX_QUERY_ITEMS = 50
+MAX_QUERY_BYTES = 20_000
+
+
+def _radius(shape):
+    try:
+        return round(float(shape.radius), 6)
+    except Exception:  # noqa: BLE001 - only round faces and edges have one
+        return None
+
+
+def _query_index(result, feature_records):
+    edge_records, face_records = _entity_records(result)
+    features, _ = _feature_tree(feature_records or [], face_records)
+    owner = {
+        face_id: feature["id"]
+        for feature in features
+        for face_id in feature["ownedFaceIds"]
+    }
+    faces = {record["payload"]["id"]: record for record in face_records}
+    edges = {record["payload"]["id"]: record for record in edge_records}
+    return faces, edges, owner, {feature["id"]: feature for feature in features}
+
+
+def _face_facts(record, owner):
+    payload = record["payload"]
+    return {
+        "id": payload["id"],
+        "surface_type": payload["surface_type"],
+        "area_mm2": round(payload["area_mm2"], 3),
+        "center_mm": _vector(payload["center_mm"], 3),
+        "normal": _vector(payload["normal"], 4),
+        "bounds_mm": payload["bounds_mm"],
+        "radius_mm": _radius(record["shape"]),
+        "feature_id": owner.get(payload["id"]),
+    }
+
+
+def _edge_facts(record):
+    payload = record["payload"]
+    shape = record["shape"]
+    return {
+        "id": payload["id"],
+        "curve_type": payload["curve_type"],
+        "length_mm": round(payload["length_mm"], 3),
+        "radius_mm": _radius(shape),
+        "start_mm": _vector(shape.position_at(0), 3),
+        "end_mm": _vector(shape.position_at(1), 3),
+    }
+
+
+def _unknown(kind, wanted, records):
+    nearby = sorted(records, key=lambda key: -records[key]["payload"].get("area_mm2", records[key]["payload"].get("length_mm", 0)))[:5]
+    raise ValueError(
+        f"No {kind} has id '{wanted}'. Ids come from inspect_model's faces or edges queries"
+        + (f"; for example: {', '.join(nearby)}." if nearby else ".")
+    )
+
+
+def _target(spec, faces, edges, features):
+    """A face, an edge, a feature's faces or a point, as a shape."""
+    from build123d import Compound, Vertex
+
+    if isinstance(spec, list):
+        return Vertex(*spec), f"point {spec}"
+    if spec in faces:
+        return faces[spec]["shape"], f"face {spec}"
+    if spec in edges:
+        return edges[spec]["shape"], f"edge {spec}"
+    if spec in features:
+        owned = [faces[face_id]["shape"] for face_id in features[spec]["ownedFaceIds"]]
+        if not owned:
+            raise ValueError(f"Feature '{spec}' owns no faces of the final part.")
+        return Compound(children=owned), f"feature {spec}"
+    raise ValueError(f"'{spec}' is not a face id, an edge id, a feature id or a point.")
+
+
+def _section(result, axis, at):
+    from build123d import Face, Plane
+
+    planes = {"x": Plane.YZ, "y": Plane.XZ, "z": Plane.XY}
+    bounds = result.bounding_box()
+    size = 4 * max(bounds.size.X, bounds.size.Y, bounds.size.Z, 1.0)
+    cut = result & (planes[axis].offset(at) * Face.make_rect(size, size))
+    faces = cut.faces() if cut is not None else []
+    if not faces:
+        return {"axis": axis, "at_mm": at, "area_mm2": 0.0, "loops": 0, "bounds_mm": None}
+    section_bounds = cut.bounding_box()
+    return {
+        "axis": axis,
+        "at_mm": at,
+        "area_mm2": round(sum(face.area for face in faces), 3),
+        "regions": len(faces),
+        "loops": sum(len(face.wires()) for face in faces),
+        "bounds_mm": {"minimum": _vector(section_bounds.min, 3), "maximum": _vector(section_bounds.max, 3)},
+    }
+
+
+def _query(result, query, checks, feature_records):
+    """Answer one inspect_model question about the built part."""
+    kind = query["kind"]
+    if kind == "summary":
+        return _inspect(result, checks, feature_records)
+    if kind == "section":
+        return _section(result, query["axis"], float(query["at"]))
+
+    faces, edges, owner, features = _query_index(result, feature_records)
+    limit = min(int(query.get("limit") or MAX_QUERY_ITEMS), MAX_QUERY_ITEMS)
+    if kind == "faces":
+        items = [_face_facts(record, owner) for record in faces.values()]
+        if query.get("surface_type"):
+            items = [item for item in items if item["surface_type"] == query["surface_type"]]
+        if query.get("feature_id"):
+            items = [item for item in items if item["feature_id"] == query["feature_id"]]
+        if query.get("normal"):
+            wanted = query["normal"]
+            length = math.sqrt(sum(value * value for value in wanted)) or 1.0
+            cosine = math.cos(math.radians(5))
+            items = [
+                item for item in items
+                if sum(item["normal"][index] * wanted[index] / length for index in range(3)) >= cosine
+            ]
+        if query.get("min_area_mm2"):
+            items = [item for item in items if item["area_mm2"] >= query["min_area_mm2"]]
+        items.sort(key=lambda item: (-item["area_mm2"], item["id"]))
+        return {"count": len(items), "faces": items[:limit], "truncated": len(items) > limit}
+    if kind == "face":
+        record = faces.get(query["face_id"]) or _unknown("face", query["face_id"], faces)
+        facts = _face_facts(record, owner)
+        facts["edges"] = [
+            _edge_facts(edges[edge_id]) for edge_id in record["payload"]["edge_ids"][:MAX_QUERY_ITEMS]
+        ]
+        return facts
+    if kind == "edges":
+        wanted_feature = query.get("feature_id")
+        allowed = None
+        if wanted_feature:
+            allowed = {
+                edge_id
+                for face_id, feature_id in owner.items()
+                if feature_id == wanted_feature
+                for edge_id in faces[face_id]["payload"]["edge_ids"]
+            }
+        items = [
+            _edge_facts(record) for edge_id, record in edges.items()
+            if allowed is None or edge_id in allowed
+        ]
+        if query.get("curve_type"):
+            items = [item for item in items if item["curve_type"] == query["curve_type"]]
+        items.sort(key=lambda item: (-item["length_mm"], item["id"]))
+        return {"count": len(items), "edges": items[:limit], "truncated": len(items) > limit}
+    if kind == "distance":
+        from OCP.BRepExtrema import BRepExtrema_DistShapeShape
+
+        first, first_label = _target(query["a"], faces, edges, features)
+        second, second_label = _target(query["b"], faces, edges, features)
+        measure = BRepExtrema_DistShapeShape(first.wrapped, second.wrapped)
+        if not measure.IsDone():
+            raise ValueError("The distance could not be measured.")
+        point_a, point_b = measure.PointOnShape1(1), measure.PointOnShape2(1)
+        return {
+            "a": first_label,
+            "b": second_label,
+            "distance_mm": round(float(measure.Value()), 6),
+            "point_a_mm": [round(point_a.X(), 4), round(point_a.Y(), 4), round(point_a.Z(), 4)],
+            "point_b_mm": [round(point_b.X(), 4), round(point_b.Y(), 4), round(point_b.Z(), 4)],
+        }
+    raise ValueError(f"Unsupported query kind '{kind}'.")
+
+
+def _bounded_answer(answer):
+    """Drop list items until the answer fits the response limit."""
+    encoded = json.dumps(answer)
+    while len(encoded) > MAX_QUERY_BYTES:
+        lists = [key for key, value in answer.items() if isinstance(value, list) and value]
+        if not lists:
+            return {"error": "The answer is too large. Narrow the query."}
+        longest = max(lists, key=lambda key: len(answer[key]))
+        answer[longest] = answer[longest][: max(1, len(answer[longest]) // 2)] if len(answer[longest]) > 1 else []
+        answer["truncated"] = True
+        encoded = json.dumps(answer)
+    return answer
+
+
 VIEWER_FORMAT = "nfinit-brep-2"
 # glTF is Y-up; CAD is Z-up. Same root rotation as build123d's exporter.
 Z_UP_TO_Y_UP = [-0.7071067811865475, 0.0, 0.0, 0.7071067811865475]
@@ -1716,6 +1900,8 @@ def handle_request(request: dict) -> dict:
                 data["snapshots"] = []
                 data["snapshot_error"] = f"{type(error).__name__}: {error}"
         return data
+    if operation == "query":
+        return _bounded_answer(_query(result, request["query"], checks, feature_records))
     if operation == "topology":
         return _topology(
             result,

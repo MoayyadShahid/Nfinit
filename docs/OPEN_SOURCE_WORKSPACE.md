@@ -72,6 +72,14 @@ sandbox and returns:
   that compares an input with itself is rejected. A wrong overall size or
   solid count makes the build an error.
 
+Between builds the agent can call `inspect_model` to ask about the current
+part without rebuilding it or using a build: its faces (filtered by surface,
+feature, direction or area), one face and its edges, its edges, the distance
+between two faces, edges, features or points, and the area and loops of a
+plane section. Face ids are the ones the studio's selection uses, so for an
+edit with a selected face the agent first looks up exactly what was picked.
+It has 20 questions per run.
+
 The agent can repair and rebuild up to eight times within the run deadline.
 The backend independently rebuilds the final source before accepting it, and
 computes the final acceptance verdict itself: `verified` when every measurable
