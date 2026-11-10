@@ -44,9 +44,9 @@ export type StartRunRequest = {
 // Each poll is one small database read; a short interval keeps the step list
 // close to what the agent is doing.
 const POLL_INTERVAL_MS = 1_000;
-// The backend gives a run 300s; past this the run is still saved server-side,
-// the studio just stops waiting on it.
-const MAX_WAIT_MS = 7 * 60_000;
+// The backend gives an API run 300s and a local agent run 900s; past this the
+// run is still saved server-side, the studio just stops waiting on it.
+const MAX_WAIT_MS = 17 * 60_000;
 
 export function startRun(request: StartRunRequest): Promise<CadRun> {
   return requestJson("/cad/runs", jsonRequest("POST", request));

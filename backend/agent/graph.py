@@ -34,10 +34,25 @@ DEFAULT_LLM_TIMEOUT_SECONDS = 120.0
 logger = logging.getLogger(__name__)
 
 
-def run_timeout_seconds() -> float:
+# A local agent plans, declares requirements, builds, inspects and checks
+# printability in one CLI session, so it gets longer than an API run.
+DEFAULT_LOCAL_RUN_TIMEOUT_SECONDS = 900.0
+
+
+def run_timeout_seconds(model_id: str | None = None) -> float:
+    """The deadline of a run with this model; without one, the API deadline."""
+    if model_id is not None and model_id.startswith("local/"):
+        return float(
+            os.getenv("CAD_LOCAL_RUN_TIMEOUT_SECONDS", str(DEFAULT_LOCAL_RUN_TIMEOUT_SECONDS))
+        )
     return float(
         os.getenv("CAD_RUN_TIMEOUT_SECONDS", str(DEFAULT_RUN_TIMEOUT_SECONDS))
     )
+
+
+def longest_run_timeout_seconds() -> float:
+    """The longest any run may take, for telling a dead run from a slow one."""
+    return max(run_timeout_seconds(), run_timeout_seconds("local/"))
 
 
 class CadRunTimeoutError(TimeoutError):

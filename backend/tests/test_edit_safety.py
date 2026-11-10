@@ -41,7 +41,7 @@ def test_losing_the_rounded_corners_is_flagged():
     changes = report(code)
 
     assert "Feature 'corner_fillets' was removed." in changes["flags"]
-    assert "Rounded edges of 4 mm went from 4 to 0." in changes["flags"]
+    assert "Rounded edges went from 4 to 0 (4 mm 4 → 0)." in changes["flags"]
     assert changes["census_delta"]["Rounded edges of 4 mm"] == "4 → 0"
 
 
@@ -91,5 +91,22 @@ def test_a_new_part_has_no_change_report(tmp_path, monkeypatch):
     tools.call("declare_requirements", {"summary": "A box.", "requirements": []})
     reported = json.loads(tools.call("build_model", {"code": "result = Box(1, 1, 1)"})["content"][0]["text"])
 
-    assert reported["changes"] is None
+    assert "changes" not in reported
     assert json.loads((tmp_path / "previous.json").read_text()) == {}
+
+
+def test_resizing_holes_is_not_a_loss():
+    changes = report(START.replace("hole_diameter = 6.0", "hole_diameter = 8.0"))
+
+    assert changes["flags"] == []
+    assert changes["census_delta"] == {"Holes of 6 mm": "2 → 0", "Holes of 8 mm": "0 → 2"}
+
+
+def test_dropping_a_hole_is_a_loss():
+    code = START.replace(
+        "Locations((-(length / 2 - hole_offset), 0, 0), (length / 2 - hole_offset, 0, 0))",
+        "Locations((-(length / 2 - hole_offset), 0, 0))",
+    )
+    changes = report(code)
+
+    assert "Holes went from 2 to 1 (6 mm 2 → 1)." in changes["flags"]
