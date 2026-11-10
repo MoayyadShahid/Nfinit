@@ -55,6 +55,10 @@ class ModelInspection(BaseModel):
     # Holes, bosses and rounded edges counted from the faces. Older saved
     # inspections have none.
     census: dict[str, Any] | None = None
+    # Volume, bounds and orientation of each solid.
+    solids: list[dict[str, Any]] | None = None
+    # Things that built but are probably wrong, such as a floating feature.
+    warnings: list[str] = Field(default_factory=list)
 
 
 class TraceStep(BaseModel):

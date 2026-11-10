@@ -163,6 +163,16 @@ def score_evaluation(
             "Volume was outside tolerance.",
         )
 
+    if inspection.solids is not None:
+        inverted = sum(bool(solid.get("inverted")) for solid in inspection.solids)
+        scores["inverted_solids"] = _score(
+            inverted == 0,
+            inverted,
+            0,
+            "No solid is inside out.",
+            "A solid is inside out (negative volume).",
+        )
+
     for index, feature in enumerate(expected.features):
         scores[f"feature_{index}_{feature.kind}"] = _score_feature(
             feature, inspection.census

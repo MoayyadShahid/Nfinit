@@ -115,6 +115,74 @@ def test_census_counts_holes_bosses_and_rounded_edges():
     assert census["rounded_edges"] == [{"radius_mm": 3.0, "count": 4, "surface": "cylinder"}]
 
 
+def test_inside_out_solid_is_invalid():
+    inspection = inspect_code("shape = Solid.make_box(1, 1, 1)\nshape.wrapped.Reverse()\nresult = shape")
+
+    assert not inspection.valid
+    assert "inside out" in inspection.error
+    assert inspection.solids[0]["inverted"]
+
+
+def test_spheres_cones_and_rounded_boxes_are_closed_solids():
+    # build123d's own is_manifold rejects these; the inspection must not.
+    for code in (
+        "result = Sphere(15)",
+        "result = Cone(5, 0, 10)",
+        "with BuildPart() as part:\n    Box(40, 30, 12)\n    fillet(part.edges(), radius=2)\nresult = part.part",
+    ):
+        inspection = inspect_code(code)
+        assert inspection.valid, inspection.error
+        assert inspection.solids[0]["manifold"]
+
+
+def test_open_shell_is_not_a_closed_solid():
+    from build123d import Box, Shell, Solid
+
+    from execution.worker import _inspect
+
+    data = _inspect(Solid(Shell(list(Box(10, 10, 10).faces())[:5])))
+
+    assert not data["valid"]
+    assert not data["solids"][0]["manifold"]
+
+
+def test_floating_feature_is_a_warning():
+    inspection = inspect_code(
+        "with BuildPart() as part:\n"
+        "    Box(20, 20, 5)\n"
+        "    with Locations((0, 0, 10)):\n"
+        "        Cylinder(3, 4)\n"
+        "result = part.part"
+    )
+
+    assert inspection.valid
+    assert inspection.solid_count == 2
+    assert inspection.warnings[0].startswith("2 separate solids")
+
+
+def test_feature_without_faces_is_a_warning():
+    inspection = inspect_code(
+        "with BuildPart() as part:\n"
+        "    Box(20, 20, 5)\n"
+        "    register_feature('plate', 'Plate', 'additive', part.part)\n"
+        "    register_feature('edge_fillet', 'Edge fillet', 'fillet', part.part, parent_id='plate')\n"
+        "    Hole(radius=2)\n"
+        "    register_feature('hole', 'Hole', 'subtractive', part.part, parent_id='plate')\n"
+        "result = part.part"
+    )
+
+    assert inspection.valid
+    assert inspection.census["features"] == [
+        {"id": "plate", "operation": "additive", "owned_faces": 6},
+        {"id": "edge_fillet", "operation": "fillet", "owned_faces": 0},
+        {"id": "hole", "operation": "subtractive", "owned_faces": 1},
+    ]
+    assert inspection.warnings == [
+        "Feature 'edge_fillet' owns no faces of the final part. It may have been "
+        "skipped, merged into an earlier feature's faces, or removed by a later feature."
+    ]
+
+
 def test_census_does_not_count_slot_ends_as_holes_or_rounded_edges():
     inspection = inspect_code(
         "with BuildPart() as part:\n"
