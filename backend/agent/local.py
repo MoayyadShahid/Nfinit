@@ -135,7 +135,9 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
                                               total_tokens=input_tokens+output_tokens)
                     if kind == "result":
                         if event.get("is_error"):
-                            raise ValueError("Claude Code could not finish. Check its login and usage allowance in your terminal.")
+                            reason = " ".join(str(event.get("result") or event.get("subtype") or "").split())[:300]
+                            raise ValueError("Claude Code could not finish. Check its login and usage allowance in your terminal."
+                                             + (f" It said: {reason}" if reason else ""))
                         state["plan"] = str(event.get("result", ""))[:8000]
                     if kind == "item.completed" and item.get("type") == "agent_message":
                         state["plan"] = str(item.get("text", ""))[:8000]

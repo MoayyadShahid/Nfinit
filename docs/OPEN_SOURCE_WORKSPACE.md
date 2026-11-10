@@ -36,16 +36,47 @@ native CLI sessions are not resumed across runs. Superseded assistant code is
 omitted from native-agent context; the current model is available through the
 CAD tool, alongside user requests and reference images.
 
-The agent reads the current design, plans the change, then calls `build_model`.
-The CAD tool executes code in Nfinit's sandbox and returns:
+The agent's prompt (`local_agent_prompt` in `backend/agent/prompts.py`) gives
+it a numbered procedure, the rules for reading stacked dimensions ("a 3 mm base
+with 12 mm walls" is 15 mm tall), build123d pitfalls that build without an
+error, and rules for reviewing a build: never read a dimension off an image,
+turn visual doubts into measurements, and never drop a requested feature to make
+a build pass. Each pitfall is reproduced by a test in
+`backend/tests/test_prompt_pitfalls.py`.
+
+The agent reads the current design and plans the change. Before its first
+build it must call `declare_requirements` with the overall size, the expected
+number of solids, one requirement per requested number, count or feature, and
+its assumptions; `build_model` refuses to run until it has. Numbers in the
+request that no requirement covers come back as a warning.
+
+The agent then calls `build_model`. The CAD tool executes code in Nfinit's
+sandbox and returns:
 
 - kernel validity, solid count, volume and bounds;
+- each solid's volume and bounds. An inside-out solid (negative volume) or an
+  open one makes the build invalid. Closedness uses the kernel's free-boundary
+  analysis, because build123d's `is_manifold` rejects plain spheres, cones and
+  filleted boxes;
+- a census of holes, bosses and rounded edges counted from the faces, and how
+  many faces each registered feature owns;
+- warnings for parts that built but are probably wrong: extra solids (a
+  feature that does not touch the part) and registered features that own no
+  faces of the final part;
 - explicitly authored measurements and any failures;
 - top, front and isometric images;
-- envelope and volume comparison against an imported STL, where available.
+- envelope and volume comparison against an imported STL, where available;
+- an acceptance table: each declared requirement as passed, failed,
+  unverified or judged from images. A requirement passes only through a
+  `check_measurement` named with its id that measures built geometry; a check
+  that compares an input with itself is rejected. A wrong overall size or
+  solid count makes the build an error.
 
 The agent can repair and rebuild up to eight times within the run deadline.
-The backend independently rebuilds the final source before accepting it. A
+The backend independently rebuilds the final source before accepting it, and
+computes the final acceptance verdict itself: `verified` when every measurable
+requirement passed, `partial` when some are unverified, `failed` when any
+failed. A
 model without authored measurement checks is marked `unverified`; passing those
 checks establishes only the quantities checked. They are agent-authored tests,
 not an independent mechanical certification. Render failures remain explicit.
