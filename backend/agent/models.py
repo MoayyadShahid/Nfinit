@@ -59,6 +59,8 @@ class ModelInspection(BaseModel):
     solids: list[dict[str, Any]] | None = None
     # Things that built but are probably wrong, such as a floating feature.
     warnings: list[str] = Field(default_factory=list)
+    # A local agent's declared requirements, each with its status for this build.
+    acceptance: dict[str, Any] | None = None
 
 
 class TraceStep(BaseModel):

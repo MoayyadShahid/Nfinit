@@ -10,6 +10,7 @@ import sys
 import tempfile
 from time import perf_counter
 
+from .acceptance import describe as describe_acceptance, evaluate
 from .graph import CadRunTimeoutError, _emit, run_timeout_seconds
 from .local_access import LOCAL_MODELS, local_agents_enabled
 from .prompts import local_agent_prompt
@@ -24,13 +25,15 @@ def agent_command(provider: str, workspace: Path, images: list[Path]) -> list[st
         config = {"mcpServers": {"nfinit": {"command": sys.executable, "args": [bridge, str(workspace)]}}}
         return [executable, "-p", "--input-format", "stream-json", "--output-format", "stream-json",
                 "--verbose", "--tools", "", "--strict-mcp-config", "--mcp-config", json.dumps(config),
-                "--setting-sources", "", "--allowedTools", "mcp__nfinit__current_design", "mcp__nfinit__build_model"]
+                "--setting-sources", "", "--allowedTools", "mcp__nfinit__current_design",
+                "mcp__nfinit__declare_requirements", "mcp__nfinit__build_model"]
     command = [executable, "exec", "--json", "--ephemeral", "--ignore-user-config",
                "--skip-git-repo-check", "--sandbox", "read-only", "-C", str(workspace),
                "-c", f"mcp_servers.nfinit.command={json.dumps(sys.executable)}",
                "-c", f"mcp_servers.nfinit.args={json.dumps([bridge, str(workspace)])}",
                "-c", "mcp_servers.nfinit.tool_timeout_sec=110",
                "-c", 'mcp_servers.nfinit.tools.current_design.approval_mode="approve"',
+               "-c", 'mcp_servers.nfinit.tools.declare_requirements.approval_mode="approve"',
                "-c", 'mcp_servers.nfinit.tools.build_model.approval_mode="approve"']
     for image in images:
         command.extend(["--image", str(image)])
@@ -70,6 +73,10 @@ def prepare_input(request, workspace: Path):
     if request.selection:
         context += "\nSelected geometry: " + request.selection.model_dump_json()
     (workspace / "context.txt").write_text(context)
+    # The latest request, for warning about numbers no requirement covers.
+    latest = request.messages[-1].content
+    (workspace / "request.txt").write_text(latest if isinstance(latest, str) else "\n".join(
+        part.get("text", "") for part in latest if part.get("type") == "text"))
     (workspace / "model.py").write_text(request.code)
     prompt = local_agent_prompt(context)
     if request.model_id == "local/claude":
@@ -143,12 +150,21 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
                 if inspection.valid and (workspace / "reference.json").exists():
                     from execution.references import compare_reference
                     inspection.reference_comparison = compare_reference(inspection, json.loads((workspace / "reference.json").read_text()))
+                # The backend's own rebuild decides the verdict, not the agent's last tool result.
+                detail = "Final geometry checked in the CAD sandbox. "
+                if (workspace / "requirements.json").exists():
+                    inspection.acceptance = evaluate(
+                        json.loads((workspace / "requirements.json").read_text()),
+                        inspection.model_dump(), state["code"])
+                    detail += describe_acceptance(inspection.acceptance)
+                else:
+                    detail += (f"{len(inspection.checks)} measurement checks." if inspection.checks
+                               else "Design requirements remain unverified.")
                 state["inspection"] = inspection.model_dump()
                 state["validation_error"] = inspection.error if not inspection.valid else None
-                state["trace"] = [{"node": "inspect", "status": "passed" if inspection.valid else "failed",
-                                   "detail": "Final geometry checked in the CAD sandbox. " +
-                                             (f"{len(inspection.checks)} measurement checks." if inspection.checks else "Design requirements remain unverified."),
-                                   "duration_ms": round((perf_counter()-started)*1000)}]
+                failed = not inspection.valid or (inspection.acceptance or {}).get("verdict") == "failed"
+                state["trace"] = [{"node": "inspect", "status": "failed" if failed else "passed",
+                                   "detail": detail, "duration_ms": round((perf_counter()-started)*1000)}]
                 await _emit(on_event, {"stage": "inspect", "status": state["trace"][0]["status"],
                                       "message": state["trace"][0]["detail"]})
                 return state
