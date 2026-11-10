@@ -1,0 +1,4670 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-11-10T18:03:14.601775Z",
+  "mode": "live",
+  "models": [
+    "local/claude"
+  ],
+  "summary": {
+    "local/claude": {
+      "cases": 20,
+      "passed": 20,
+      "pass_rate": 1.0,
+      "mean_latency_ms": 38550.95,
+      "mean_total_tokens": 42227.1,
+      "repair_rate": 0.0,
+      "mean_cost_usd": 0.0,
+      "total_cost_usd": 0.0,
+      "p95_latency_ms": 60987.0
+    }
+  },
+  "results": [
+    {
+      "case_id": "finish_vertical_fillets",
+      "category": "silent_finish",
+      "model_id": "local/claude",
+      "run_id": "84273d9e-31f2-4819-bd18-aff2504432c3",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 12.0,
+          "expected": {
+            "target": 12.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "radius_mm": 3.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 4 rounded edge of radius 3 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 14307.292,
+        "bounding_box_mm": {
+          "x": 40.0,
+          "y": 30.0,
+          "z": 12.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "length_x",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "width_y",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "height_z",
+            "actual": 12.0,
+            "expected": 12.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "fillet_face_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "fillet_radius_0",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "fillet_radius_1",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "fillet_radius_2",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "fillet_radius_3",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 14307.292006587697,
+            "expected": 14307.2920062,
+            "tolerance": 0.5,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [],
+          "rounded_edges": [
+            {
+              "radius_mm": 3.0,
+              "count": 4,
+              "surface": "cylinder"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 4,
+            "plane": 6
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 23236,
+      "usage": {
+        "input_tokens": 27085,
+        "output_tokens": 1329,
+        "total_tokens": 28414,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "finish_top_edge_fillets",
+      "category": "silent_finish",
+      "model_id": "local/claude",
+      "run_id": "e0f66092-545c-4289-a11f-5733c6e4c855",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 8.0,
+          "expected": {
+            "target": 8.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "radius_mm": 2.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 4 rounded edge of radius 2 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 31779.882,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 8.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "length_x",
+            "actual": 80.0,
+            "expected": 80.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "width_y",
+            "actual": 50.0,
+            "expected": 50.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "thickness_z",
+            "actual": 8.0,
+            "expected": 8.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "fillet_face_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "fillet_radius_0",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.001,
+            "passed": true
+          },
+          {
+            "name": "fillet_radius_1",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.001,
+            "passed": true
+          },
+          {
+            "name": "fillet_radius_2",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.001,
+            "passed": true
+          },
+          {
+            "name": "fillet_radius_3",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.001,
+            "passed": true
+          },
+          {
+            "name": "top_flat_x",
+            "actual": 76.0,
+            "expected": 76.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "top_flat_y",
+            "actual": 46.0,
+            "expected": 46.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [],
+          "rounded_edges": [
+            {
+              "radius_mm": 2.0,
+              "count": 4,
+              "surface": "cylinder"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 4,
+            "plane": 6
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 25943,
+      "usage": {
+        "input_tokens": 27393,
+        "output_tokens": 1724,
+        "total_tokens": 29117,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "finish_cylinder_top_rim",
+      "category": "silent_finish",
+      "model_id": "local/claude",
+      "run_id": "f088f8f3-06d1-4ed0-b453-5db97ffedfe4",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "radius_mm": 2.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 rounded edge of radius 2 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 14058.673,
+        "bounding_box_mm": {
+          "x": 30.0,
+          "y": 30.0,
+          "z": 20.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "diameter_x",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "diameter_y",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "height",
+            "actual": 20.0,
+            "expected": 20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "bottom_edge_sharp_radius",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "top_flat_radius_after_fillet",
+            "actual": 13.0,
+            "expected": 13.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "fillet_face_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "fillet_vertical_extent",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [
+            {
+              "diameter_mm": 30.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 18.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  9.0
+                ]
+              ]
+            }
+          ],
+          "rounded_edges": [
+            {
+              "radius_mm": 2.0,
+              "count": 1,
+              "surface": "torus"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 1,
+            "plane": 2,
+            "torus": 1
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 28753,
+      "usage": {
+        "input_tokens": 27359,
+        "output_tokens": 1978,
+        "total_tokens": 29337,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "finish_rounded_corners_hole",
+      "category": "silent_finish",
+      "model_id": "local/claude",
+      "run_id": "a70f6192-b81d-41d7-bd79-d206ea8e0370",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 70.0,
+          "expected": {
+            "target": 70.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 5.0,
+          "expected": {
+            "target": 5.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "radius_mm": 6.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 4 rounded edge of radius 6 mm."
+        },
+        "feature_1_hole": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "diameter_mm": 10.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 hole of diameter 10 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 13452.788,
+        "bounding_box_mm": {
+          "x": 70.0,
+          "y": 40.0,
+          "z": 5.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "length_x",
+            "actual": 70.0,
+            "expected": 70.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "width_y",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "thickness_z",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "corner_face_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "corner_radius",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "hole_diameter",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_center_offset",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_through_height",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 13452.787595947437,
+            "expected": 13452.78759575,
+            "tolerance": 1.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 10.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 5.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  2.5
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [
+            {
+              "radius_mm": 6.0,
+              "count": 4,
+              "surface": "cylinder"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 5,
+            "plane": 6
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 48044,
+      "usage": {
+        "input_tokens": 51348,
+        "output_tokens": 4600,
+        "total_tokens": 55948,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "detached_boss_on_plate",
+      "category": "detached",
+      "model_id": "local/claude",
+      "run_id": "dbd92a7b-79e2-45ed-9d99-974058804605",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 60.0,
+          "expected": {
+            "target": 60.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 13.0,
+          "expected": {
+            "target": 13.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_boss": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "diameter_mm": 10.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 boss of diameter 10 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 12628.319,
+        "bounding_box_mm": {
+          "x": 60.0,
+          "y": 40.0,
+          "z": 13.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "plate_length",
+            "actual": 60.0,
+            "expected": 60.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_width",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_height",
+            "actual": 13.0,
+            "expected": 13.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "boss_diameter",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "boss_height",
+            "actual": 8.0,
+            "expected": 8.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "boss_base_z",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "boss_centre_x",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "boss_centre_y",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [
+            {
+              "diameter_mm": 10.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 8.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  9.0
+                ]
+              ]
+            }
+          ],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 1,
+            "plane": 7
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 36349,
+      "usage": {
+        "input_tokens": 38409,
+        "output_tokens": 2910,
+        "total_tokens": 41319,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "detached_standoffs",
+      "category": "detached",
+      "model_id": "local/claude",
+      "run_id": "c412e9d0-5f88-430a-81c6-b5d68d3d4272",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 60.0,
+          "expected": {
+            "target": 60.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 14.0,
+          "expected": {
+            "target": 14.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_boss": {
+          "passed": true,
+          "value": {
+            "count": 4,
+            "center_span_mm": {
+              "x": 60.0,
+              "y": 40.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 8.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 60.0,
+              "y": 40.0
+            }
+          },
+          "message": "Found 4 boss of diameter 8 mm."
+        },
+        "feature_1_hole": {
+          "passed": true,
+          "value": {
+            "count": 4,
+            "center_span_mm": {
+              "x": 60.0,
+              "y": 40.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 3.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 60.0,
+              "y": 40.0
+            }
+          },
+          "message": "Found 4 hole of diameter 3 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 20814.779,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 60.0,
+          "z": 14.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "overall_length",
+            "actual": 80.0,
+            "expected": 80.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_width",
+            "actual": 60.0,
+            "expected": 60.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_height",
+            "actual": 14.0,
+            "expected": 14.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "standoff_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "standoff_diameter",
+            "actual": 8.0,
+            "expected": 8.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "standoff_height_above_base",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "hole_diameter",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_through_length",
+            "actual": 14.0,
+            "expected": 14.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "standoff0_x_edge_inset",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "standoff0_y_edge_inset",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "standoff1_x_edge_inset",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "standoff1_y_edge_inset",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "standoff2_x_edge_inset",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "standoff2_y_edge_inset",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "standoff3_x_edge_inset",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "standoff3_y_edge_inset",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole0_concentric_offset",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole1_concentric_offset",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole2_concentric_offset",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole3_concentric_offset",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 20814.77862394514,
+            "expected": 20814.778622100002,
+            "tolerance": 1.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 3.0,
+              "count": 4,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 14.0,
+              "centers_mm": [
+                [
+                  -30.0,
+                  -20.0,
+                  7.0
+                ],
+                [
+                  30.0,
+                  -20.0,
+                  7.0
+                ],
+                [
+                  -30.0,
+                  20.0,
+                  7.0
+                ],
+                [
+                  30.0,
+                  20.0,
+                  7.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [
+            {
+              "diameter_mm": 8.0,
+              "count": 4,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 10.0,
+              "centers_mm": [
+                [
+                  -30.0,
+                  -20.0,
+                  9.0
+                ],
+                [
+                  30.0,
+                  -20.0,
+                  9.0
+                ],
+                [
+                  -30.0,
+                  20.0,
+                  9.0
+                ],
+                [
+                  30.0,
+                  20.0,
+                  9.0
+                ]
+              ]
+            }
+          ],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 8,
+            "plane": 10
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 30749,
+      "usage": {
+        "input_tokens": 28859,
+        "output_tokens": 2644,
+        "total_tokens": 31503,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "detached_gusset_bracket",
+      "category": "detached",
+      "model_id": "local/claude",
+      "run_id": "abe26e8e-6015-44c3-9bec-1ef746f01247",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 14750.0,
+        "bounding_box_mm": {
+          "x": 50.0,
+          "y": 30.0,
+          "z": 30.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "width",
+            "actual": 50.0,
+            "expected": 50.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "depth",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_height",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 14750.000000000002,
+            "expected": 14750.0,
+            "tolerance": 0.5,
+            "passed": true
+          },
+          {
+            "name": "gusset_face_count",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "gusset_thickness",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "gusset_leg_base",
+            "actual": 20.000000000000004,
+            "expected": 20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "gusset_leg_upright",
+            "actual": 20.000000000000004,
+            "expected": 20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "gusset_center_x",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "base_top_z",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "upright_thickness",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "plane": 11
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 47762,
+      "usage": {
+        "input_tokens": 41761,
+        "output_tokens": 4412,
+        "total_tokens": 46173,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "detached_pin_on_block",
+      "category": "detached",
+      "model_id": "local/claude",
+      "run_id": "c423731a-1603-4cae-9cb1-ac5f38bd3519",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_boss": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "diameter_mm": 6.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 boss of diameter 6 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 18282.743,
+        "bounding_box_mm": {
+          "x": 30.0,
+          "y": 30.0,
+          "z": 30.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "overall_x",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_y",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_z",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "pin_diameter",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "pin_top_z",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "pin_center_x",
+            "actual": 8.881784197001252e-16,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "pin_center_y",
+            "actual": 9.248227149963856e-17,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "block_top_z",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 18282.743338823086,
+            "expected": 18282.7433385,
+            "tolerance": 0.5,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [
+            {
+              "diameter_mm": 6.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 10.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  25.0
+                ]
+              ]
+            }
+          ],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 1,
+            "plane": 7
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 25964,
+      "usage": {
+        "input_tokens": 27332,
+        "output_tokens": 1702,
+        "total_tokens": 29034,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "stacked_tray",
+      "category": "stacked_reading",
+      "model_id": "local/claude",
+      "run_id": "5f8def73-b1f8-4771-a68c-72fd6d0e6bda",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 15.0,
+          "expected": {
+            "target": 15.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 18048.0,
+          "expected": {
+            "target": 18048.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 18048.0,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 15.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "outside_length",
+            "actual": 80.0,
+            "expected": 80.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "outside_width",
+            "actual": 50.0,
+            "expected": 50.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_height",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "base_thickness",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "wall_height_above_base",
+            "actual": 12.0,
+            "expected": 12.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "wall_thickness_x",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "wall_thickness_y",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 18048.0,
+            "expected": 18048.0,
+            "tolerance": 0.5,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "plane": 11
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 27990,
+      "usage": {
+        "input_tokens": 27577,
+        "output_tokens": 2072,
+        "total_tokens": 29649,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "stacked_knob",
+      "category": "stacked_reading",
+      "model_id": "local/claude",
+      "run_id": "b0d5baa2-6c14-4bca-9c28-26e94871d313",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 30.0,
+          "expected": {
+            "target": 30.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_boss": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "diameter_mm": 30.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 boss of diameter 30 mm."
+        },
+        "feature_1_boss": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "diameter_mm": 15.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 boss of diameter 15 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 7775.442,
+        "bounding_box_mm": {
+          "x": 30.0,
+          "y": 30.0,
+          "z": 20.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "overall_diameter",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_height",
+            "actual": 20.0,
+            "expected": 20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "base_height",
+            "actual": 8.0,
+            "expected": 8.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "stem_height",
+            "actual": 12.0,
+            "expected": 12.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "stem_diameter",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "base_diameter",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "stem_concentric_offset",
+            "actual": 9.617786882451413e-16,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [
+            {
+              "diameter_mm": 15.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 12.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  14.0
+                ]
+              ]
+            },
+            {
+              "diameter_mm": 30.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 8.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  4.0
+                ]
+              ]
+            }
+          ],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 2,
+            "plane": 3
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 46082,
+      "usage": {
+        "input_tokens": 50433,
+        "output_tokens": 4144,
+        "total_tokens": 54577,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "stacked_open_box",
+      "category": "stacked_reading",
+      "model_id": "local/claude",
+      "run_id": "ce274c56-e983-429a-a99a-e3c0a715480c",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 60.0,
+          "expected": {
+            "target": 60.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 24.0,
+          "expected": {
+            "target": 24.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 20880.0,
+          "expected": {
+            "target": 20880.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 20880.0,
+        "bounding_box_mm": {
+          "x": 60.0,
+          "y": 40.0,
+          "z": 24.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "outer_length",
+            "actual": 60.0,
+            "expected": 60.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "outer_width",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_height",
+            "actual": 24.0,
+            "expected": 24.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "floor_thickness",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "wall_rise_above_floor",
+            "actual": 20.0,
+            "expected": 20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "wall_thickness_x",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "wall_thickness_y",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 20880.0,
+            "expected": 20880.0,
+            "tolerance": 0.5,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "plane": 11
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 24758,
+      "usage": {
+        "input_tokens": 27439,
+        "output_tokens": 1800,
+        "total_tokens": 29239,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "stacked_lid_lip",
+      "category": "stacked_reading",
+      "model_id": "local/claude",
+      "run_id": "d9cc160f-6b76-4171-8c80-688bf89d73b1",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 70.0,
+          "expected": {
+            "target": 70.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 7.0,
+          "expected": {
+            "target": 7.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "volume": {
+          "passed": true,
+          "value": 12260.0,
+          "expected": {
+            "target": 12260.0,
+            "tolerance_percent": 1.0
+          },
+          "message": "Volume was within tolerance."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 12260.0,
+        "bounding_box_mm": {
+          "x": 70.0,
+          "y": 50.0,
+          "z": 7.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "overall_length",
+            "actual": 70.0,
+            "expected": 70.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_width",
+            "actual": 50.0,
+            "expected": 50.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_height",
+            "actual": 7.0,
+            "expected": 7.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "lip_outer_length",
+            "actual": 67.0,
+            "expected": 67.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "lip_outer_width",
+            "actual": 47.0,
+            "expected": 47.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "lip_inset_x",
+            "actual": 1.5,
+            "expected": 1.5,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "lip_inset_y",
+            "actual": 1.5,
+            "expected": 1.5,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "lip_depth",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "lip_wall_thickness",
+            "actual": 2.0000000000000004,
+            "expected": 2.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_thickness",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 12259.999999999996,
+            "expected": 12260.0,
+            "tolerance": 0.1,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "plane": 16
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 28325,
+      "usage": {
+        "input_tokens": 27892,
+        "output_tokens": 2241,
+        "total_tokens": 30133,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "holes_corner_four",
+      "category": "hole_pattern",
+      "model_id": "local/claude",
+      "run_id": "2cdd2ec5-23db-416a-8be5-77a0712c6085",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 80.0,
+          "expected": {
+            "target": 80.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 6.0,
+          "expected": {
+            "target": 6.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 4,
+            "center_span_mm": {
+              "x": 68.0,
+              "y": 38.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 4.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 68.0,
+              "y": 38.0
+            }
+          },
+          "message": "Found 4 hole of diameter 4 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 23698.407,
+        "bounding_box_mm": {
+          "x": 80.0,
+          "y": 50.0,
+          "z": 6.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "plate_length",
+            "actual": 80.0,
+            "expected": 80.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_width",
+            "actual": 50.0,
+            "expected": 50.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_thickness",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "hole_0_diameter",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_0_x_edge_dist",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_0_y_edge_dist",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_0_through_length",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_1_diameter",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_1_x_edge_dist",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_1_y_edge_dist",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_1_through_length",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_2_diameter",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_2_x_edge_dist",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_2_y_edge_dist",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_2_through_length",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_3_diameter",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_3_x_edge_dist",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_3_y_edge_dist",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_3_through_length",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 23698.40710525537,
+            "expected": 23698.40710525538,
+            "tolerance": 0.5,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 4.0,
+              "count": 4,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 6.0,
+              "centers_mm": [
+                [
+                  -34.0,
+                  -19.0,
+                  3.0
+                ],
+                [
+                  34.0,
+                  -19.0,
+                  3.0
+                ],
+                [
+                  -34.0,
+                  19.0,
+                  3.0
+                ],
+                [
+                  34.0,
+                  19.0,
+                  3.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 4,
+            "plane": 6
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 42557,
+      "usage": {
+        "input_tokens": 41180,
+        "output_tokens": 3472,
+        "total_tokens": 44652,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "holes_bolt_circle",
+      "category": "hole_pattern",
+      "model_id": "local/claude",
+      "run_id": "8d02fadd-92de-4104-8b20-642ec06d6382",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 60.0,
+          "expected": {
+            "target": 60.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 60.0,
+          "expected": {
+            "target": 60.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 5.0,
+          "expected": {
+            "target": 5.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 6
+          },
+          "expected": {
+            "diameter_mm": 5.0,
+            "count": 6,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 6 hole of diameter 5 mm."
+        },
+        "feature_1_hole": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "diameter_mm": 20.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 hole of diameter 20 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 11977.322,
+        "bounding_box_mm": {
+          "x": 60.0,
+          "y": 60.0,
+          "z": 5.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "disc_diameter_x",
+            "actual": 60.0,
+            "expected": 60.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "disc_diameter_y",
+            "actual": 60.0,
+            "expected": 60.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "disc_thickness",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "bolt_hole_count",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "center_hole_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "center_hole_diameter",
+            "actual": 20.0,
+            "expected": 20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "center_hole_offset",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "bolt_circle_min_diameter",
+            "actual": 44.0,
+            "expected": 44.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "bolt_circle_max_diameter",
+            "actual": 44.0,
+            "expected": 44.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "bolt_neighbour_min",
+            "actual": 21.999999999999996,
+            "expected": 22.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "bolt_neighbour_max",
+            "actual": 22.0,
+            "expected": 22.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 11977.32199181109,
+            "expected": 11977.321991811086,
+            "tolerance": 1.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 5.0,
+              "count": 6,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 5.0,
+              "centers_mm": [
+                [
+                  -11.0,
+                  -19.053,
+                  2.5
+                ],
+                [
+                  11.0,
+                  -19.053,
+                  2.5
+                ],
+                [
+                  22.0,
+                  0.0,
+                  2.5
+                ],
+                [
+                  -22.0,
+                  0.0,
+                  2.5
+                ],
+                [
+                  -11.0,
+                  19.053,
+                  2.5
+                ],
+                [
+                  11.0,
+                  19.053,
+                  2.5
+                ]
+              ]
+            },
+            {
+              "diameter_mm": 20.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 5.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  2.5
+                ]
+              ]
+            }
+          ],
+          "bosses": [
+            {
+              "diameter_mm": 60.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 5.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  2.5
+                ]
+              ]
+            }
+          ],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 8,
+            "plane": 2
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 65087,
+      "usage": {
+        "input_tokens": 56888,
+        "output_tokens": 6911,
+        "total_tokens": 63799,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "holes_vent_grid",
+      "category": "hole_pattern",
+      "model_id": "local/claude",
+      "run_id": "116a79c1-4533-432a-8670-e2b76df616e9",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 100.0,
+          "expected": {
+            "target": 100.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 60.0,
+          "expected": {
+            "target": 60.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 3.0,
+          "expected": {
+            "target": 3.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 15,
+            "center_span_mm": {
+              "x": 60.0,
+              "y": 30.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 6.0,
+            "count": 15,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 60.0,
+              "y": 30.0
+            }
+          },
+          "message": "Found 15 hole of diameter 6 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 16727.655,
+        "bounding_box_mm": {
+          "x": 100.0,
+          "y": 60.0,
+          "z": 3.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "length",
+            "actual": 100.0,
+            "expected": 100.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "width",
+            "actual": 60.0,
+            "expected": 60.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "thickness",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_count",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "hole_diameter",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "col_count",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "row_count",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "x_pitch_min",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "x_pitch_max",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "y_pitch_min",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "y_pitch_max",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "grid_centre_x",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "grid_centre_y",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_through_depth",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 16727.65497529615,
+            "expected": 16727.654975296133,
+            "tolerance": 0.5,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 6.0,
+              "count": 15,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 3.0,
+              "centers_mm": [
+                [
+                  -30.0,
+                  -15.0,
+                  0.0
+                ],
+                [
+                  -15.0,
+                  -15.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  -15.0,
+                  0.0
+                ],
+                [
+                  15.0,
+                  -15.0,
+                  0.0
+                ],
+                [
+                  30.0,
+                  -15.0,
+                  0.0
+                ],
+                [
+                  -30.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  -15.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  -30.0,
+                  15.0,
+                  0.0
+                ],
+                [
+                  -15.0,
+                  15.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  15.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  30.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  15.0,
+                  0.0
+                ],
+                [
+                  15.0,
+                  15.0,
+                  0.0
+                ],
+                [
+                  30.0,
+                  15.0,
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 15,
+            "plane": 6
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 42362,
+      "usage": {
+        "input_tokens": 40430,
+        "output_tokens": 3686,
+        "total_tokens": 44116,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "holes_counterbored",
+      "category": "hole_pattern",
+      "model_id": "local/claude",
+      "run_id": "c7e19081-870a-4350-b76b-62234225fe0d",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 50.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 10.0,
+          "expected": {
+            "target": 10.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 4,
+            "center_span_mm": {
+              "x": 36.0,
+              "y": 36.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 4.5,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 36.0,
+              "y": 36.0
+            }
+          },
+          "message": "Found 4 hole of diameter 4.5 mm."
+        },
+        "feature_1_hole": {
+          "passed": true,
+          "value": {
+            "count": 4,
+            "center_span_mm": {
+              "x": 36.0,
+              "y": 36.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 8.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 36.0,
+              "y": 36.0
+            }
+          },
+          "message": "Found 4 hole of diameter 8 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 23814.049,
+        "bounding_box_mm": {
+          "x": 50.0,
+          "y": 50.0,
+          "z": 10.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "overall_x",
+            "actual": 50.0,
+            "expected": 50.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_y",
+            "actual": 50.0,
+            "expected": 50.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "overall_z",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "through_hole_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "cbore_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "through_hole_diameter",
+            "actual": 4.5,
+            "expected": 4.5,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "cbore_diameter",
+            "actual": 8.0,
+            "expected": 8.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "through_hole_min_z",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "cbore_depth",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_x_positions",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "hole_y_positions",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "hole_spacing_x",
+            "actual": 36.0,
+            "expected": 36.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_spacing_y",
+            "actual": 36.0,
+            "expected": 36.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "pattern_centered_x",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "pattern_centered_y",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "cbore_concentric_max_offset",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "volume",
+            "actual": 23814.048773269842,
+            "expected": 23814.048774625,
+            "tolerance": 1.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 4.5,
+              "count": 4,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 6.0,
+              "centers_mm": [
+                [
+                  -18.0,
+                  -18.0,
+                  3.0
+                ],
+                [
+                  18.0,
+                  -18.0,
+                  3.0
+                ],
+                [
+                  -18.0,
+                  18.0,
+                  3.0
+                ],
+                [
+                  18.0,
+                  18.0,
+                  3.0
+                ]
+              ]
+            },
+            {
+              "diameter_mm": 8.0,
+              "count": 4,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 4.0,
+              "centers_mm": [
+                [
+                  -18.0,
+                  -18.0,
+                  8.0
+                ],
+                [
+                  18.0,
+                  -18.0,
+                  8.0
+                ],
+                [
+                  -18.0,
+                  18.0,
+                  8.0
+                ],
+                [
+                  18.0,
+                  18.0,
+                  8.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 8,
+            "plane": 10
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 60987,
+      "usage": {
+        "input_tokens": 55730,
+        "output_tokens": 6504,
+        "total_tokens": 62234,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_thickness_keeps_features",
+      "category": "edit_regression",
+      "model_id": "local/claude",
+      "run_id": "41d33b3e-5788-4e98-8a6f-b63d779c71d6",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 70.0,
+          "expected": {
+            "target": 70.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 8.0,
+          "expected": {
+            "target": 8.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 2,
+            "center_span_mm": {
+              "x": 40.0,
+              "y": 0.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 6.0,
+            "count": 2,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 40.0
+            }
+          },
+          "message": "Found 2 hole of diameter 6 mm."
+        },
+        "feature_1_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "radius_mm": 4.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 4 rounded edge of radius 4 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 21837.735,
+        "bounding_box_mm": {
+          "x": 70.0,
+          "y": 40.0,
+          "z": 8.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "plate_thickness",
+            "actual": 8.0,
+            "expected": 8.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_length",
+            "actual": 70.0,
+            "expected": 70.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_width",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_count",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "hole_diameter",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_left_x",
+            "actual": -20.0,
+            "expected": -20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_right_x",
+            "actual": 20.0,
+            "expected": 20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_max_abs_y",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_depth",
+            "actual": 8.0,
+            "expected": 8.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "corner_fillet_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 6.0,
+              "count": 2,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 8.0,
+              "centers_mm": [
+                [
+                  -20.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  20.0,
+                  0.0,
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [
+            {
+              "radius_mm": 4.0,
+              "count": 4,
+              "surface": "cylinder"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 6,
+            "plane": 6
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 35362,
+      "usage": {
+        "input_tokens": 39578,
+        "output_tokens": 2794,
+        "total_tokens": 42372,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_hole_size_keeps_corners",
+      "category": "edit_regression",
+      "model_id": "local/claude",
+      "run_id": "47187baf-8eb5-4b6d-8367-672e868c39d9",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 70.0,
+          "expected": {
+            "target": 70.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 5.0,
+          "expected": {
+            "target": 5.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 2,
+            "center_span_mm": {
+              "x": 40.0,
+              "y": 0.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 8.0,
+            "count": 2,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 40.0
+            }
+          },
+          "message": "Found 2 hole of diameter 8 mm."
+        },
+        "feature_1_hole": {
+          "passed": true,
+          "value": {
+            "count": 0
+          },
+          "expected": {
+            "diameter_mm": 6.0,
+            "count": 0,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 0 hole of diameter 6 mm."
+        },
+        "feature_2_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "radius_mm": 4.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 4 rounded edge of radius 4 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 13428.673,
+        "bounding_box_mm": {
+          "x": 70.0,
+          "y": 40.0,
+          "z": 5.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "hole_count",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "hole_0_diameter",
+            "actual": 8.0,
+            "expected": 8.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_1_diameter",
+            "actual": 8.0,
+            "expected": 8.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_spacing",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_center_symmetry",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "length",
+            "actual": 70.0,
+            "expected": 70.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "width",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "thickness",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 8.0,
+              "count": 2,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 5.0,
+              "centers_mm": [
+                [
+                  -20.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  20.0,
+                  0.0,
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [
+            {
+              "radius_mm": 4.0,
+              "count": 4,
+              "surface": "cylinder"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 6,
+            "plane": 6
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 40490,
+      "usage": {
+        "input_tokens": 49599,
+        "output_tokens": 3496,
+        "total_tokens": 53095,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_add_centre_hole",
+      "category": "edit_regression",
+      "model_id": "local/claude",
+      "run_id": "bb594b9c-b364-4bb6-a3c2-67f3c049cd14",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 70.0,
+          "expected": {
+            "target": 70.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 5.0,
+          "expected": {
+            "target": 5.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 3,
+            "center_span_mm": {
+              "x": 40.0,
+              "y": 0.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 6.0,
+            "count": 3,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 40.0
+            }
+          },
+          "message": "Found 3 hole of diameter 6 mm."
+        },
+        "feature_1_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "radius_mm": 4.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 4 rounded edge of radius 4 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 13507.212,
+        "bounding_box_mm": {
+          "x": 70.0,
+          "y": 40.0,
+          "z": 5.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "length",
+            "actual": 70.0,
+            "expected": 70.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "width",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "thickness",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_count",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "left_hole_x",
+            "actual": -20.0,
+            "expected": -20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "center_hole_x",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "right_hole_x",
+            "actual": 20.0,
+            "expected": 20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "center_hole_at_origin",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "center_hole_diameter",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "center_hole_removed_volume",
+            "actual": 141.371669411541,
+            "expected": 141.3716694115407,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 6.0,
+              "count": 3,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 5.0,
+              "centers_mm": [
+                [
+                  -20.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  0.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  20.0,
+                  0.0,
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [
+            {
+              "radius_mm": 4.0,
+              "count": 4,
+              "surface": "cylinder"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 7,
+            "plane": 6
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 52995,
+      "usage": {
+        "input_tokens": 52990,
+        "output_tokens": 4723,
+        "total_tokens": 57713,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "edit_lengthen_keeps_offsets",
+      "category": "edit_regression",
+      "model_id": "local/claude",
+      "run_id": "51e91318-19a4-4354-b80d-9c952cb6633e",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 90.0,
+          "expected": {
+            "target": 90.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 5.0,
+          "expected": {
+            "target": 5.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 2,
+            "center_span_mm": {
+              "x": 60.0,
+              "y": 0.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 6.0,
+            "count": 2,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 60.0
+            }
+          },
+          "message": "Found 2 hole of diameter 6 mm."
+        },
+        "feature_1_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "radius_mm": 4.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 4 rounded edge of radius 4 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 17648.584,
+        "bounding_box_mm": {
+          "x": 90.0,
+          "y": 40.0,
+          "z": 5.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "plate_length",
+            "actual": 90.0,
+            "expected": 90.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_width",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_thickness",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_count",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "left_hole_from_end",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "right_hole_from_end",
+            "actual": 15.0,
+            "expected": 15.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_centre_y",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "hole_diameter",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 6.0,
+              "count": 2,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 5.0,
+              "centers_mm": [
+                [
+                  -30.0,
+                  0.0,
+                  0.0
+                ],
+                [
+                  30.0,
+                  0.0,
+                  0.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [
+            {
+              "radius_mm": 4.0,
+              "count": 4,
+              "surface": "cylinder"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 6,
+            "plane": 6
+          }
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 37224,
+      "usage": {
+        "input_tokens": 39225,
+        "output_tokens": 2893,
+        "total_tokens": 42118,
+        "cost_usd": 0.0
+      },
+      "error": null
+    }
+  ]
+}
