@@ -48,6 +48,15 @@ The agent reads the current design, plans the change, then calls `build_model`.
 The CAD tool executes code in Nfinit's sandbox and returns:
 
 - kernel validity, solid count, volume and bounds;
+- each solid's volume and bounds. An inside-out solid (negative volume) or an
+  open one makes the build invalid. Closedness uses the kernel's free-boundary
+  analysis, because build123d's `is_manifold` rejects plain spheres, cones and
+  filleted boxes;
+- a census of holes, bosses and rounded edges counted from the faces, and how
+  many faces each registered feature owns;
+- warnings for parts that built but are probably wrong: extra solids (a
+  feature that does not touch the part) and registered features that own no
+  faces of the final part;
 - explicitly authored measurements and any failures;
 - top, front and isometric images;
 - envelope and volume comparison against an imported STL, where available.
