@@ -44,8 +44,14 @@ turn visual doubts into measurements, and never drop a requested feature to make
 a build pass. Each pitfall is reproduced by a test in
 `backend/tests/test_prompt_pitfalls.py`.
 
-The agent reads the current design, plans the change, then calls `build_model`.
-The CAD tool executes code in Nfinit's sandbox and returns:
+The agent reads the current design and plans the change. Before its first
+build it must call `declare_requirements` with the overall size, the expected
+number of solids, one requirement per requested number, count or feature, and
+its assumptions; `build_model` refuses to run until it has. Numbers in the
+request that no requirement covers come back as a warning.
+
+The agent then calls `build_model`. The CAD tool executes code in Nfinit's
+sandbox and returns:
 
 - kernel validity, solid count, volume and bounds;
 - each solid's volume and bounds. An inside-out solid (negative volume) or an
@@ -58,15 +64,59 @@ The CAD tool executes code in Nfinit's sandbox and returns:
   feature that does not touch the part) and registered features that own no
   faces of the final part;
 - explicitly authored measurements and any failures;
-- top, front and isometric images;
-- envelope and volume comparison against an imported STL, where available.
+- two shaded views from opposite corners, which together show every side,
+  drawn in the same sandbox run as the inspection;
+- envelope and volume comparison against an imported STL, where available;
+- an acceptance table: each declared requirement as passed, failed,
+  unverified or judged from images. A requirement passes only through a
+  `check_measurement` named with its id that measures built geometry; a check
+  that compares an input with itself is rejected. A wrong overall size or
+  solid count makes the build an error.
+
+Between builds the agent can call `inspect_model` to ask about the current
+part without rebuilding it or using a build: its faces (filtered by surface,
+feature, direction or area), one face and its edges, its edges, the distance
+between two faces, edges, features or points, and the area and loops of a
+plane section. Face ids are the ones the studio's selection uses, so for an
+edit with a selected face the agent first looks up exactly what was picked.
+It has 20 questions per run.
+
+`view_model` draws up to four more views per call, 12 per run: any preset
+(iso, front, top, ...) or azimuth and elevation, in shaded, hidden-line or
+x-ray mode, with an optional section cut (cut faces drawn red), a face or
+feature to focus on, and faces or features to highlight. The renderer in
+`backend/execution/render.py` runs inside the sandbox: it shades the part's
+own tessellation and draws exact edges from the kernel's hidden-line removal,
+with a scale bar and an axis triad. Images show arrangement only; dimensions
+come from measurements.
+
+Parts are assumed to be 3D printed. Before its summary the agent calls
+`check_printability` (three times per run at most), and the backend checks the
+saved part once more. The check measures, inside the sandbox:
+
+- bed fit, including a 90 degree turn;
+- wall thickness, from 2,000 inward rays at fixed sample points;
+- overhangs steeper than the profile's limit, excluding faces on the bed, with
+  the largest areas located;
+- an upper bound on support volume;
+- the six axis-aligned orientations ranked by overhang area;
+- holes below the minimum size, and sealed cavities.
+
+Findings compare these with a print profile: conservative FDM defaults (220 ×
+220 × 250 mm bed, 1.2 mm walls, 45 degree overhangs, 2 mm holes) that a request
+can override with `printProfile`. The defaults come from public design guides
+and are starting points, not physics. Bridges, minimum feature size, warping
+and strength are reported as not measured.
 
 The agent can repair and rebuild up to eight times within the run deadline.
-The backend independently rebuilds the final source before accepting it. A
+The backend independently rebuilds the final source before accepting it, and
+computes the final acceptance verdict itself: `verified` when every measurable
+requirement passed, `partial` when some are unverified, `failed` when any
+failed. A
 model without authored measurement checks is marked `unverified`; passing those
 checks establishes only the quantities checked. They are agent-authored tests,
-not an independent mechanical certification. Render failures remain explicit.
-Preview rendering samples meshes over 15,000 triangles and is not metrology.
+not an independent mechanical certification. Render failures remain explicit:
+a view that cannot be drawn is reported by name. Views are not metrology.
 
 `check_measurement(name, actual, expected, tolerance=0.01)` must measure built
 geometry, never repeat the requested parameter. Failed checks make inspection
