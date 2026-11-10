@@ -310,7 +310,10 @@ them against the request.
 </role>"""
 
 LOCAL_PROCEDURE = """<procedure>
-1. Call current_design to read the current code and the request.
+1. Call current_design to read the current code and the request. When the
+   request has a selected face with an entityId, call inspect_model with
+   {"kind": "face", "face_id": <entityId>} before changing anything, to learn
+   exactly which face the user picked and which feature made it.
 2. Plan, then call declare_requirements before building. Give the overall
    size in one sentence and in bounding_box_mm (null for an axis the request
    leaves free), reading dimensions with the rules below, and the expected
@@ -321,7 +324,9 @@ LOCAL_PROCEDURE = """<procedure>
    check_measurement named with the requirement's id, measured on the built
    geometry.
 4. Review the result: the acceptance table first, then the measurements, the
-   census and warnings, then the images. Every requirement should pass.
+   census and warnings, then the images. Every requirement should pass. To
+   learn about a face, an edge, a distance or a cross-section, call
+   inspect_model; do not rebuild just to measure.
 5. Repair and rebuild until the part matches the request, at most eight builds.
 6. End with the summary the review rules describe.
 </procedure>"""

@@ -175,3 +175,47 @@ def test_both_clis_may_call_declare_requirements(monkeypatch, tmp_path):
 
     assert "mcp__nfinit__declare_requirements" in agent_command("local/claude", tmp_path, [])
     assert any("declare_requirements.approval_mode" in arg for arg in agent_command("local/codex", tmp_path, []))
+
+
+def test_inspect_model_answers_about_the_last_part_that_built(tmp_path, monkeypatch):
+    from agent.models import ModelInspection
+
+    asked = []
+    monkeypatch.setattr("agent.cad_mcp.query_code", lambda code, query: asked.append((code, query)) or {"count": 0})
+    monkeypatch.setattr("agent.cad_mcp.model_views", lambda code: [])
+    tools = CadTools(tmp_path)
+
+    with pytest.raises(ValueError, match="no part yet"):
+        tools.call("inspect_model", {"query": {"kind": "summary"}})
+
+    tools.call("declare_requirements", declared(bounding_box_mm={}, solid_count=None, requirements=[]))
+    monkeypatch.setattr("agent.cad_mcp.inspect_code", lambda code: ModelInspection(valid=True))
+    tools.call("build_model", {"code": "result = Box(1, 1, 1)"})
+    monkeypatch.setattr("agent.cad_mcp.inspect_code", lambda code: ModelInspection(valid=False, error="broken"))
+    tools.call("build_model", {"code": "result = broken"})
+    tools.call("inspect_model", {"query": {"kind": "faces"}})
+
+    assert asked == [("result = Box(1, 1, 1)", {"kind": "faces"})]
+    assert tools.builds == 2
+
+
+def test_inspect_model_has_a_budget(tmp_path, monkeypatch):
+    monkeypatch.setattr("agent.cad_mcp.query_code", lambda code, query: {})
+    (tmp_path / "built.py").write_text("result = Box(1, 1, 1)")
+    tools = CadTools(tmp_path)
+    for _ in range(20):
+        tools.call("inspect_model", {"query": {"kind": "summary"}})
+    with pytest.raises(ValueError, match="budget"):
+        tools.call("inspect_model", {"query": {"kind": "summary"}})
+
+
+def test_starting_design_can_be_inspected_before_a_build(tmp_path):
+    from agent.local import prepare_input
+    from agent.models import CadRunRequest
+
+    request = CadRunRequest(modelId="local/codex", code="result = Box(1, 1, 1)",
+                            messages=[{"role": "user", "content": "Add a hole here"}])
+    prepare_input(request, tmp_path)
+
+    assert (tmp_path / "built.py").read_text() == "result = Box(1, 1, 1)"
+    assert (tmp_path / "request.txt").read_text() == "Add a hole here"

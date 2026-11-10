@@ -1,6 +1,8 @@
 import json
 import logging
+import math
 import os
+import re
 import shutil
 import site
 import subprocess
@@ -27,7 +29,7 @@ from .topology import TopologyAnalysis
 
 logger = logging.getLogger(__name__)
 
-SandboxOperation = Literal["inspect", "topology", "glb", "step", "brep", "stl"]
+SandboxOperation = Literal["inspect", "topology", "query", "glb", "step", "brep", "stl"]
 
 ISOLATED_BOOTSTRAP = (
     "import json,runpy,sys;"
@@ -247,6 +249,7 @@ def _run_worker(
     worker_path: Path | None = None,
     selection: FaceSelection | None = None,
     snapshots: bool = False,
+    query: dict | None = None,
 ) -> dict:
     worker = worker_path or Path(__file__).with_name("worker.py")
     timeout = timeout_seconds or float(
@@ -259,6 +262,8 @@ def _run_worker(
         payload["selection"] = selection.model_dump(mode="json")
     if snapshots:
         payload["snapshots"] = True
+    if query is not None:
+        payload["query"] = query
 
     # Waiting for a free slot counts against the same deadline as the job.
     if not _job_slots.acquire(timeout=timeout):
@@ -319,8 +324,98 @@ def analyze_code(
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
+QUERY_KINDS = ("summary", "faces", "face", "edges", "distance", "section")
+ENTITY_ID = re.compile(r"(face|edge)_[0-9a-f]{20}|[a-z][a-z0-9_]{0,63}")
+SURFACE_TYPES = ("plane", "cylinder", "cone", "sphere", "torus", "bspline", "bezier",
+                 "revolution", "extrusion", "offset", "other")
+CURVE_TYPES = ("line", "circle", "ellipse", "hyperbola", "parabola", "bezier", "bspline",
+               "offset", "other")
+
+
+def _number(value, name: str, low: float = -1e6, high: float = 1e6) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) \
+            or not low <= value <= high:
+        raise ValueError(f"{name} must be a number from {low:g} to {high:g}.")
+    return float(value)
+
+
+def _entity(value, name: str):
+    if isinstance(value, list):
+        if len(value) != 3:
+            raise ValueError(f"{name} as a point needs three coordinates.")
+        return [_number(item, name) for item in value]
+    if not isinstance(value, str) or not ENTITY_ID.fullmatch(value):
+        raise ValueError(f"{name} must be a face id, an edge id, a feature id or [x, y, z].")
+    return value
+
+
+def validate_query(query) -> dict:
+    """A bounded copy of an inspect_model query, or ValueError."""
+    if not isinstance(query, dict) or query.get("kind") not in QUERY_KINDS:
+        raise ValueError(f"query.kind must be one of {', '.join(QUERY_KINDS)}.")
+    kind = query["kind"]
+    allowed = {
+        "summary": set(),
+        "faces": {"surface_type", "feature_id", "normal", "min_area_mm2", "limit"},
+        "face": {"face_id"},
+        "edges": {"curve_type", "feature_id", "limit"},
+        "distance": {"a", "b"},
+        "section": {"axis", "at"},
+    }[kind]
+    unknown = set(query) - allowed - {"kind"}
+    if unknown:
+        raise ValueError(f"A {kind} query does not take: {', '.join(sorted(unknown))}.")
+    clean: dict = {"kind": kind}
+    if "limit" in query:
+        clean["limit"] = int(_number(query["limit"], "limit", 1, 50))
+    if "surface_type" in query:
+        if query["surface_type"] not in SURFACE_TYPES:
+            raise ValueError(f"surface_type must be one of {', '.join(SURFACE_TYPES)}.")
+        clean["surface_type"] = query["surface_type"]
+    if "curve_type" in query:
+        if query["curve_type"] not in CURVE_TYPES:
+            raise ValueError(f"curve_type must be one of {', '.join(CURVE_TYPES)}.")
+        clean["curve_type"] = query["curve_type"]
+    if "feature_id" in query:
+        clean["feature_id"] = _entity(query["feature_id"], "feature_id")
+    if "normal" in query:
+        normal = query["normal"]
+        if not isinstance(normal, list) or len(normal) != 3:
+            raise ValueError("normal must be [x, y, z].")
+        clean["normal"] = [_number(value, "normal", -1, 1) for value in normal]
+        if not any(clean["normal"]):
+            raise ValueError("normal must not be zero.")
+    if "min_area_mm2" in query:
+        clean["min_area_mm2"] = _number(query["min_area_mm2"], "min_area_mm2", 0, 1e12)
+    if kind == "face":
+        face_id = query.get("face_id")
+        if not isinstance(face_id, str) or not re.fullmatch(r"face_[0-9a-f]{20}", face_id):
+            raise ValueError("face_id must be a face id such as face_0123456789abcdef0123.")
+        clean["face_id"] = face_id
+    if kind == "distance":
+        clean["a"] = _entity(query.get("a"), "a")
+        clean["b"] = _entity(query.get("b"), "b")
+    if kind == "section":
+        if query.get("axis") not in ("x", "y", "z"):
+            raise ValueError("axis must be x, y or z.")
+        clean["axis"] = query["axis"]
+        clean["at"] = _number(query.get("at"), "at")
+    return clean
+
+
+def query_code(code: str, query: dict) -> dict:
+    """Build the code once and answer one question about the part."""
+    clean = validate_query(query)
+    validate_cad_code(code)
+    work_dir = Path(tempfile.mkdtemp(prefix="nfinit-query-"))
+    try:
+        return _run_worker(code, "query", work_dir, query=clean)
+    finally:
+        shutil.rmtree(work_dir, ignore_errors=True)
+
+
 def export_code(code: str, operation: SandboxOperation) -> SandboxArtifact:
-    if operation in ("inspect", "topology"):
+    if operation in ("inspect", "topology", "query"):
         raise ValueError("Use the corresponding analysis function.")
     try:
         validate_cad_code(code)

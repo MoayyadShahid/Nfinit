@@ -15,11 +15,42 @@ from agent.acceptance import (  # noqa: E402
     parse_requirements,
     uncovered_numbers,
 )
-from execution import inspect_code  # noqa: E402
+from execution import inspect_code, query_code  # noqa: E402
 from execution.references import compare_reference, model_views  # noqa: E402
 
 MAX_BUILDS = 8
 MAX_DECLARATIONS = 4
+MAX_QUERIES = 20
+
+QUERY_SCHEMA = {
+    "type": "object",
+    "properties": {"query": {
+        "type": "object",
+        "description": (
+            "kind is one of: summary; faces (optional surface_type, feature_id, normal [x, y, z], "
+            "min_area_mm2, limit); face (face_id); edges (optional curve_type, feature_id, limit); "
+            "distance (a, b: each a face id, edge id, feature id or [x, y, z]); "
+            "section (axis x|y|z, at in mm)."),
+        "properties": {
+            "kind": {"enum": ["summary", "faces", "face", "edges", "distance", "section"]},
+            "surface_type": {"type": "string"},
+            "curve_type": {"type": "string"},
+            "feature_id": {"type": "string"},
+            "face_id": {"type": "string"},
+            "normal": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
+            "min_area_mm2": {"type": "number", "minimum": 0},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+            "a": {"type": ["string", "array"]},
+            "b": {"type": ["string", "array"]},
+            "axis": {"enum": ["x", "y", "z"]},
+            "at": {"type": "number"},
+        },
+        "required": ["kind"],
+        "additionalProperties": False,
+    }},
+    "required": ["query"],
+    "additionalProperties": False,
+}
 
 TOOLS = [
     {"name": "current_design", "description": "Read the current CAD source and request context.",
@@ -39,6 +70,14 @@ TOOLS = [
      "annotations": {"readOnlyHint": False, "destructiveHint": False, "openWorldHint": False},
      "inputSchema": {"type": "object", "properties": {"code": {"type": "string", "maxLength": 100000}},
                      "required": ["code"], "additionalProperties": False}},
+    {"name": "inspect_model", "description": (
+        "Ask about the current part (the last one that built, or the starting design), without "
+        "rebuilding: its faces, one face and its "
+        "edges, its edges, the distance between two faces, edges, features or points, or a "
+        "plane section. Face ids are the ones the studio's selection uses. Does not use the "
+        "build budget."),
+     "annotations": {"readOnlyHint": True, "destructiveHint": False, "openWorldHint": False},
+     "inputSchema": QUERY_SCHEMA},
 ]
 
 
@@ -47,6 +86,7 @@ class CadTools:
         self.workspace = workspace
         self.builds = 0
         self.declarations = 0
+        self.queries = 0
 
     def call(self, name, arguments):
         if name == "current_design":
@@ -54,6 +94,8 @@ class CadTools:
                                  + "\nCurrent code:\n" + (self.workspace / "model.py").read_text()}]}
         if name == "declare_requirements":
             return self.declare(arguments)
+        if name == "inspect_model":
+            return self.inspect(arguments)
         if name != "build_model":
             raise ValueError("Unknown CAD tool.")
         return self.build(arguments)
@@ -79,6 +121,16 @@ class CadTools:
             )
         return {"content": [{"type": "text", "text": json.dumps(result)}]}
 
+    def inspect(self, arguments):
+        built = self.workspace / "built.py"
+        if not built.exists():
+            raise ValueError("There is no part yet. Call build_model first.")
+        if self.queries >= MAX_QUERIES:
+            raise ValueError("The 20-question budget is exhausted. Use the build results you have.")
+        self.queries += 1
+        answer = query_code(built.read_text(), arguments.get("query"))
+        return {"content": [{"type": "text", "text": json.dumps(answer)}]}
+
     def build(self, arguments):
         code = arguments.get("code")
         if not isinstance(code, str) or len(code.encode()) > 100000:
@@ -94,6 +146,9 @@ class CadTools:
             inspection.reference_comparison = compare_reference(inspection, json.loads((self.workspace / "reference.json").read_text()))
         inspection.acceptance = evaluate(requirements, inspection.model_dump(), code)
         (self.workspace / "model.py").write_text(code)
+        if inspection.valid:
+            # inspect_model answers about the last part that built.
+            (self.workspace / "built.py").write_text(code)
         (self.workspace / "inspection.json").write_text(inspection.model_dump_json())
         content = [{"type": "text", "text": inspection.model_dump_json()}]
         if inspection.valid:
