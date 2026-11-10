@@ -37,6 +37,7 @@ const EDGE_COLOR = new THREE.Color(0x1b1e24);
 const HOVER_GLOW = new THREE.Color(0x4f8ff7);
 const FEATURE_GLOW = new THREE.Color(0x3b82f6);
 const SELECTED_GLOW = new THREE.Color(0xf26b3a);
+const WARNING_GLOW = new THREE.Color(0xf59e0b);
 
 const THUMBNAIL_WIDTH = 480;
 const THUMBNAIL_HEIGHT = 360;
@@ -130,6 +131,7 @@ function ClickableModel({
   onInfo,
   selectedFaceId,
   featureFaceIds,
+  warningFaceIds,
   interactive = true,
   fitRequest = 0,
 }: {
@@ -142,6 +144,7 @@ function ClickableModel({
   onInfo?: (info: ModelInfo) => void;
   selectedFaceId?: string | null;
   featureFaceIds?: ReadonlySet<string>;
+  warningFaceIds?: ReadonlySet<string>;
 }) {
   const { scene } = useGLTF(url);
   const [hoveredFaceId, setHoveredFaceId] = useState<string | null>(null);
@@ -191,6 +194,9 @@ function ClickableModel({
       } else if (faceId && faceId === hoveredFaceId) {
         material.emissive.copy(HOVER_GLOW);
         material.emissiveIntensity = 0.28;
+      } else if (faceId && warningFaceIds?.has(faceId)) {
+        material.emissive.copy(WARNING_GLOW);
+        material.emissiveIntensity = 0.5;
       } else if (
         (faceId && featureFaceIds?.has(faceId)) ||
         (glowNew && child.userData.isNew)
@@ -202,7 +208,7 @@ function ClickableModel({
         material.emissiveIntensity = 1;
       }
     });
-  }, [scene, selectedFaceId, hoveredFaceId, featureFaceIds, glowNew]);
+  }, [scene, selectedFaceId, hoveredFaceId, featureFaceIds, warningFaceIds, glowNew]);
 
   // The pointer cursor is set while a face is hovered; reset it on unmount.
   useEffect(() => () => void (document.body.style.cursor = ""), []);
@@ -308,6 +314,7 @@ function Scene({
   onInfo,
   selectedFaceId,
   featureFaceIds,
+  warningFaceIds,
   interactive = true,
   fitRequest = 0,
 }: {
@@ -320,6 +327,7 @@ function Scene({
   onInfo?: (info: ModelInfo) => void;
   selectedFaceId?: string | null;
   featureFaceIds?: ReadonlySet<string>;
+  warningFaceIds?: ReadonlySet<string>;
 }) {
   // The last model that finished loading. It stays on screen (it is already
   // in useGLTF's cache) while the next one downloads.
@@ -352,6 +360,7 @@ function Scene({
         onInfo={onInfo}
         selectedFaceId={selectedFaceId}
         featureFaceIds={featureFaceIds}
+        warningFaceIds={warningFaceIds}
         interactive={interactive}
         fitRequest={fitRequest}
       />
@@ -526,7 +535,8 @@ interface ViewportPaneProps {
   onSelectionChange?: (selection: FaceSelection | null) => void;
   /** Called once per loaded model with a 480×360 preview image. */
   onThumbnail?: (image: Blob) => void;
-  /** When set, clicking a face calls this instead of selecting it. */
+  /** Faces a check points at, drawn in a warning colour. */
+  warningFaceIds?: readonly string[];
 }
 
 function ViewportContent({
@@ -540,7 +550,9 @@ function ViewportContent({
   showSelectionCard = true,
   onSelectionChange,
   onThumbnail,
+  warningFaceIds,
 }: ViewportPaneProps) {
+  const warningFaces = useMemo(() => new Set(warningFaceIds ?? []), [warningFaceIds]);
   const [faceSelection, setFaceSelection] = useState<ThreeFaceSelection | null>(null);
   const [resolvedFace, setResolvedFace] = useState<FaceSelection | null>(null);
   const [modelInfo, setModelInfo] = useState<ModelInfo>({ features: [] });
@@ -750,6 +762,7 @@ function ViewportContent({
             onInfo={handleModelInfo}
             selectedFaceId={faceSelection?.faceId ?? null}
             featureFaceIds={featureFaceIds}
+            warningFaceIds={warningFaces}
           />
         </Suspense>
       </Canvas>

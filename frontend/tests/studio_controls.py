@@ -33,6 +33,46 @@ def revision(number=2):
 
 PROJECT = {"id": "test-part", "name": "Cable bracket", "revisionCount": 2, "createdAt": STAMP, "updatedAt": STAMP, "thumbnailUpdatedAt": STAMP}
 
+# A local agent's run with every kind of evidence the studio can show.
+EVIDENCE = {
+    **INSPECTION,
+    "warnings": ["2 separate solids: the smallest is 1.2% of the total volume."],
+    "acceptance": {
+        "verdict": "partial", "passed": 2, "failed": 0, "review": 1, "unverified": 1, "not_measurable": 0,
+        "rows": [
+            {"id": "overall_size", "text": "Overall size", "status": "passed", "expected": {"x": 20, "y": 30, "z": 10},
+             "measured": {"x": 20, "y": 30, "z": 10}, "source": "user", "detail": ""},
+            {"id": "hole_diameter", "text": "Holes are 4 mm", "status": "passed", "expected": 4, "measured": 4.0,
+             "source": "user", "detail": "Measured 4 against 4 ± 0.05."},
+            {"id": "wall", "text": "Wall is 2 mm", "status": "unverified", "expected": 2, "measured": None,
+             "source": "assumed", "detail": "No check_measurement named 'wall'."},
+            {"id": "no_unrequested_changes", "text": "Nothing changed that was not asked for", "status": "review",
+             "expected": None, "measured": None, "source": "user", "detail": "Feature 'fillet' was removed."},
+        ],
+        "rejected_checks": [], "assumptions": ["The walls are 2 mm thick."], "summary": "A bracket.",
+    },
+    "printability": {
+        "profile": {"process": "fdm"}, "facts": {},
+        "findings": [
+            {"rule": "bed_fit", "status": "pass", "measured": [20, 30, 10], "limit": [220, 220, 250], "where": None,
+             "face_ids": [], "suggestion": ""},
+            {"rule": "min_wall", "status": "fail", "measured": {"p05_mm": 0.6}, "limit": 1.2, "where": [0, 0, 5],
+             "face_ids": ["face_0123456789abcdef0123"], "suggestion": "Thicken the walls to at least 1.2 mm."},
+        ],
+    },
+    "changes": {"bounds_delta_mm": {"z": 3}, "volume_delta_mm3": 120, "features": {"added": [], "removed": ["fillet"], "modified": []},
+                "constraints_violated": [], "census_delta": {"Rounded edges of 2 mm": "4 → 0"},
+                "flags": ["Feature 'fillet' was removed."]},
+}
+
+
+def evidence_revision():
+    return {"id": "revision-evidence", "projectId": "evidence-part", "revisionNumber": 1, "createdAt": STAMP,
+            "state": {"code": CODE, "messages": [
+                {"role": "user", "content": "Make a bracket"},
+                {"role": "assistant", "content": CODE, "agent": {"plan": "A bracket.", "trace": [], "inspection": EVIDENCE}},
+            ], "modelId": "local/claude", "selection": None, "lastRunId": None}}
+
 
 class Fixtures:
     def __init__(self, page, base, local_agents=None):
@@ -76,9 +116,16 @@ class Fixtures:
         if path == "/api/cad/local-agents":
             status, data = (404, {"detail": "Not found"}) if self.local_agents is None else (200, {"local": True, "agents": self.local_agents})
         elif path == "/api/projects" and request.method == "GET":
-            data = [PROJECT, {**PROJECT, "id": "untrusted-name", "name": UNTRUSTED}]
+            data = [PROJECT, {**PROJECT, "id": "untrusted-name", "name": UNTRUSTED},
+                    {**PROJECT, "id": "evidence-part", "name": "Checked bracket", "revisionCount": 1}]
         elif path == "/api/projects/test-part":
             data = {**PROJECT, "latestRevision": revision()}
+        elif path == "/api/projects/evidence-part":
+            data = {**PROJECT, "id": "evidence-part", "revisionCount": 1, "latestRevision": evidence_revision()}
+        elif path == "/api/projects/evidence-part/revisions":
+            data = [{k: v for k, v in evidence_revision().items() if k != "state"}]
+        elif path == "/api/projects/evidence-part/revisions/1":
+            data = evidence_revision()
         elif path == "/api/projects/test-part/revisions":
             data = [{k: v for k, v in revision(n).items() if k != "state"} for n in (2, 1)]
         elif path.endswith("/mesh"):
@@ -109,11 +156,11 @@ class Fixtures:
         route.fulfill(status=status, content_type="application/json", body=json.dumps(data))
 
 
-def open_studio(browser, base, *, mobile=False, project=False, reduced=False, local_agents=None):
+def open_studio(browser, base, *, mobile=False, project=False, reduced=False, local_agents=None, project_id="test-part"):
     context = browser.new_context(viewport={"width": 390 if mobile else 1440, "height": 844 if mobile else 1000}, is_mobile=mobile, has_touch=mobile, reduced_motion="reduce" if reduced else "no-preference")
     page = context.new_page()
     fixture = Fixtures(page, base, local_agents)
-    page.goto(base + ("/studio?project=test-part" if project else "/studio?new=1"))
+    page.goto(base + (f"/studio?project={project_id}" if project else "/studio?new=1"))
     page.wait_for_load_state("networkidle")
     expect(page.get_by_role("button", name=re.compile("^Generation model:")).first).to_be_visible()
     return context, page, fixture
@@ -317,6 +364,32 @@ def test_local_agents(browser, base):
     print("PASS local-agent selection, unavailable agents, editor synchronization and reference controls")
 
 
+def test_verification(browser, base, shots):
+    context, page, fixture = open_studio(browser, base, project=True, project_id="evidence-part")
+    # The card over the viewport shows the evidence of the part on screen.
+    panel = page.get_by_test_id("verification").first
+    expect(panel).to_be_visible(timeout=15000)
+    expect(panel.get_by_text("Partly verified")).to_be_visible()
+    expect(panel.get_by_text("2 of 4 requirements measured and passed")).to_be_visible()
+    panel.get_by_text("Requirements", exact=True).click()
+    expect(panel.get_by_text("Holes are 4 mm")).to_be_visible()
+    expect(panel.get_by_text("(assumed)")).to_be_visible()
+    expect(panel.get_by_text("No check_measurement named 'wall'.")).to_be_visible()
+    expect(panel.get_by_text("2 separate solids", exact=False)).to_be_visible()
+    expect(panel.get_by_text("Thicken the walls to at least 1.2 mm.")).to_be_visible()
+    expect(panel.get_by_text("Feature 'fillet' was removed.").last).to_be_visible()
+    expect(page.get_by_text("geometry measurements passed")).to_have_count(0)
+    panel.get_by_role("button", name="Show on part").click()
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(shots / "verification-light.png"))
+    page.get_by_role("button", name="Toggle color theme").click()
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(shots / "verification-dark.png"))
+    assert not fixture.errors, fixture.errors
+    context.close()
+    print("PASS verification panel: verdict, requirements, warnings, printability, changes and Show on part")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:3100")
@@ -340,6 +413,7 @@ def main():
             test_project(browser, args.base_url, shots)
             test_mobile(browser, args.base_url, shots)
             test_local_agents(browser, args.base_url)
+            test_verification(browser, args.base_url, shots)
         finally:
             browser.close()
     print("All Studio control checks passed. All API requests were local fixtures.")
