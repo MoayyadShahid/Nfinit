@@ -90,6 +90,13 @@ own tessellation and draws exact edges from the kernel's hidden-line removal,
 with a scale bar and an axis triad. Images show arrangement only; dimensions
 come from measurements.
 
+For an edit, the bridge measures the starting design once and compares every
+build with it: bounds and volume deltas, features added, removed and
+modified, constraints no longer met, and changes in the counts of holes,
+bosses and rounded edges. A removed feature, a broken constraint or a lost
+hole, boss or rounded edge is flagged, and the acceptance table gains a row
+that needs review until the agent fixes it or confirms the user asked for it.
+
 Parts are assumed to be 3D printed. Before its summary the agent calls
 `check_printability` (three times per run at most), and the backend checks the
 saved part once more. The check measures, inside the sandbox:

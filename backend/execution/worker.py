@@ -1975,7 +1975,12 @@ def handle_request(request: dict) -> dict:
         return _bounded_answer(_query(result, request["query"], checks, feature_records))
     if operation == "review":
         data = _inspect(result, checks, feature_records)
-        data["views"] = _render_views(result, DEFAULT_REVIEW_VIEWS, feature_records) if data["valid"] else []
+        draw = request.get("draw", True) and data["valid"]
+        data["views"] = _render_views(result, DEFAULT_REVIEW_VIEWS, feature_records) if draw else []
+        if request.get("topology") and data["valid"]:
+            data["topology"] = _topology(
+                result, feature_records=feature_records, constraint_records=constraint_records
+            )
         return data
     if operation == "render":
         return {"views": _render_views(result, request["views"], feature_records)}

@@ -125,6 +125,10 @@ REVIEW_RULES = """<review_rules>
   measure the hole centres. If a boss looks detached, check the solid count.
 - A check that fails, or could not run, proves nothing about the design. Do
   not report it as verified.
+- For an edit, each build reports what changed since the starting design and
+  flags removed features, broken constraints and lost holes, bosses or rounded
+  edges. Every flag must be something the user asked for, or be fixed. List
+  any you keep under "Other changes" in the summary.
 - Do not weaken the request to make the build pass. Dropping a fillet,
   shrinking a radius or removing a feature is a different design. If a
   requirement cannot be met, keep the closest correct part and say so.

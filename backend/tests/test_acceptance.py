@@ -142,8 +142,8 @@ def test_wrong_size_or_solid_count_fails():
 def test_bridge_requires_a_declaration_and_reports_acceptance(tmp_path, monkeypatch):
     from agent.models import ModelInspection
 
-    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code: (ModelInspection.model_validate(
-        inspection(solid_count=2)), []))
+    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code, **_: (ModelInspection.model_validate(
+        inspection(solid_count=2)), [], None))
     (tmp_path / "request.txt").write_text("An 80 by 50 by 6 mm plate with four 4 mm holes and a 9 mm slot")
     tools = CadTools(tmp_path)
 
@@ -187,9 +187,9 @@ def test_inspect_model_answers_about_the_last_part_that_built(tmp_path, monkeypa
         tools.call("inspect_model", {"query": {"kind": "summary"}})
 
     tools.call("declare_requirements", declared(bounding_box_mm={}, solid_count=None, requirements=[]))
-    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code: (ModelInspection(valid=True), []))
+    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code, **_: (ModelInspection(valid=True), [], None))
     tools.call("build_model", {"code": "result = Box(1, 1, 1)"})
-    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code: (ModelInspection(valid=False, error="broken"), []))
+    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code, **_: (ModelInspection(valid=False, error="broken"), [], None))
     tools.call("build_model", {"code": "result = broken"})
     tools.call("inspect_model", {"query": {"kind": "faces"}})
 

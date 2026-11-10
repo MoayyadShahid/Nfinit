@@ -18,6 +18,7 @@ All notable changes to Nfinit are listed here. The format follows [Keep a Change
 - `inspect_model` lets local agents ask about faces, edges, distances and sections without rebuilding.
 - Local agents see real rendered views of the part, drawn in the same sandbox run as each build, and can ask for more with `view_model`, including section cuts and highlighted features.
 - Printability checks: bed fit, wall thickness, overhangs, support volume, orientation, small holes and sealed cavities, against an overridable FDM profile.
+- Edits are compared with the starting design, and removed features, broken constraints and lost holes or rounded edges are flagged.
 
 ### Changed
 - License is MIT.

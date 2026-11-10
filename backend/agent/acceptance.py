@@ -24,7 +24,7 @@ KINDS = ("dimension", "count", "feature", "relation", "visual")
 UNITS = ("mm", "deg", "count", "mm2", "mm3")
 AXES = ("x", "y", "z")
 
-Status = Literal["passed", "failed", "unverified", "not_measurable"]
+Status = Literal["passed", "failed", "review", "unverified", "not_measurable"]
 
 
 class Requirement(TypedDict):
@@ -337,11 +337,19 @@ def evaluate(requirements: RequirementSet, inspection: dict[str, Any], code: str
                              detail=f"Measured {check['actual']:g} against {check['expected']:g} "
                                     f"± {check['tolerance']:g}."))
 
+    changes = inspection.get("changes")
+    if changes and "error" not in changes:
+        flags = changes.get("flags") or []
+        rows.append(_row(
+            "no_unrequested_changes", "Nothing changed that was not asked for",
+            "review" if flags else "passed", detail=" ".join(flags),
+        ))
+
     counts = {status: sum(row["status"] == status for row in rows)
-              for status in ("passed", "failed", "unverified", "not_measurable")}
+              for status in ("passed", "failed", "review", "unverified", "not_measurable")}
     if counts["failed"] or not valid:
         verdict = "failed"
-    elif counts["passed"] and not counts["unverified"]:
+    elif counts["passed"] and not counts["unverified"] and not counts["review"]:
         verdict = "verified"
     else:
         verdict = "partial"
@@ -363,6 +371,75 @@ def describe(acceptance: dict[str, Any]) -> str:
         parts.append(f"{acceptance['failed']} failed")
     if acceptance["unverified"]:
         parts.append(f"{acceptance['unverified']} unverified")
+    if acceptance.get("review"):
+        parts.append("changes outside the request to review")
     if acceptance["not_measurable"]:
         parts.append(f"{acceptance['not_measurable']} judged from images")
     return ", ".join(parts) + "."
+
+
+def _census_counts(census: dict[str, Any] | None) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    if not census or "error" in census:
+        return counts
+    for kind, label in (("holes", "Holes"), ("bosses", "Bosses")):
+        for entry in census.get(kind) or []:
+            key = f"{label} of {entry['diameter_mm']:g} mm"
+            counts[key] = counts.get(key, 0) + entry["count"]
+    for entry in census.get("rounded_edges") or []:
+        key = f"Rounded edges of {entry['radius_mm']:g} mm"
+        counts[key] = counts.get(key, 0) + entry["count"]
+    return counts
+
+
+def change_report(
+    previous: dict[str, Any], current_topology: dict[str, Any], current_inspection: dict[str, Any]
+) -> dict[str, Any]:
+    """What an edit changed, with a flag for each change that may be unwanted.
+
+    The bridge cannot know what the user meant, so a flag asks for review:
+    the agent must either confirm the user asked for it or fix it.
+    """
+    from execution.rematching import compare_analyses
+    from execution.topology import TopologyAnalysis
+
+    comparison = compare_analyses(
+        TopologyAnalysis.model_validate(previous["topology"]),
+        TopologyAnalysis.model_validate(current_topology),
+    )
+    if not comparison.valid:
+        return {"error": comparison.error}
+    before, after = previous["inspection"], current_inspection
+    bounds_before = before.get("bounding_box_mm") or {}
+    bounds_after = after.get("bounding_box_mm") or {}
+    counts_before = _census_counts(before.get("census"))
+    counts_after = _census_counts(after.get("census"))
+    census_delta = {
+        key: f"{counts_before.get(key, 0)} → {counts_after.get(key, 0)}"
+        for key in sorted(set(counts_before) | set(counts_after))
+        if counts_before.get(key, 0) != counts_after.get(key, 0)
+    }
+    violated = [item.constraint_id for item in comparison.constraint_evaluations if item.status == "violated"]
+
+    flags = [f"Feature '{feature_id}' was removed." for feature_id in comparison.removed_feature_ids]
+    flags += [f"Constraint '{constraint_id}' is no longer met." for constraint_id in violated]
+    flags += [
+        f"{key} went from {counts_before[key]} to {counts_after.get(key, 0)}."
+        for key in sorted(counts_before)
+        if counts_after.get(key, 0) < counts_before[key]
+    ]
+    return {
+        "bounds_delta_mm": {
+            axis: round(bounds_after.get(axis, 0) - bounds_before.get(axis, 0), 3)
+            for axis in AXES if axis in bounds_before or axis in bounds_after
+        },
+        "volume_delta_mm3": round((after.get("volume_mm3") or 0) - (before.get("volume_mm3") or 0), 3),
+        "features": {
+            "added": comparison.added_feature_ids,
+            "removed": comparison.removed_feature_ids,
+            "modified": [match.current_id for match in comparison.feature_matches if match.status == "modified"],
+        },
+        "constraints_violated": violated,
+        "census_delta": census_delta,
+        "flags": flags,
+    }

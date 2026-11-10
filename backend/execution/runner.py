@@ -255,6 +255,7 @@ def _run_worker(
     query: dict | None = None,
     views: list[dict] | None = None,
     profile: dict | None = None,
+    flags: dict | None = None,
 ) -> dict:
     worker = worker_path or Path(__file__).with_name("worker.py")
     timeout = timeout_seconds or float(
@@ -273,6 +274,7 @@ def _run_worker(
         payload["views"] = views
     if profile is not None:
         payload["profile"] = profile
+    payload.update(flags or {})
 
     # Waiting for a free slot counts against the same deadline as the job.
     if not _job_slots.acquire(timeout=timeout):
@@ -506,19 +508,23 @@ def _read_views(data: dict, work_dir: Path) -> list[RenderedView]:
     return views
 
 
-def review_code(code: str) -> tuple[ModelInspection, list[RenderedView]]:
-    """Inspect the code and draw the two default views in one sandbox run."""
+def review_code(
+    code: str, topology: bool = False, draw: bool = True
+) -> tuple[ModelInspection, list[RenderedView], dict | None]:
+    """Inspect the code in one sandbox run, with the two default views and,
+    when asked, its topology for comparing revisions."""
     try:
         validate_cad_code(code)
     except CodePolicyError as error:
-        return ModelInspection(valid=False, error=f"sandbox_security_error: {error}"), []
+        return ModelInspection(valid=False, error=f"sandbox_security_error: {error}"), [], None
     work_dir = Path(tempfile.mkdtemp(prefix="nfinit-review-"))
     try:
-        data = _run_worker(code, "review", work_dir)
+        data = _run_worker(code, "review", work_dir, flags={"topology": topology, "draw": draw})
         views = _read_views(data, work_dir)
-        return ModelInspection.model_validate(data), views
+        analysis = data.pop("topology", None)
+        return ModelInspection.model_validate(data), views, analysis
     except SandboxError as error:
-        return ModelInspection(valid=False, error=str(error)), []
+        return ModelInspection(valid=False, error=str(error)), [], None
     finally:
         shutil.rmtree(work_dir, ignore_errors=True)
 
