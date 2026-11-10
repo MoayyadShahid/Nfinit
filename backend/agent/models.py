@@ -52,6 +52,9 @@ class ModelInspection(BaseModel):
     checks: list[dict[str, Any]] = Field(default_factory=list)
     verification: Literal["unverified", "measured", "failed"] = "unverified"
     reference_comparison: dict[str, Any] | None = None
+    # Holes, bosses and rounded edges counted from the faces. Older saved
+    # inspections have none.
+    census: dict[str, Any] | None = None
 
 
 class TraceStep(BaseModel):

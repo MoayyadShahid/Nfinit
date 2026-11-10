@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "suite": "loop20",
+  "required_case_count": 20,
+  "minimum_pass_rate": 1.0,
+  "maximum_failed_cases": 0,
+  "required_categories": {
+    "detached": 4,
+    "edit_regression": 4,
+    "hole_pattern": 4,
+    "silent_finish": 4,
+    "stacked_reading": 4
+  },
+  "required_metrics": [
+    "policy",
+    "execution",
+    "solid_count",
+    "repair_attempts"
+  ],
+  "require_bounding_box_metric": true
+}

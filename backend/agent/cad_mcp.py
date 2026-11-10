@@ -48,7 +48,8 @@ class CadTools:
             inspection.reference_comparison = compare_reference(inspection, json.loads((self.workspace / "reference.json").read_text()))
         (self.workspace / "model.py").write_text(code)
         (self.workspace / "inspection.json").write_text(inspection.model_dump_json())
-        content = [{"type": "text", "text": inspection.model_dump_json()}]
+        # The census is for scoring until the agent's prompt explains it.
+        content = [{"type": "text", "text": inspection.model_dump_json(exclude={"census"})}]
         if inspection.valid:
             try:
                 for view in model_views(code):

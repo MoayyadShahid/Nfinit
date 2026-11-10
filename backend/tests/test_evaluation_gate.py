@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 
 from agent.models import ModelInspection, ModelUsage
@@ -109,3 +110,12 @@ def test_cad50_policy_matches_committed_corpus():
 
     assert len(cases) == policy.required_case_count
     assert {case.category for case in cases} == set(policy.required_categories)
+
+
+def test_loop20_policy_matches_committed_corpus():
+    evaluation_root = Path(__file__).parents[1] / "evaluation"
+    cases = load_cases(evaluation_root / "cases" / "loop20.json")
+    policy = load_policy(evaluation_root / "baselines" / "loop20.json")
+
+    assert len(cases) == policy.required_case_count
+    assert Counter(case.category for case in cases) == policy.required_categories

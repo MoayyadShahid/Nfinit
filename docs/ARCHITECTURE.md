@@ -271,6 +271,10 @@ The backend includes a typed evaluation runner with two modes:
   deterministic, free, and suitable for local development or CI.
 - **Live** runs selected OpenRouter models through the full LangGraph workflow.
   It requires `OPENROUTER_API_KEY` and writes the same local JSON reports.
+  With `--agent local/claude` or `--agent local/codex` instead of a model, it
+  runs each case through your installed Claude Code or Codex CLI, the same path
+  the local studio uses. That uses your own CLI login and usage, so it never
+  runs in CI.
 
 Run the included smoke fixtures from `backend/`:
 
@@ -335,3 +339,51 @@ python -m evaluation.gate \
   --cases evaluation/cases/cad50.json \
   --policy evaluation/baselines/cad50.json
 ```
+
+### loop20: failures that still build
+
+`loop20.json` has 20 cases, four in each of five categories, for parts that
+build without an error but are still wrong:
+
+| Category | Catches |
+| --- | --- |
+| `silent_finish` | A fillet or chamfer that was left out |
+| `detached` | A boss, standoff or gusset that floats as a second solid |
+| `stacked_reading` | A wall or stem height read as the overall height |
+| `hole_pattern` | The wrong number, size or spacing of holes |
+| `edit_regression` | An edit that loses holes or rounded edges it was not asked to change |
+
+Besides bounds, solid count and volume, a case can list `features`: holes,
+bosses or rounded edges of a given size, with an exact or minimum count and the
+extent of their centres (`center_span_mm`, which does not depend on where the
+origin is). They are scored from the inspection's `census`, which the sandbox
+counts from the part's faces: a full cylindrical face pointing at its axis is a
+hole, one pointing away is a boss, and a cylindrical face under half a turn, a
+torus or a sphere is a rounded edge.
+
+`tests/test_loop20.py` holds wrong solutions for each category and asserts that
+scoring fails them. Run the suite and its gate like CAD50:
+
+```bash
+python -m evaluation.cli \
+  --cases evaluation/cases/loop20.json \
+  --mode replay \
+  --replays evaluation/replays/loop20.json \
+  --output evaluation/reports/loop20.json
+python -m evaluation.gate \
+  --report evaluation/reports/loop20.json \
+  --cases evaluation/cases/loop20.json \
+  --policy evaluation/baselines/loop20.json
+```
+
+Measure a change to the agent loop with a live run through a local agent:
+
+```bash
+python -m evaluation.cli \
+  --cases evaluation/cases/loop20.json \
+  --mode live --agent local/claude \
+  --output evaluation/reports/loop20-live.json
+```
+
+Live results vary from run to run, so compare the mean of three runs. The
+baseline before the loop work is in `docs/evaluations/loop20-baseline.md`.

@@ -3,12 +3,14 @@ import asyncio
 from collections import Counter
 import os
 from pathlib import Path
+import secrets
 
 
 from .config import load_live_config
 from .reporting import build_report, write_report
 from .runner import (
     evaluate_live,
+    evaluate_local,
     evaluate_replays,
     filter_cases,
     load_cases,
@@ -25,6 +27,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mode", choices=("replay", "live"), default="replay")
     parser.add_argument("--replays", type=Path)
     parser.add_argument("--model", action="append", dest="models")
+    parser.add_argument(
+        "--agent",
+        action="append",
+        dest="agents",
+        choices=("local/claude", "local/codex"),
+        help="Run live cases through your installed Claude Code or Codex CLI.",
+    )
     parser.add_argument(
         "--config",
         type=Path,
@@ -50,6 +59,9 @@ async def run(args: argparse.Namespace) -> int:
     if not cases:
         raise ValueError("No evaluation cases matched the supplied filters.")
 
+    if args.agents and args.mode != "live":
+        raise ValueError("--agent requires --mode live.")
+
     if args.mode == "replay":
         if not args.replays:
             raise ValueError("--replays is required in replay mode.")
@@ -58,12 +70,19 @@ async def run(args: argparse.Namespace) -> int:
             load_replays(args.replays),
             model_ids=args.models,
         )
+    elif args.agents and not args.models and not live_config:
+        enable_local_agents()
+        results = await evaluate_local(cases, args.agents)
     else:
         model_ids = args.models or (
             [model.setup_id for model in live_config.models] if live_config else []
         )
         if not model_ids:
-            raise ValueError("At least one --model or --config is required in live mode.")
+            raise ValueError(
+                "At least one --model, --agent or --config is required in live mode."
+            )
+        if args.agents:
+            raise ValueError("Run --agent separately from --model and --config.")
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             raise ValueError("OPENROUTER_API_KEY is required in live mode.")
@@ -97,6 +116,13 @@ async def run(args: argparse.Namespace) -> int:
     print_run_errors(results)
 
     return 0 if all(result.passed for result in results) else 1
+
+
+def enable_local_agents() -> None:
+    """Turn on local agents for this process, as the local launcher does."""
+    os.environ["NFNIT_LOCAL_AGENTS"] = "true"
+    os.environ["NFNIT_ALLOW_LOCAL_AUTH_BYPASS"] = "true"
+    os.environ.setdefault("NFNIT_LOCAL_TOKEN", secrets.token_urlsafe(32))
 
 
 def print_run_errors(results, limit: int = 5) -> None:

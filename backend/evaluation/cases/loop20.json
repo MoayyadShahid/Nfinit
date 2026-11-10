@@ -1,0 +1,649 @@
+{
+  "cases": [
+    {
+      "id": "finish_vertical_fillets",
+      "category": "silent_finish",
+      "description": "Fillets on the four vertical edges only.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a 40 by 30 by 12 mm box and round its four vertical edges with 3 mm fillets."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 40,
+          "y": 30,
+          "z": 12
+        },
+        "features": [
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 3,
+            "count": 4
+          }
+        ]
+      },
+      "tags": [
+        "silent_finish"
+      ]
+    },
+    {
+      "id": "finish_top_edge_fillets",
+      "category": "silent_finish",
+      "description": "Fillets around the top face of a plate.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create an 80 by 50 by 8 mm plate and fillet the four edges around its top face with a 2 mm radius."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 80,
+          "y": 50,
+          "z": 8
+        },
+        "features": [
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 2,
+            "count": 4
+          }
+        ]
+      },
+      "tags": [
+        "silent_finish"
+      ]
+    },
+    {
+      "id": "finish_cylinder_top_rim",
+      "category": "silent_finish",
+      "description": "A fillet on one rim of a cylinder.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a 30 mm diameter, 20 mm tall cylinder with a 2 mm fillet on its top rim edge only."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 30,
+          "y": 30,
+          "z": 20
+        },
+        "features": [
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 2,
+            "count": 1
+          }
+        ]
+      },
+      "tags": [
+        "silent_finish"
+      ]
+    },
+    {
+      "id": "finish_rounded_corners_hole",
+      "category": "silent_finish",
+      "description": "Rounded plate corners plus a centre hole.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a 70 by 40 by 5 mm plate with 6 mm rounded corners and a 10 mm hole through the centre."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 70,
+          "y": 40,
+          "z": 5
+        },
+        "features": [
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 6,
+            "count": 4
+          },
+          {
+            "kind": "hole",
+            "diameter_mm": 10,
+            "count": 1
+          }
+        ]
+      },
+      "tags": [
+        "silent_finish"
+      ]
+    },
+    {
+      "id": "detached_boss_on_plate",
+      "category": "detached",
+      "description": "A boss that must sit on the plate.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a 60 by 40 by 5 mm plate with a 10 mm diameter, 8 mm tall boss centred on top."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 60,
+          "y": 40,
+          "z": 13
+        },
+        "features": [
+          {
+            "kind": "boss",
+            "diameter_mm": 10,
+            "count": 1
+          }
+        ]
+      },
+      "tags": [
+        "detached"
+      ]
+    },
+    {
+      "id": "detached_standoffs",
+      "category": "detached",
+      "description": "Four standoffs with holes, joined to a base.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create an 80 by 60 by 4 mm base with four 8 mm diameter, 10 mm tall standoffs on top, each 10 mm in from two edges, and a 3 mm hole through the centre of each standoff and the base."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 80,
+          "y": 60,
+          "z": 14
+        },
+        "features": [
+          {
+            "kind": "boss",
+            "diameter_mm": 8,
+            "count": 4,
+            "center_span_mm": {
+              "x": 60,
+              "y": 40
+            }
+          },
+          {
+            "kind": "hole",
+            "diameter_mm": 3,
+            "count": 4,
+            "center_span_mm": {
+              "x": 60,
+              "y": 40
+            }
+          }
+        ]
+      },
+      "tags": [
+        "detached"
+      ]
+    },
+    {
+      "id": "detached_gusset_bracket",
+      "category": "detached",
+      "description": "A gusset that must join both legs of a bracket.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create an L-bracket 50 mm wide: a 30 mm deep, 5 mm thick base and a 5 mm thick upright along one long edge, 30 mm tall overall, with a 5 mm thick triangular gusset in the middle joining the base and the upright, 20 mm along each leg."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 50,
+          "y": 30,
+          "z": 30
+        }
+      },
+      "tags": [
+        "detached"
+      ]
+    },
+    {
+      "id": "detached_pin_on_block",
+      "category": "detached",
+      "description": "A pin standing out of a block.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a 30 by 30 by 20 mm block with a 6 mm diameter pin sticking 10 mm out of the centre of its top face."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 30,
+          "y": 30,
+          "z": 30
+        },
+        "features": [
+          {
+            "kind": "boss",
+            "diameter_mm": 6,
+            "count": 1
+          }
+        ]
+      },
+      "tags": [
+        "detached"
+      ]
+    },
+    {
+      "id": "stacked_tray",
+      "category": "stacked_reading",
+      "description": "Walls measured from the base.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a tray 80 by 50 mm outside with a 3 mm base and 12 mm tall walls, 2 mm thick."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 80,
+          "y": 50,
+          "z": 15
+        },
+        "volume_mm3": 18048
+      },
+      "tags": [
+        "stacked_reading"
+      ]
+    },
+    {
+      "id": "stacked_knob",
+      "category": "stacked_reading",
+      "description": "A stem measured from the top of its base.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a knob with a 30 mm diameter, 8 mm tall base and a 15 mm diameter stem 12 mm tall on top of it."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 30,
+          "y": 30,
+          "z": 20
+        },
+        "features": [
+          {
+            "kind": "boss",
+            "diameter_mm": 30,
+            "count": 1
+          },
+          {
+            "kind": "boss",
+            "diameter_mm": 15,
+            "count": 1
+          }
+        ]
+      },
+      "tags": [
+        "stacked_reading"
+      ]
+    },
+    {
+      "id": "stacked_open_box",
+      "category": "stacked_reading",
+      "description": "Walls measured from the floor.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create an open-top box 60 by 40 mm outside with a 4 mm floor and 3 mm thick walls that rise 20 mm from the floor."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 60,
+          "y": 40,
+          "z": 24
+        },
+        "volume_mm3": 20880
+      },
+      "tags": [
+        "stacked_reading"
+      ]
+    },
+    {
+      "id": "stacked_lid_lip",
+      "category": "stacked_reading",
+      "description": "A lip measured from the underside of a lid.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a 70 by 50 by 3 mm lid with a lip on its underside, 2 mm thick and 4 mm deep, set 1.5 mm in from the outer edge."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 70,
+          "y": 50,
+          "z": 7
+        },
+        "volume_mm3": 12260
+      },
+      "tags": [
+        "stacked_reading"
+      ]
+    },
+    {
+      "id": "holes_corner_four",
+      "category": "hole_pattern",
+      "description": "Four corner holes.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create an 80 by 50 by 6 mm plate with four 4 mm through-holes, each 6 mm from two edges."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 80,
+          "y": 50,
+          "z": 6
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 4,
+            "count": 4,
+            "center_span_mm": {
+              "x": 68,
+              "y": 38
+            }
+          }
+        ]
+      },
+      "tags": [
+        "hole_pattern"
+      ]
+    },
+    {
+      "id": "holes_bolt_circle",
+      "category": "hole_pattern",
+      "description": "Holes on a bolt circle around a centre bore.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a 60 mm diameter, 5 mm thick disc with six 5 mm holes evenly spaced on a 44 mm bolt circle and a 20 mm hole in the centre."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 60,
+          "y": 60,
+          "z": 5
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 5,
+            "count": 6
+          },
+          {
+            "kind": "hole",
+            "diameter_mm": 20,
+            "count": 1
+          }
+        ]
+      },
+      "tags": [
+        "hole_pattern"
+      ]
+    },
+    {
+      "id": "holes_vent_grid",
+      "category": "hole_pattern",
+      "description": "A centred grid of vent holes.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a 100 by 60 by 3 mm panel with a centred 5 by 3 grid of 6 mm vent holes spaced 15 mm apart."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 100,
+          "y": 60,
+          "z": 3
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 6,
+            "count": 15,
+            "center_span_mm": {
+              "x": 60,
+              "y": 30
+            }
+          }
+        ]
+      },
+      "tags": [
+        "hole_pattern"
+      ]
+    },
+    {
+      "id": "holes_counterbored",
+      "category": "hole_pattern",
+      "description": "Counterbored holes on a square.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Create a 50 by 50 by 10 mm block with four counterbored holes on a 36 mm square: 4.5 mm through-holes with 8 mm diameter, 4 mm deep counterbores from the top."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 50,
+          "y": 50,
+          "z": 10
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 4.5,
+            "count": 4,
+            "center_span_mm": {
+              "x": 36,
+              "y": 36
+            }
+          },
+          {
+            "kind": "hole",
+            "diameter_mm": 8,
+            "count": 4,
+            "center_span_mm": {
+              "x": 36,
+              "y": 36
+            }
+          }
+        ]
+      },
+      "tags": [
+        "hole_pattern"
+      ]
+    },
+    {
+      "id": "edit_thickness_keeps_features",
+      "category": "edit_regression",
+      "description": "Thicken a plate and keep its holes and rounded corners.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Change the plate thickness from 5 to 8 mm and change nothing else."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 70,
+          "y": 40,
+          "z": 8
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 6,
+            "count": 2,
+            "center_span_mm": {
+              "x": 40
+            }
+          },
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 4,
+            "count": 4
+          }
+        ]
+      },
+      "tags": [
+        "edit_regression"
+      ],
+      "current_code": "length, width, thickness = 70.0, 40.0, 5.0\nhole_diameter = 6.0\nhole_offset = 15.0\ncorner_radius = 4.0\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part,\n                     parameters={\"length\": length, \"width\": width, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner_radius)\n    register_feature(\"corner_fillets\", \"Corner fillets\", \"fillet\", part.part,\n                     parent_id=\"plate\", parameters={\"radius\": corner_radius})\n    with Locations((-(length / 2 - hole_offset), 0, 0), (length / 2 - hole_offset, 0, 0)):\n        Hole(radius=hole_diameter / 2)\n    register_feature(\"mounting_holes\", \"Mounting holes\", \"pattern\", part.part,\n                     parent_id=\"plate\", parameters={\"diameter\": hole_diameter})\nresult = part.part"
+    },
+    {
+      "id": "edit_hole_size_keeps_corners",
+      "category": "edit_regression",
+      "description": "Enlarge both holes and keep the rounded corners.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Change both holes from 6 mm to 8 mm diameter."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 70,
+          "y": 40,
+          "z": 5
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 8,
+            "count": 2,
+            "center_span_mm": {
+              "x": 40
+            }
+          },
+          {
+            "kind": "hole",
+            "diameter_mm": 6,
+            "count": 0
+          },
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 4,
+            "count": 4
+          }
+        ]
+      },
+      "tags": [
+        "edit_regression"
+      ],
+      "current_code": "length, width, thickness = 70.0, 40.0, 5.0\nhole_diameter = 6.0\nhole_offset = 15.0\ncorner_radius = 4.0\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part,\n                     parameters={\"length\": length, \"width\": width, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner_radius)\n    register_feature(\"corner_fillets\", \"Corner fillets\", \"fillet\", part.part,\n                     parent_id=\"plate\", parameters={\"radius\": corner_radius})\n    with Locations((-(length / 2 - hole_offset), 0, 0), (length / 2 - hole_offset, 0, 0)):\n        Hole(radius=hole_diameter / 2)\n    register_feature(\"mounting_holes\", \"Mounting holes\", \"pattern\", part.part,\n                     parent_id=\"plate\", parameters={\"diameter\": hole_diameter})\nresult = part.part"
+    },
+    {
+      "id": "edit_add_centre_hole",
+      "category": "edit_regression",
+      "description": "Add a hole and keep the existing ones.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Add a third 6 mm hole through the centre of the plate."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 70,
+          "y": 40,
+          "z": 5
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 6,
+            "count": 3,
+            "center_span_mm": {
+              "x": 40
+            }
+          },
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 4,
+            "count": 4
+          }
+        ]
+      },
+      "tags": [
+        "edit_regression"
+      ],
+      "current_code": "length, width, thickness = 70.0, 40.0, 5.0\nhole_diameter = 6.0\nhole_offset = 15.0\ncorner_radius = 4.0\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part,\n                     parameters={\"length\": length, \"width\": width, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner_radius)\n    register_feature(\"corner_fillets\", \"Corner fillets\", \"fillet\", part.part,\n                     parent_id=\"plate\", parameters={\"radius\": corner_radius})\n    with Locations((-(length / 2 - hole_offset), 0, 0), (length / 2 - hole_offset, 0, 0)):\n        Hole(radius=hole_diameter / 2)\n    register_feature(\"mounting_holes\", \"Mounting holes\", \"pattern\", part.part,\n                     parent_id=\"plate\", parameters={\"diameter\": hole_diameter})\nresult = part.part"
+    },
+    {
+      "id": "edit_lengthen_keeps_offsets",
+      "category": "edit_regression",
+      "description": "Lengthen a plate and keep hole offsets from the ends.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Make the plate 90 mm long instead of 70 mm, keeping each hole 15 mm from its end."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 90,
+          "y": 40,
+          "z": 5
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 6,
+            "count": 2,
+            "center_span_mm": {
+              "x": 60
+            }
+          },
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 4,
+            "count": 4
+          }
+        ]
+      },
+      "tags": [
+        "edit_regression"
+      ],
+      "current_code": "length, width, thickness = 70.0, 40.0, 5.0\nhole_diameter = 6.0\nhole_offset = 15.0\ncorner_radius = 4.0\nwith BuildPart() as part:\n    Box(length, width, thickness)\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part,\n                     parameters={\"length\": length, \"width\": width, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner_radius)\n    register_feature(\"corner_fillets\", \"Corner fillets\", \"fillet\", part.part,\n                     parent_id=\"plate\", parameters={\"radius\": corner_radius})\n    with Locations((-(length / 2 - hole_offset), 0, 0), (length / 2 - hole_offset, 0, 0)):\n        Hole(radius=hole_diameter / 2)\n    register_feature(\"mounting_holes\", \"Mounting holes\", \"pattern\", part.part,\n                     parent_id=\"plate\", parameters={\"diameter\": hole_diameter})\nresult = part.part"
+    }
+  ]
+}

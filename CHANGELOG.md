@@ -9,6 +9,9 @@ All notable changes to Nfinit are listed here. The format follows [Keep a Change
 - Demo website: the public site shows the landing page and read-only studio demos, with no backend.
 - Demo build gate: each demo step must build, and its main part must be one solid.
 - Issue templates, a code of conduct, and this changelog.
+- loop20 benchmark: 20 cases for parts that build but are wrong (skipped fillets, floating features, misread heights, wrong hole patterns, edits that lose features), with a CI gate.
+- Feature census: every inspection counts holes, bosses and rounded edges from the part's faces.
+- The evaluation CLI can run cases through a local Claude Code or Codex CLI (`--agent`).
 
 ### Changed
 - License is MIT.

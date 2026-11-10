@@ -10,6 +10,7 @@ from evaluation.models import EvaluationCase, ReplayRecord
 from evaluation.reporting import build_report, write_report
 from evaluation.runner import (
     evaluate_live,
+    evaluate_local,
     evaluate_replays,
     load_cases,
     load_replays,
@@ -172,6 +173,33 @@ async def test_live_runner_uses_agent_state(monkeypatch):
     assert results[0].usage.total_tokens == 15
     assert results[0].run_id == requests[0][1]
     assert not requests[0][0].supports_structured_outputs
+
+
+@pytest.mark.asyncio
+async def test_local_runner_scores_each_agent_run(monkeypatch):
+    requests = []
+
+    async def fake_local_agent(request, _inspector, run_id=None):
+        requests.append(request)
+        if request.model_id == "local/codex":
+            raise ValueError("Codex is not signed in.")
+        return {
+            "code": "result = Box(10, 20, 30)",
+            "inspection": valid_inspection().model_dump(),
+            "trace": [{"node": "inspect", "status": "passed", "detail": "ok", "duration_ms": 900}],
+            "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+            "validation_error": None,
+        }
+
+    monkeypatch.setattr("agent.local.run_local_agent", fake_local_agent)
+    results = await evaluate_local(
+        [make_case()], ["local/claude", "local/codex"], inspector=lambda _code: valid_inspection()
+    )
+
+    assert [request.model_id for request in requests] == ["local/claude", "local/codex"]
+    assert results[0].passed and results[0].latency_ms == 900
+    assert not results[1].passed
+    assert "not signed in" in results[1].error
 
 
 def test_report_compares_models_and_writes_json(tmp_path: Path):

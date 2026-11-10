@@ -86,6 +86,50 @@ def test_valid_geometry_executes_in_worker():
     assert inspection.bounding_box_mm == {"x": 10, "y": 20, "z": 30}
 
 
+def test_census_counts_holes_bosses_and_rounded_edges():
+    inspection = inspect_code(
+        "with BuildPart() as part:\n"
+        "    Box(80, 50, 6, align=(Align.CENTER, Align.CENTER, Align.MIN))\n"
+        "    fillet(part.edges().filter_by(Axis.Z), radius=3)\n"
+        "    with Locations((0, 0, 6)):\n"
+        "        Cylinder(5, 8, align=(Align.CENTER, Align.CENTER, Align.MIN))\n"
+        "    with Locations((0, 0, 6)):\n"
+        "        with GridLocations(60, 30, 2, 2):\n"
+        "            Hole(radius=2)\n"
+        "result = part.part"
+    )
+
+    census = inspection.census
+    assert inspection.valid
+    assert census["holes"] == [
+        {
+            "diameter_mm": 4.0,
+            "count": 4,
+            "axis": [0.0, 0.0, 1.0],
+            "length_mm": 6.0,
+            "centers_mm": [[-30.0, -15.0, 3.0], [30.0, -15.0, 3.0],
+                           [-30.0, 15.0, 3.0], [30.0, 15.0, 3.0]],
+        }
+    ]
+    assert [(boss["diameter_mm"], boss["count"]) for boss in census["bosses"]] == [(10.0, 1)]
+    assert census["rounded_edges"] == [{"radius_mm": 3.0, "count": 4, "surface": "cylinder"}]
+
+
+def test_census_does_not_count_slot_ends_as_holes_or_rounded_edges():
+    inspection = inspect_code(
+        "with BuildPart() as part:\n"
+        "    Box(60, 30, 5)\n"
+        "    with BuildSketch():\n"
+        "        SlotCenterToCenter(20, 6)\n"
+        "    extrude(amount=5, mode=Mode.SUBTRACT, both=True)\n"
+        "result = part.part"
+    )
+
+    assert inspection.census["holes"] == []
+    assert inspection.census["rounded_edges"] == []
+    assert inspection.census["partial_cylinders"] == 2
+
+
 @pytest.mark.skipif(
     importlib.util.find_spec("build123d") is None,
     reason="build123d runtime is not installed",
