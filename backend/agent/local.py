@@ -10,7 +10,9 @@ import sys
 import tempfile
 from time import perf_counter
 
-from .acceptance import describe as describe_acceptance, evaluate
+from execution import analyze_code
+
+from .acceptance import change_report, describe as describe_acceptance, evaluate
 from .graph import CadRunTimeoutError, _emit, run_timeout_seconds
 from .local_access import LOCAL_MODELS, local_agents_enabled
 from .prompts import local_agent_prompt
@@ -87,8 +89,10 @@ def prepare_input(request, workspace: Path):
         from execution.runner import validate_profile
         (workspace / "profile.json").write_text(json.dumps(validate_profile(request.print_profile)))
     if request.code.strip():
-        # inspect_model can answer about the current part before any build.
+        # inspect_model can answer about the current part before any build,
+        # and an edit is compared with it.
         (workspace / "built.py").write_text(request.code)
+        (workspace / "start.py").write_text(request.code)
     prompt = local_agent_prompt(context)
     if request.model_id == "local/claude":
         return images, json.dumps({"type": "user", "message": {"role": "user", "content": [
@@ -170,6 +174,13 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
                     inspection.reference_comparison = compare_reference(inspection, json.loads((workspace / "reference.json").read_text()))
                 # The backend's own rebuild decides the verdict, not the agent's last tool result.
                 detail = "Final geometry checked in the CAD sandbox. "
+                previous_path = workspace / "previous.json"
+                previous = json.loads(previous_path.read_text()) if previous_path.exists() else None
+                if previous and inspection.valid:
+                    analysis = await asyncio.to_thread(analyze_code, state["code"])
+                    if analysis.valid:
+                        inspection.changes = change_report(
+                            previous, analysis.model_dump(by_alias=True), inspection.model_dump())
                 if (workspace / "requirements.json").exists():
                     inspection.acceptance = evaluate(
                         json.loads((workspace / "requirements.json").read_text()),

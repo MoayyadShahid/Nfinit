@@ -65,6 +65,8 @@ class ModelInspection(BaseModel):
     acceptance: dict[str, Any] | None = None
     # Overhangs, walls, supports and bed fit of the final part, with findings.
     printability: dict[str, Any] | None = None
+    # For an edit: what changed since the starting design, with flags to review.
+    changes: dict[str, Any] | None = None
 
 
 class TraceStep(BaseModel):

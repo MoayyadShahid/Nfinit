@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.acceptance import (  # noqa: E402
     DECLARE_SCHEMA,
+    change_report,
     evaluate,
     parse_requirements,
     uncovered_numbers,
@@ -151,6 +152,21 @@ class CadTools:
             raise ValueError("Unknown CAD tool.")
         return self.build(arguments)
 
+    def starting_point(self):
+        """The starting design's topology and inspection, for an edit."""
+        cached = self.workspace / "previous.json"
+        if cached.exists():
+            return json.loads(cached.read_text()) or None
+        start = self.workspace / "start.py"
+        previous = None
+        if start.exists() and start.read_text().strip():
+            inspection, _, topology = review_code(start.read_text(), topology=True, draw=False)
+            if inspection.valid and topology is not None:
+                previous = {"topology": topology, "inspection": inspection.model_dump()}
+        # Measured once per run; an empty object records "no usable start".
+        cached.write_text(json.dumps(previous or {}))
+        return previous
+
     def requirements(self):
         path = self.workspace / "requirements.json"
         return json.loads(path.read_text()) if path.exists() else None
@@ -217,7 +233,10 @@ class CadTools:
         if self.builds >= MAX_BUILDS:
             raise ValueError("The eight-build budget is exhausted. Report remaining failures.")
         self.builds += 1
-        inspection, views = review_code(code)
+        previous = self.starting_point()
+        inspection, views, topology = review_code(code, topology=previous is not None)
+        if previous is not None and topology is not None:
+            inspection.changes = change_report(previous, topology, inspection.model_dump())
         if (self.workspace / "reference.json").exists() and inspection.valid:
             inspection.reference_comparison = compare_reference(inspection, json.loads((self.workspace / "reference.json").read_text()))
         inspection.acceptance = evaluate(requirements, inspection.model_dump(), code)

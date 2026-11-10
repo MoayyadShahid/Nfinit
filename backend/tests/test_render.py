@@ -33,9 +33,9 @@ def test_review_builds_once_and_returns_two_views(monkeypatch):
     original = runner._run_worker
     monkeypatch.setattr(runner, "_run_worker", lambda *args, **kwargs: calls.append(args[1]) or original(*args, **kwargs))
 
-    inspection, views = review_code(PLATE)
+    inspection, views, topology = review_code(PLATE)
 
-    assert inspection.valid
+    assert inspection.valid and topology is None
     assert calls == ["review"]
     assert [view.name for view in views] == ["iso shaded", "iso_back shaded"]
     assert all(image(view).size == (800, 600) for view in views)
