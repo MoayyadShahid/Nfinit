@@ -36,6 +36,14 @@ native CLI sessions are not resumed across runs. Superseded assistant code is
 omitted from native-agent context; the current model is available through the
 CAD tool, alongside user requests and reference images.
 
+The agent's prompt (`local_agent_prompt` in `backend/agent/prompts.py`) gives
+it a numbered procedure, the rules for reading stacked dimensions ("a 3 mm base
+with 12 mm walls" is 15 mm tall), build123d pitfalls that build without an
+error, and rules for reviewing a build: never read a dimension off an image,
+turn visual doubts into measurements, and never drop a requested feature to make
+a build pass. Each pitfall is reproduced by a test in
+`backend/tests/test_prompt_pitfalls.py`.
+
 The agent reads the current design, plans the change, then calls `build_model`.
 The CAD tool executes code in Nfinit's sandbox and returns:
 
