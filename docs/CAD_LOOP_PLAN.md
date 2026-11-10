@@ -1,6 +1,6 @@
 # CAD loop plan: match text-to-cad, then pass it
 
-Status: work packages 0 to 7 done. Written 2026-11-10 against `main` at `52be5f3`.
+Status: work packages 0 to 9 done. Work packages 10 and 11 wait for the owner's decisions. Written 2026-11-10 against `main` at `52be5f3`.
 Progress and changes to the plan are recorded in section 10.
 
 This is a handoff document. It assumes you have the repository and nothing
@@ -1004,3 +1004,4 @@ For each work package, the pull request description must contain:
 | 6 | Printability checks | `check_printability` takes no orientation input: every report already ranks the six orientations. The kernel keeps a face's first, finer mesh, so coarsening clears it before retrying; rays are only tested against triangles facing roughly against them. A 14,000-triangle plate with 196 holes takes about 5 s on an Apple silicon Mac. |
 | 7 | Edit safety | The starting design is measured by the bridge on the first build, in the same review run that draws views (`review_code(..., topology=True)`), not in `prepare_input`. A live loop20 run of work packages 2 to 7 together passed 20 of 20 but used about 87,000 tokens per case, twice work package 1, because tool results grew; work package 9 shortens them before the full measurement. |
 | 9 | Speed and budgets | Done before work package 8, because tool-result size drove the token cost. Rebuilding the part is about 1% of a sandbox query on macOS (process start-up is the rest), so the B-rep cache in item 3 was not built: it could not save the 30% the plan required. Tool results were shortened (`agent/feedback.py`), which the plan did not list. |
+| 8 | Evidence panel in the studio | The studio's `inspection` comes from the saved mesh, which has no acceptance or printability, so the panel reads the inspection of the assistant message whose code is on screen. It shows in the card over the viewport, where it is visible without opening the chat history, and under each agent reply. |
