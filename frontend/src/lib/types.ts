@@ -31,6 +31,34 @@ export type ModelInspection = {
   bounding_box_mm?: { x: number; y: number; z: number };
   verification?: "unverified" | "measured" | "failed";
   checks?: { name: string; actual: number; expected: number; tolerance: number; passed: boolean }[];
+  /** Holes, bosses and rounded edges counted from the faces. */
+  census?: GeometryCensus | { error: string };
+  solids?: {
+    volume_mm3: number;
+    bounding_box_mm: { x: number; y: number; z: number };
+    min_mm: [number, number, number];
+    manifold: boolean;
+    inverted: boolean;
+  }[];
+  /** Things that built but are probably wrong, such as a floating feature. */
+  warnings?: string[];
+};
+
+export type CensusCylinder = {
+  diameter_mm: number;
+  count: number;
+  axis: [number, number, number];
+  length_mm: number;
+  centers_mm: [number, number, number][];
+};
+
+export type GeometryCensus = {
+  holes: CensusCylinder[];
+  bosses: CensusCylinder[];
+  rounded_edges: { radius_mm: number; count: number; surface: "cylinder" | "torus" | "sphere" }[];
+  partial_cylinders: number;
+  face_counts: Record<string, number>;
+  features?: { id: string; operation: string; owned_faces: number }[];
 };
 
 export type MeshReference = {

@@ -115,6 +115,10 @@ These mistakes build without an error, or fail in a misleading way:
 </kernel_pitfalls>"""
 
 REVIEW_RULES = """<review_rules>
+- Each build reports its solids, warnings and a census of holes, bosses and
+  rounded edges counted from the faces. Compare the census with every hole,
+  boss, fillet and round the request asks for: their number and size. Fix or
+  explain every warning.
 - Never read a dimension off an image. Images show arrangement and appearance
   only. Dimensions come from measurements.
 - Turn every visual doubt into a measurement. If a hole pattern looks uneven,

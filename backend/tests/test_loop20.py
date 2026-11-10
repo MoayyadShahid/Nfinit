@@ -174,3 +174,12 @@ def test_feature_scoring_fails_without_a_census():
 def test_feature_expectation_needs_its_size():
     with pytest.raises(ValueError, match="radius_mm"):
         make_feature_case({"kind": "rounded_edge", "diameter_mm": 4})
+
+
+def test_inverted_solids_are_scored_when_solids_are_reported():
+    case = make_feature_case({"kind": "hole", "diameter_mm": 4})
+    inverted = ModelInspection(valid=False, solids=[{"inverted": True}], census=HOLES)
+    older = ModelInspection(valid=True, census=HOLES)
+
+    assert not score_evaluation(case, "t", "", inverted, [], ModelUsage()).scores["inverted_solids"].passed
+    assert "inverted_solids" not in score_evaluation(case, "t", "", older, [], ModelUsage()).scores

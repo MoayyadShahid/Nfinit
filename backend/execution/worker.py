@@ -785,16 +785,127 @@ def _execute(code: str):
     return result, feature_records, constraint_records, checks
 
 
-def _inspect(result, checks=None):
+# Feature ownership compares every face's edges with every edge; skip it on
+# parts large enough to make that slow.
+MAX_OWNERSHIP_FACES = 400
+MAX_LISTED_SOLIDS = 50
+WARNED_OPERATIONS = {"additive", "subtractive", "pattern", "fillet", "chamfer"}
+
+
+def _open_edges(solid):
+    """Edges on the solid's free boundary: 0 for a closed solid.
+
+    build123d's is_manifold counts the collapsed edge at a sphere's or cone's
+    tip as open, so a plain sphere fails it. The kernel's free-boundary
+    analysis skips those edges and joins edges that meet within tolerance.
+    """
+    from OCP.ShapeAnalysis import ShapeAnalysis_FreeBounds
+    from OCP.TopAbs import TopAbs_EDGE
+    from OCP.TopExp import TopExp_Explorer
+
+    bounds = ShapeAnalysis_FreeBounds(solid.wrapped)
+    count = 0
+    for wires in (bounds.GetClosedWires(), bounds.GetOpenWires()):
+        explorer = TopExp_Explorer(wires, TopAbs_EDGE)
+        while explorer.More():
+            count += 1
+            explorer.Next()
+    return count
+
+
+def _solid_facts(solid):
+    volume = float(solid.volume)
+    bounds = solid.bounding_box()
+    return {
+        "volume_mm3": round(volume, 3),
+        "bounding_box_mm": {
+            axis: round(float(value), 3)
+            for axis, value in zip("xyz", bounds.size)
+        },
+        "min_mm": _vector(bounds.min, 3),
+        "manifold": _open_edges(solid) == 0,
+        # Faces turned inward give a negative volume; the kernel's validity
+        # check does not catch it.
+        "inverted": not volume > 0,
+    }
+
+
+def _feature_faces(result, feature_records):
+    """How many final faces each registered feature owns, or None if skipped."""
+    if not feature_records:
+        return []
+    if len(result.faces()) > MAX_OWNERSHIP_FACES:
+        return None
+    _, face_records = _entity_records(result)
+    features, _ = _feature_tree(feature_records, face_records)
+    return [
+        {
+            "id": feature["id"],
+            "operation": feature["operation"],
+            "owned_faces": len(feature["ownedFaceIds"]),
+        }
+        for feature in features
+    ]
+
+
+def _inspect(result, checks=None, feature_records=None):
     bounds = result.bounding_box().size
     solids = result.solids() if hasattr(result, "solids") else []
     checks = checks or []
     failed = [check["name"] for check in checks if not check["passed"]]
+    solid_facts = [_solid_facts(solid) for solid in solids]
+
     # Retrieval also contains legitimate 2D sketches and wires. Kernel
-    # validity applies to these too; solid count is a separate measured fact.
-    valid = bool(result.is_valid and math.isfinite(float(result.volume)) and not failed)
-    return {
-        "valid": valid,
+    # validity applies to these too; the solid rules apply only to solids.
+    problems = []
+    for index, facts in enumerate(solid_facts, start=1):
+        if facts["inverted"]:
+            problems.append(
+                f"Solid {index} is inside out (negative volume). Build it another "
+                "way, for example one extruded or revolved profile instead of "
+                "stacked Booleans."
+            )
+        elif not facts["manifold"]:
+            problems.append(f"Solid {index} is not a closed, manifold solid.")
+    if failed:
+        problems.append("Failed geometry checks: " + ", ".join(failed))
+    kernel_valid = bool(result.is_valid and math.isfinite(float(result.volume)))
+    if not kernel_valid:
+        problems.insert(0, "The result must contain valid geometry with finite volume.")
+
+    warnings = []
+    if len(solid_facts) > 1:
+        total = sum(abs(facts["volume_mm3"]) for facts in solid_facts) or 1.0
+        smallest = min(abs(facts["volume_mm3"]) for facts in solid_facts)
+        warnings.append(
+            f"{len(solid_facts)} separate solids: the smallest is "
+            f"{smallest / total:.1%} of the total volume. A feature that should be "
+            "joined to the part does not overlap it."
+        )
+
+    census = _census(result)
+    if "error" not in census:
+        try:
+            owned = _feature_faces(result, feature_records)
+        except Exception as error:  # noqa: BLE001
+            owned = None
+            warnings.append(f"Feature ownership could not be measured: {type(error).__name__}.")
+        if owned is None:
+            warnings.append(
+                f"Feature ownership skipped: the part has {len(result.faces())} faces."
+            )
+        else:
+            census["features"] = owned
+            for feature in owned:
+                if feature["owned_faces"] == 0 and feature["operation"] in WARNED_OPERATIONS:
+                    warnings.append(
+                        f"Feature '{feature['id']}' owns no faces of the final part. "
+                        "It may have been skipped, merged into an earlier feature's "
+                        "faces, or removed by a later feature."
+                    )
+
+    data = {
+        "valid": not problems,
         "shape_type": type(result).__name__,
         "solid_count": len(solids),
         "volume_mm3": round(float(result.volume), 3),
@@ -805,10 +916,14 @@ def _inspect(result, checks=None):
         },
         "checks": checks,
         "verification": "failed" if failed else "measured" if checks else "unverified",
-        "error": ("Failed geometry checks: " + ", ".join(failed)) if failed else
-                 None if valid else "The result must contain valid geometry with finite volume.",
-        "census": _census(result),
+        "error": " ".join(problems) or None,
+        "solids": solid_facts[:MAX_LISTED_SOLIDS],
+        "warnings": warnings,
+        "census": census,
     }
+    if len(solid_facts) > MAX_LISTED_SOLIDS:
+        data["solids_truncated"] = True
+    return data
 
 
 MAX_CENSUS_ENTRIES = 50
@@ -1592,7 +1707,7 @@ def handle_request(request: dict) -> dict:
     result, feature_records, constraint_records, checks = _execute(request["code"])
     operation = request["operation"]
     if operation == "inspect":
-        data = _inspect(result, checks)
+        data = _inspect(result, checks, feature_records)
         if request.get("snapshots"):
             # Previews must never fail an otherwise valid part.
             try:
@@ -1617,7 +1732,7 @@ def handle_request(request: dict) -> dict:
     if operation == "glb":
         # Geometry facts cost about a millisecond once the shape exists, and
         # save the viewer a second sandbox run just to read them.
-        data["inspection"] = _inspect(result, checks)
+        data["inspection"] = _inspect(result, checks, feature_records)
     return data
 
 
