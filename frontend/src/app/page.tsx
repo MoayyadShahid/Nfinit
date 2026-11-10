@@ -84,7 +84,6 @@ export default function LandingPage() {
             Source code
           </Link>
         </p>
-        <p className="type-label">© 2026</p>
       </footer>
     </div>
   );
