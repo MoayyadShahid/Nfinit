@@ -243,9 +243,13 @@ async def _execute_run(
     else:
         if state["validation_error"]:
             result = _result_of(state)
+            attempts = (
+                "its builds" if request.model_id in LOCAL_MODELS
+                else f"{MAX_REPAIR_ATTEMPTS} repairs"
+            )
             error = (
                 "The CAD agent could not produce valid geometry after "
-                f"{MAX_REPAIR_ATTEMPTS} repairs: {state['validation_error']}"
+                f"{attempts}: {state['validation_error']}"
             )
         else:
             result = _result_of(state)

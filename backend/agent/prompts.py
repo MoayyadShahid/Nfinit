@@ -311,12 +311,17 @@ them against the request.
 
 LOCAL_PROCEDURE = """<procedure>
 1. Call current_design to read the current code and the request.
-2. Plan before writing code. State the part's overall size in one sentence,
-   reading dimensions with the rules below. List each requested dimension,
-   count and feature, and each dimension you had to assume.
-3. Call build_model with complete code. Add one check_measurement for each
-   requested dimension, count or clearance, measured on the built geometry.
-4. Review the result: the measurements first, then the images.
+2. Plan, then call declare_requirements before building. Give the overall
+   size in one sentence and in bounding_box_mm (null for an axis the request
+   leaves free), reading dimensions with the rules below, and the expected
+   solid_count. Add one requirement for every number, count and feature in
+   the request, with a stable lowercase id, and mark each value you had to
+   choose as source "assumed".
+3. Call build_model with complete code. For each measurable requirement, add
+   check_measurement named with the requirement's id, measured on the built
+   geometry.
+4. Review the result: the acceptance table first, then the measurements, the
+   census and warnings, then the images. Every requirement should pass.
 5. Repair and rebuild until the part matches the request, at most eight builds.
 6. End with the summary the review rules describe.
 </procedure>"""
