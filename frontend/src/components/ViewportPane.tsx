@@ -678,6 +678,15 @@ function ViewportContent({
   const [measuring, setMeasuring] = useState(false);
   const measurement = useMeasure(code);
   const { add: addMeasurePoint, clear: clearMeasurement } = measurement;
+
+  // A new model drops the selection and measurements made on the last one.
+  // The canvas itself stays mounted, so the old model stays on screen until
+  // the new one has loaded.
+  useEffect(() => {
+    clearSelection();
+    clearMeasurement();
+    setActiveFeatureId(null);
+  }, [glbUrl, clearSelection, clearMeasurement]);
   const handleFaceClick = useCallback(
     (selection: ThreeFaceSelection) => {
       if (measuring && selection.cadPoint) {
@@ -810,5 +819,5 @@ function ViewportContent({
 }
 
 export function ViewportPane(props: ViewportPaneProps) {
-  return <ViewportContent key={props.glbUrl ?? "empty"} {...props} />;
+  return <ViewportContent {...props} />;
 }

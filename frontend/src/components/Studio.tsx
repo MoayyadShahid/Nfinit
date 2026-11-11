@@ -1477,7 +1477,7 @@ export default function Studio({
 
             {evidence && (
               <div className="pointer-events-none absolute left-3 top-3 z-20 hidden sm:block">
-                <div className="theme-floating pointer-events-auto max-h-[calc(100dvh-16rem)] w-[300px] overflow-y-auto rounded-2xl border px-3.5 pb-3.5 shadow-xl shadow-black/10 backdrop-blur-xl">
+                <div className="theme-floating pointer-events-auto max-h-[calc(100dvh-16rem)] w-[300px] overflow-y-auto rounded-2xl border px-3.5 pb-3.5 shadow-xl shadow-black/10 backdrop-blur-xl empty:hidden">
                   <VerificationPanel inspection={evidence} onShowFaces={showFaces} framed={false} />
                 </div>
               </div>
