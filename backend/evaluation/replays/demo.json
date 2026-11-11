@@ -1,0 +1,28 @@
+{
+  "replays": [
+    {
+      "case_id": "demo_board_enclosure",
+      "model_id": "reference/demo",
+      "code": "outer_x, outer_y, height, wall, floor = 75.0, 40.0, 20.0, 2.0, 2.0\nwith BuildPart() as part:\n    Box(outer_x, outer_y, height, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, floor)):\n        Box(outer_x - 2 * wall, outer_y - 2 * wall, height, align=(Align.CENTER, Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n    with Locations((0, 0, floor)):\n        with GridLocations(58, 23, 2, 2):\n            Cylinder(3, 5, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    with Locations((0, 0, floor + 5)):\n        with GridLocations(58, 23, 2, 2):\n            Hole(radius=1.25, depth=5)\nresult = part.part",
+      "plan": "Reference solution."
+    },
+    {
+      "case_id": "demo_fan_mount",
+      "model_id": "reference/demo",
+      "code": "plate_size, thickness = 40.0, 4.0\nfan_hole, screw_hole, screw_pitch, corner = 38.0, 3.4, 32.0, 3.0\nwith BuildPart() as part:\n    Box(plate_size, plate_size, thickness, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part, parameters={\"size\": plate_size, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner)\n    register_feature(\"corners\", \"Rounded corners\", \"fillet\", part.part, parent_id=\"plate\", parameters={\"radius\": corner})\n    with Locations((0, 0, thickness)):\n        Hole(radius=fan_hole / 2)\n        with GridLocations(screw_pitch, screw_pitch, 2, 2):\n            Hole(radius=screw_hole / 2)\n    register_feature(\"fan_holes\", \"Fan holes\", \"subtractive\", part.part, parent_id=\"plate\", parameters={\"pitch\": screw_pitch})\nresult = part.part",
+      "plan": "Reference solution."
+    },
+    {
+      "case_id": "demo_fan_mount_tab",
+      "model_id": "reference/demo",
+      "code": "plate_size, thickness = 40.0, 6.0\nfan_hole, screw_hole, screw_pitch, corner = 38.0, 3.4, 32.0, 3.0\nwith BuildPart() as part:\n    Box(plate_size, plate_size, thickness, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part, parameters={\"size\": plate_size, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner)\n    register_feature(\"corners\", \"Rounded corners\", \"fillet\", part.part, parent_id=\"plate\", parameters={\"radius\": corner})\n    with Locations((0, 0, thickness)):\n        Hole(radius=fan_hole / 2)\n        with GridLocations(screw_pitch, screw_pitch, 2, 2):\n            Hole(radius=screw_hole / 2)\n    register_feature(\"fan_holes\", \"Fan holes\", \"subtractive\", part.part, parent_id=\"plate\", parameters={\"pitch\": screw_pitch})\n    with Locations((plate_size / 2, 0, 0)):\n        Box(20, 10, thickness, align=(Align.MIN, Align.CENTER, Align.MIN))\n    with Locations((plate_size / 2 + 10, 0, thickness)):\n        Hole(radius=2)\n    register_feature(\"tab\", \"Mounting tab\", \"additive\", part.part, parent_id=\"plate\", parameters={\"width\": 10})\nresult = part.part",
+      "plan": "Reference solution."
+    },
+    {
+      "case_id": "demo_phone_stand",
+      "model_id": "reference/demo",
+      "code": "width, depth, base_t, back_t, back_len, lip_h, lip_t = 70.0, 80.0, 6.0, 6.0, 90.0, 10.0, 4.0\nwith BuildPart() as part:\n    Box(width, depth, base_t, align=(Align.CENTER, Align.MIN, Align.MIN))\n    with Locations((0, 0, base_t)):\n        Box(width, lip_t, lip_h, align=(Align.CENTER, Align.MIN, Align.MIN))\n    with Locations(Location((0, 20, 0), (20, 0, 0))):\n        Box(width, back_t, back_len, align=(Align.CENTER, Align.MIN, Align.MIN))\nresult = part.part",
+      "plan": "Reference solution."
+    }
+  ]
+}

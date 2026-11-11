@@ -1,0 +1,2876 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-11-11T01:12:18.719426Z",
+  "mode": "live",
+  "models": [
+    "local/claude"
+  ],
+  "summary": {
+    "local/claude": {
+      "cases": 4,
+      "passed": 3,
+      "pass_rate": 0.75,
+      "mean_latency_ms": 54329.0,
+      "mean_total_tokens": 92850.75,
+      "repair_rate": 0.0,
+      "mean_cost_usd": 0.0,
+      "total_cost_usd": 0.0,
+      "p95_latency_ms": 63698.0
+    }
+  },
+  "results": [
+    {
+      "case_id": "demo_board_enclosure",
+      "category": "demo",
+      "model_id": "local/claude",
+      "run_id": "3522d306-0cd9-43c9-9b48-e6ff3b36db61",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 75.0,
+          "expected": {
+            "target": 75.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 20.0,
+          "expected": {
+            "target": 20.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "inverted_solids": {
+          "passed": true,
+          "value": 0,
+          "expected": 0,
+          "message": "No solid is inside out."
+        },
+        "feature_0_boss": {
+          "passed": true,
+          "value": {
+            "count": 4,
+            "center_span_mm": {
+              "x": 58.0,
+              "y": 23.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 6.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 58.0,
+              "y": 23.0
+            }
+          },
+          "message": "Found 4 boss of diameter 6 mm."
+        },
+        "feature_1_hole": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "diameter_mm": 2.5,
+            "count": null,
+            "min_count": 4,
+            "center_span_mm": null
+          },
+          "message": "Found 4 hole of diameter 2.5 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 14459.312,
+        "bounding_box_mm": {
+          "x": 75.0,
+          "y": 40.0,
+          "z": 20.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "overall_height",
+            "actual": 20.0,
+            "expected": 20.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "inner_length",
+            "actual": 71.0,
+            "expected": 71.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "wall_thickness",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "inner_width",
+            "actual": 36.0,
+            "expected": 36.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "floor_thickness",
+            "actual": 2.0,
+            "expected": 2.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "standoff_height",
+            "actual": 5.0,
+            "expected": 5.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "standoff_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "standoff_diameter",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "standoff_hole_diameter",
+            "actual": 2.5,
+            "expected": 2.5,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "standoff_spacing_x",
+            "actual": 58.0,
+            "expected": 58.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "standoff_spacing_y",
+            "actual": 23.0,
+            "expected": 23.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "open_top",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 2.5,
+              "count": 4,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 5.0,
+              "centers_mm": [
+                [
+                  -29.0,
+                  -11.5,
+                  4.5
+                ],
+                [
+                  29.0,
+                  -11.5,
+                  4.5
+                ],
+                [
+                  -29.0,
+                  11.5,
+                  4.5
+                ],
+                [
+                  29.0,
+                  11.5,
+                  4.5
+                ]
+              ]
+            }
+          ],
+          "bosses": [
+            {
+              "diameter_mm": 6.0,
+              "count": 4,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 5.0,
+              "centers_mm": [
+                [
+                  -29.0,
+                  -11.5,
+                  4.5
+                ],
+                [
+                  29.0,
+                  -11.5,
+                  4.5
+                ],
+                [
+                  -29.0,
+                  11.5,
+                  4.5
+                ],
+                [
+                  29.0,
+                  11.5,
+                  4.5
+                ]
+              ]
+            }
+          ],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 8,
+            "plane": 19
+          },
+          "features": [
+            {
+              "id": "shell_block",
+              "operation": "additive",
+              "owned_faces": 6
+            },
+            {
+              "id": "cavity",
+              "operation": "subtractive",
+              "owned_faces": 9
+            },
+            {
+              "id": "standoffs",
+              "operation": "pattern",
+              "owned_faces": 8
+            },
+            {
+              "id": "standoff_holes",
+              "operation": "pattern",
+              "owned_faces": 4
+            }
+          ]
+        },
+        "solids": [
+          {
+            "volume_mm3": 14459.312,
+            "bounding_box_mm": {
+              "x": 75.0,
+              "y": 40.0,
+              "z": 20.0
+            },
+            "min_mm": [
+              -37.5,
+              -20.0,
+              0.0
+            ],
+            "manifold": true,
+            "inverted": false
+          }
+        ],
+        "warnings": [],
+        "acceptance": {
+          "verdict": "verified",
+          "passed": 14,
+          "failed": 0,
+          "review": 0,
+          "unverified": 0,
+          "not_measurable": 0,
+          "rows": [
+            {
+              "id": "overall_size",
+              "text": "Overall size",
+              "status": "passed",
+              "expected": {
+                "x": 75.0,
+                "y": 40.0,
+                "z": 20.0
+              },
+              "measured": {
+                "x": 75.0,
+                "y": 40.0,
+                "z": 20.0
+              },
+              "source": "user",
+              "detail": ""
+            },
+            {
+              "id": "solid_count",
+              "text": "Number of solids",
+              "status": "passed",
+              "expected": 1,
+              "measured": 1,
+              "source": "user",
+              "detail": ""
+            },
+            {
+              "id": "inner_length",
+              "text": "Cavity length = 65 + 2x3 clearance",
+              "status": "passed",
+              "expected": 71.0,
+              "measured": 71.0,
+              "source": "user",
+              "detail": "Measured 71 against 71 \u00b1 0.05."
+            },
+            {
+              "id": "inner_width",
+              "text": "Cavity width = 30 + 2x3 clearance",
+              "status": "passed",
+              "expected": 36.0,
+              "measured": 36.0,
+              "source": "user",
+              "detail": "Measured 36 against 36 \u00b1 0.05."
+            },
+            {
+              "id": "wall_thickness",
+              "text": "2 mm walls",
+              "status": "passed",
+              "expected": 2.0,
+              "measured": 2.0,
+              "source": "user",
+              "detail": "Measured 2 against 2 \u00b1 0.05."
+            },
+            {
+              "id": "floor_thickness",
+              "text": "2 mm floor",
+              "status": "passed",
+              "expected": 2.0,
+              "measured": 2.0,
+              "source": "user",
+              "detail": "Measured 2 against 2 \u00b1 0.05."
+            },
+            {
+              "id": "overall_height",
+              "text": "20 mm tall overall",
+              "status": "passed",
+              "expected": 20.0,
+              "measured": 20.0,
+              "source": "user",
+              "detail": "Measured 20 against 20 \u00b1 0.05."
+            },
+            {
+              "id": "standoff_count",
+              "text": "Four standoffs",
+              "status": "passed",
+              "expected": 4.0,
+              "measured": 4.0,
+              "source": "user",
+              "detail": "Measured 4 against 4 \u00b1 0."
+            },
+            {
+              "id": "standoff_diameter",
+              "text": "Standoff diameter 6 mm",
+              "status": "passed",
+              "expected": 6.0,
+              "measured": 6.0,
+              "source": "user",
+              "detail": "Measured 6 against 6 \u00b1 0.05."
+            },
+            {
+              "id": "standoff_height",
+              "text": "Standoffs 5 mm tall above floor",
+              "status": "passed",
+              "expected": 5.0,
+              "measured": 5.0,
+              "source": "user",
+              "detail": "Measured 5 against 5 \u00b1 0.05."
+            },
+            {
+              "id": "standoff_spacing_x",
+              "text": "Standoffs 58 mm apart in X, centred",
+              "status": "passed",
+              "expected": 58.0,
+              "measured": 58.0,
+              "source": "user",
+              "detail": "Measured 58 against 58 \u00b1 0.05."
+            },
+            {
+              "id": "standoff_spacing_y",
+              "text": "Standoffs 23 mm apart in Y, centred",
+              "status": "passed",
+              "expected": 23.0,
+              "measured": 23.0,
+              "source": "user",
+              "detail": "Measured 23 against 23 \u00b1 0.05."
+            },
+            {
+              "id": "standoff_hole_diameter",
+              "text": "2.5 mm hole in each standoff",
+              "status": "passed",
+              "expected": 2.5,
+              "measured": 2.5,
+              "source": "user",
+              "detail": "Measured 2.5 against 2.5 \u00b1 0.05."
+            },
+            {
+              "id": "open_top",
+              "text": "Top is open",
+              "status": "passed",
+              "expected": null,
+              "measured": 0.0,
+              "source": "user",
+              "detail": "Measured 0 against 0 \u00b1 0."
+            }
+          ],
+          "rejected_checks": [],
+          "assumptions": [
+            "Standoff holes are blind, 5 mm deep through the standoff only, not through the floor (keeps the floor sealed).",
+            "Spacing 58 x 23 mm is centre-to-centre of the standoffs.",
+            "No fillets or corner rounding added since none were requested."
+          ],
+          "summary": "Open-top box 75 x 40 x 20 mm overall (71 x 36 mm cavity) with four 6 mm standoffs inside."
+        },
+        "printability": {
+          "profile": {
+            "process": "fdm",
+            "bed_mm": [
+              220.0,
+              220.0,
+              250.0
+            ],
+            "nozzle_mm": 0.4,
+            "min_wall_mm": 1.2,
+            "overhang_limit_deg": 45.0,
+            "min_hole_mm": 2.0,
+            "max_support_ratio": 0.3,
+            "printer": "generic",
+            "printer_name": "Generic FDM printer"
+          },
+          "facts": {
+            "triangles": 1372,
+            "surface_area_mm2": 14985.573,
+            "bed_fit": {
+              "size_mm": [
+                75.0,
+                40.0,
+                20.0
+              ],
+              "bed_mm": [
+                220.0,
+                220.0,
+                250.0
+              ],
+              "fits": true,
+              "needs_turn": false
+            },
+            "overhangs": {
+              "limit_deg": 45.0,
+              "area_mm2": 0.0,
+              "share_of_surface": 0.0,
+              "largest": []
+            },
+            "support_volume": {
+              "estimate_mm3": 0.0,
+              "part_volume_mm3": 14459.312,
+              "ratio": 0.0,
+              "note": "An upper bound: a prism from each overhanging triangle down to the bed."
+            },
+            "orientations": [
+              {
+                "name": "current_plus_z",
+                "overhang_area_mm2": 0.0,
+                "build_height_mm": 20.0
+              },
+              {
+                "name": "rot_plus_90_y",
+                "overhang_area_mm2": 775.041,
+                "build_height_mm": 75.0
+              },
+              {
+                "name": "rot_minus_90_y",
+                "overhang_area_mm2": 775.041,
+                "build_height_mm": 75.0
+              },
+              {
+                "name": "rot_plus_90_x",
+                "overhang_area_mm2": 1417.745,
+                "build_height_mm": 40.0
+              },
+              {
+                "name": "rot_minus_90_x",
+                "overhang_area_mm2": 1417.745,
+                "build_height_mm": 40.0
+              },
+              {
+                "name": "flip_180_x",
+                "overhang_area_mm2": 2556.0,
+                "build_height_mm": 20.0
+              }
+            ],
+            "wall_thickness": {
+              "samples": 2000,
+              "min_mm": 1.745,
+              "p05_mm": 2.0,
+              "median_mm": 2.0,
+              "thinnest": [
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    -27.804,
+                    11.863,
+                    6.706
+                  ],
+                  "face_id": "face_fb5bbf0e41e10e0aa34e"
+                },
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    -27.798,
+                    11.834,
+                    3.271
+                  ],
+                  "face_id": "face_fb5bbf0e41e10e0aa34e"
+                },
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    27.811,
+                    -11.118,
+                    6.72
+                  ],
+                  "face_id": "face_83c609d5efcdb6a6ec33"
+                },
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    30.271,
+                    8.791,
+                    6.416
+                  ],
+                  "face_id": "face_54f7c161d568eaecece0"
+                },
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    -28.454,
+                    -12.621,
+                    3.973
+                  ],
+                  "face_id": "face_9491c2936686f73814ec"
+                },
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    -27.36,
+                    -14.002,
+                    2.404
+                  ],
+                  "face_id": "face_9e962ddf98a97a1fbe89"
+                },
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    -30.242,
+                    11.389,
+                    5.726
+                  ],
+                  "face_id": "face_fb5bbf0e41e10e0aa34e"
+                },
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    -30.245,
+                    11.433,
+                    6.545
+                  ],
+                  "face_id": "face_fb5bbf0e41e10e0aa34e"
+                },
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    -29.907,
+                    -8.649,
+                    5.81
+                  ],
+                  "face_id": "face_9e962ddf98a97a1fbe89"
+                },
+                {
+                  "thickness_mm": 1.745,
+                  "at_mm": [
+                    29.489,
+                    14.452,
+                    6.222
+                  ],
+                  "face_id": "face_54f7c161d568eaecece0"
+                }
+              ]
+            },
+            "small_holes": [],
+            "sealed_voids": 0,
+            "not_measured": [
+              "bridges",
+              "minimum positive feature size",
+              "warping",
+              "strength"
+            ]
+          },
+          "findings": [
+            {
+              "rule": "bed_fit",
+              "status": "pass",
+              "measured": [
+                75.0,
+                40.0,
+                20.0
+              ],
+              "limit": [
+                220.0,
+                220.0,
+                250.0
+              ],
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "min_wall",
+              "status": "pass",
+              "measured": {
+                "p05_mm": 2.0,
+                "min_mm": 1.745
+              },
+              "limit": 1.2,
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "overhangs",
+              "status": "pass",
+              "measured": 0.0,
+              "limit": 45.0,
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "bridges",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "minimum_positive_feature_size",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "warping",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "strength",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            }
+          ]
+        },
+        "changes": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 58234,
+      "usage": {
+        "input_tokens": 108319,
+        "output_tokens": 6293,
+        "total_tokens": 114612,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "demo_fan_mount",
+      "category": "demo",
+      "model_id": "local/claude",
+      "run_id": "89f29916-8b59-43d0-8283-56e17b24e0d7",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 4.0,
+          "expected": {
+            "target": 4.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "inverted_solids": {
+          "passed": true,
+          "value": 0,
+          "expected": 0,
+          "message": "No solid is inside out."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "diameter_mm": 38.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 hole of diameter 38 mm."
+        },
+        "feature_1_hole": {
+          "passed": true,
+          "value": {
+            "count": 4,
+            "center_span_mm": {
+              "x": 32.0,
+              "y": 32.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 3.4,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 32.0,
+              "y": 32.0
+            }
+          },
+          "message": "Found 4 hole of diameter 3.4 mm."
+        },
+        "feature_2_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "radius_mm": 3.0,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 4 rounded edge of radius 3 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 1687.37,
+        "bounding_box_mm": {
+          "x": 40.0,
+          "y": 40.0,
+          "z": 4.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "plate_width",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_depth",
+            "actual": 40.0,
+            "expected": 40.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "plate_thickness",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "center_hole_dia",
+            "actual": 38.0,
+            "expected": 38.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "screw_hole_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "screw_hole_dia",
+            "actual": 3.4,
+            "expected": 3.4,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "screw_spacing",
+            "actual": 32.0,
+            "expected": 32.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "screw_spacing_y",
+            "actual": 32.0,
+            "expected": 32.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "corner_radius",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solid_count",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 3.4,
+              "count": 4,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 4.0,
+              "centers_mm": [
+                [
+                  -16.0,
+                  -16.0,
+                  2.0
+                ],
+                [
+                  16.0,
+                  -16.0,
+                  2.0
+                ],
+                [
+                  -16.0,
+                  16.0,
+                  2.0
+                ],
+                [
+                  16.0,
+                  16.0,
+                  2.0
+                ]
+              ]
+            },
+            {
+              "diameter_mm": 38.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 4.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  2.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [
+            {
+              "radius_mm": 3.0,
+              "count": 4,
+              "surface": "cylinder"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 9,
+            "plane": 6
+          },
+          "features": [
+            {
+              "id": "base_plate",
+              "operation": "additive",
+              "owned_faces": 10
+            },
+            {
+              "id": "center_hole",
+              "operation": "subtractive",
+              "owned_faces": 1
+            },
+            {
+              "id": "screw_holes",
+              "operation": "pattern",
+              "owned_faces": 4
+            }
+          ]
+        },
+        "solids": [
+          {
+            "volume_mm3": 1687.37,
+            "bounding_box_mm": {
+              "x": 40.0,
+              "y": 40.0,
+              "z": 4.0
+            },
+            "min_mm": [
+              -20.0,
+              -20.0,
+              0.0
+            ],
+            "manifold": true,
+            "inverted": false
+          }
+        ],
+        "warnings": [],
+        "acceptance": {
+          "verdict": "verified",
+          "passed": 10,
+          "failed": 0,
+          "review": 0,
+          "unverified": 0,
+          "not_measurable": 0,
+          "rows": [
+            {
+              "id": "overall_size",
+              "text": "Overall size",
+              "status": "passed",
+              "expected": {
+                "x": 40.0,
+                "y": 40.0,
+                "z": 4.0
+              },
+              "measured": {
+                "x": 40.0,
+                "y": 40.0,
+                "z": 4.0
+              },
+              "source": "user",
+              "detail": ""
+            },
+            {
+              "id": "solid_count",
+              "text": "Number of solids",
+              "status": "passed",
+              "expected": 1,
+              "measured": 1,
+              "source": "user",
+              "detail": ""
+            },
+            {
+              "id": "plate_width",
+              "text": "Plate 40 mm in X",
+              "status": "passed",
+              "expected": 40.0,
+              "measured": 40.0,
+              "source": "user",
+              "detail": "Measured 40 against 40 \u00b1 0.01."
+            },
+            {
+              "id": "plate_depth",
+              "text": "Plate 40 mm in Y",
+              "status": "passed",
+              "expected": 40.0,
+              "measured": 40.0,
+              "source": "user",
+              "detail": "Measured 40 against 40 \u00b1 0.01."
+            },
+            {
+              "id": "plate_thickness",
+              "text": "Plate 4 mm thick",
+              "status": "passed",
+              "expected": 4.0,
+              "measured": 4.0,
+              "source": "user",
+              "detail": "Measured 4 against 4 \u00b1 0.01."
+            },
+            {
+              "id": "center_hole_dia",
+              "text": "38 mm centre hole",
+              "status": "passed",
+              "expected": 38.0,
+              "measured": 38.0,
+              "source": "user",
+              "detail": "Measured 38 against 38 \u00b1 0.01."
+            },
+            {
+              "id": "screw_hole_count",
+              "text": "Four screw holes",
+              "status": "passed",
+              "expected": 4.0,
+              "measured": 4.0,
+              "source": "user",
+              "detail": "Measured 4 against 4 \u00b1 0."
+            },
+            {
+              "id": "screw_hole_dia",
+              "text": "Screw holes 3.4 mm diameter",
+              "status": "passed",
+              "expected": 3.4,
+              "measured": 3.4,
+              "source": "user",
+              "detail": "Measured 3.4 against 3.4 \u00b1 0.01."
+            },
+            {
+              "id": "screw_spacing",
+              "text": "Screw holes on a 32 mm square (centre spacing)",
+              "status": "passed",
+              "expected": 32.0,
+              "measured": 32.0,
+              "source": "user",
+              "detail": "Measured 32 against 32 \u00b1 0.01."
+            },
+            {
+              "id": "corner_radius",
+              "text": "3 mm rounded corners on the four vertical plate edges",
+              "status": "passed",
+              "expected": 3.0,
+              "measured": 3.0,
+              "source": "user",
+              "detail": "Measured 3 against 3 \u00b1 0.01."
+            }
+          ],
+          "rejected_checks": [],
+          "assumptions": [
+            "Rounded corners means the four vertical corner edges of the plate in plan view, not the top/bottom edges.",
+            "All holes go fully through the plate.",
+            "Screw spacing 32 mm is centre-to-centre along each side of the square."
+          ],
+          "summary": "A 40 x 40 x 4 mm fan mount plate with a 38 mm centre hole, four 3.4 mm screw holes on a 32 mm square and 3 mm rounded vertical corners."
+        },
+        "printability": {
+          "profile": {
+            "process": "fdm",
+            "bed_mm": [
+              220.0,
+              220.0,
+              250.0
+            ],
+            "nozzle_mm": 0.4,
+            "min_wall_mm": 1.2,
+            "overhang_limit_deg": 45.0,
+            "min_hole_mm": 2.0,
+            "max_support_ratio": 0.3,
+            "printer": "generic",
+            "printer_name": "Generic FDM printer"
+          },
+          "facts": {
+            "triangles": 1048,
+            "surface_area_mm2": 2119.369,
+            "bed_fit": {
+              "size_mm": [
+                40.0,
+                40.0,
+                4.0
+              ],
+              "bed_mm": [
+                220.0,
+                220.0,
+                250.0
+              ],
+              "fits": true,
+              "needs_turn": false
+            },
+            "overhangs": {
+              "limit_deg": 45.0,
+              "area_mm2": 0.0,
+              "share_of_surface": 0.0,
+              "largest": []
+            },
+            "support_volume": {
+              "estimate_mm3": 0.0,
+              "part_volume_mm3": 1687.37,
+              "ratio": 0.0,
+              "note": "An upper bound: a prism from each overhanging triangle down to the bed."
+            },
+            "orientations": [
+              {
+                "name": "current_plus_z",
+                "overhang_area_mm2": 0.0,
+                "build_height_mm": 4.0
+              },
+              {
+                "name": "flip_180_x",
+                "overhang_area_mm2": 0.0,
+                "build_height_mm": 4.0
+              },
+              {
+                "name": "rot_plus_90_y",
+                "overhang_area_mm2": 167.94,
+                "build_height_mm": 40.0
+              },
+              {
+                "name": "rot_minus_90_y",
+                "overhang_area_mm2": 167.94,
+                "build_height_mm": 40.0
+              },
+              {
+                "name": "rot_plus_90_x",
+                "overhang_area_mm2": 183.364,
+                "build_height_mm": 40.0
+              },
+              {
+                "name": "rot_minus_90_x",
+                "overhang_area_mm2": 185.076,
+                "build_height_mm": 40.0
+              }
+            ],
+            "wall_thickness": {
+              "samples": 1975,
+              "min_mm": 1.005,
+              "p05_mm": 1.132,
+              "median_mm": 4.0,
+              "thinnest": [
+                {
+                  "thickness_mm": 1.005,
+                  "at_mm": [
+                    20.0,
+                    0.069,
+                    2.074
+                  ],
+                  "face_id": "face_2f3f0b9241b01e0900b6"
+                },
+                {
+                  "thickness_mm": 1.007,
+                  "at_mm": [
+                    -18.996,
+                    0.051,
+                    1.024
+                  ],
+                  "face_id": "face_594bdf1537b7c2ab6e28"
+                },
+                {
+                  "thickness_mm": 1.012,
+                  "at_mm": [
+                    -18.99,
+                    0.128,
+                    2.721
+                  ],
+                  "face_id": "face_594bdf1537b7c2ab6e28"
+                },
+                {
+                  "thickness_mm": 1.017,
+                  "at_mm": [
+                    20.0,
+                    0.223,
+                    0.207
+                  ],
+                  "face_id": "face_2f3f0b9241b01e0900b6"
+                },
+                {
+                  "thickness_mm": 1.017,
+                  "at_mm": [
+                    -18.986,
+                    -0.19,
+                    0.956
+                  ],
+                  "face_id": "face_594bdf1537b7c2ab6e28"
+                },
+                {
+                  "thickness_mm": 1.017,
+                  "at_mm": [
+                    -20.0,
+                    -0.229,
+                    2.818
+                  ],
+                  "face_id": "face_8a0221c9e084343140b3"
+                },
+                {
+                  "thickness_mm": 1.022,
+                  "at_mm": [
+                    20.0,
+                    -0.298,
+                    0.081
+                  ],
+                  "face_id": "face_2f3f0b9241b01e0900b6"
+                },
+                {
+                  "thickness_mm": 1.023,
+                  "at_mm": [
+                    -20.0,
+                    -0.304,
+                    3.627
+                  ],
+                  "face_id": "face_8a0221c9e084343140b3"
+                },
+                {
+                  "thickness_mm": 1.026,
+                  "at_mm": [
+                    -18.977,
+                    -0.309,
+                    2.285
+                  ],
+                  "face_id": "face_594bdf1537b7c2ab6e28"
+                },
+                {
+                  "thickness_mm": 1.03,
+                  "at_mm": [
+                    -18.972,
+                    -0.369,
+                    0.946
+                  ],
+                  "face_id": "face_594bdf1537b7c2ab6e28"
+                }
+              ]
+            },
+            "small_holes": [],
+            "sealed_voids": 0,
+            "not_measured": [
+              "bridges",
+              "minimum positive feature size",
+              "warping",
+              "strength"
+            ]
+          },
+          "findings": [
+            {
+              "rule": "bed_fit",
+              "status": "pass",
+              "measured": [
+                40.0,
+                40.0,
+                4.0
+              ],
+              "limit": [
+                220.0,
+                220.0,
+                250.0
+              ],
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "min_wall",
+              "status": "fail",
+              "measured": {
+                "p05_mm": 1.132,
+                "min_mm": 1.005
+              },
+              "limit": 1.2,
+              "where": [
+                20.0,
+                0.069,
+                2.074
+              ],
+              "face_ids": [
+                "face_2f3f0b9241b01e0900b6",
+                "face_594bdf1537b7c2ab6e28",
+                "face_594bdf1537b7c2ab6e28",
+                "face_2f3f0b9241b01e0900b6",
+                "face_594bdf1537b7c2ab6e28",
+                "face_8a0221c9e084343140b3",
+                "face_2f3f0b9241b01e0900b6",
+                "face_8a0221c9e084343140b3",
+                "face_594bdf1537b7c2ab6e28",
+                "face_594bdf1537b7c2ab6e28"
+              ],
+              "suggestion": "Thicken the walls to at least 1.2 mm; the thinnest is 1.005 mm near [20.0, 0.069, 2.074]."
+            },
+            {
+              "rule": "overhangs",
+              "status": "pass",
+              "measured": 0.0,
+              "limit": 45.0,
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "bridges",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "minimum_positive_feature_size",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "warping",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "strength",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            }
+          ]
+        },
+        "changes": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 33847,
+      "usage": {
+        "input_tokens": 63594,
+        "output_tokens": 3149,
+        "total_tokens": 66743,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "demo_fan_mount_tab",
+      "category": "demo",
+      "model_id": "local/claude",
+      "run_id": "220ff6c7-47cc-4d72-b54f-6ea306fec06c",
+      "passed": false,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": false,
+          "value": 60.0,
+          "expected": {
+            "target": 50.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was outside tolerance."
+        },
+        "bounding_box_y": {
+          "passed": true,
+          "value": 40.0,
+          "expected": {
+            "target": 40.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Y dimension was within tolerance."
+        },
+        "bounding_box_z": {
+          "passed": true,
+          "value": 6.0,
+          "expected": {
+            "target": 6.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "Z dimension was within tolerance."
+        },
+        "inverted_solids": {
+          "passed": true,
+          "value": 0,
+          "expected": 0,
+          "message": "No solid is inside out."
+        },
+        "feature_0_hole": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "diameter_mm": 38.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 hole of diameter 38 mm."
+        },
+        "feature_1_hole": {
+          "passed": true,
+          "value": {
+            "count": 4,
+            "center_span_mm": {
+              "x": 32.0,
+              "y": 32.0,
+              "z": 0.0
+            }
+          },
+          "expected": {
+            "diameter_mm": 3.4,
+            "count": 4,
+            "min_count": null,
+            "center_span_mm": {
+              "x": 32.0,
+              "y": 32.0
+            }
+          },
+          "message": "Found 4 hole of diameter 3.4 mm."
+        },
+        "feature_2_hole": {
+          "passed": true,
+          "value": {
+            "count": 1
+          },
+          "expected": {
+            "diameter_mm": 4.0,
+            "count": 1,
+            "min_count": null,
+            "center_span_mm": null
+          },
+          "message": "Found 1 hole of diameter 4 mm."
+        },
+        "feature_3_rounded_edge": {
+          "passed": true,
+          "value": {
+            "count": 4
+          },
+          "expected": {
+            "radius_mm": 3.0,
+            "count": null,
+            "min_count": 4,
+            "center_span_mm": null
+          },
+          "message": "Found 4 rounded edge of radius 3 mm."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 3655.657,
+        "bounding_box_mm": {
+          "x": 60.0,
+          "y": 40.0,
+          "z": 6.0
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "plate_thickness",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "tab_width",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "tab_length",
+            "actual": 20.0,
+            "expected": 20.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "tab_thickness",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "tab_centered",
+            "actual": 0.0,
+            "expected": 0.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "tab_hole_dia",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "tab_hole_pos",
+            "actual": 30.0,
+            "expected": 30.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "fan_hole_dia",
+            "actual": 38.0,
+            "expected": 38.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "screw_hole_count",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.0,
+            "passed": true
+          },
+          {
+            "name": "corner_radius",
+            "actual": 3.0,
+            "expected": 3.0,
+            "tolerance": 0.01,
+            "passed": true
+          },
+          {
+            "name": "solids",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [
+            {
+              "diameter_mm": 3.4,
+              "count": 4,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 6.0,
+              "centers_mm": [
+                [
+                  -16.0,
+                  -16.0,
+                  3.0
+                ],
+                [
+                  16.0,
+                  -16.0,
+                  3.0
+                ],
+                [
+                  -16.0,
+                  16.0,
+                  3.0
+                ],
+                [
+                  16.0,
+                  16.0,
+                  3.0
+                ]
+              ]
+            },
+            {
+              "diameter_mm": 4.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 6.0,
+              "centers_mm": [
+                [
+                  30.0,
+                  0.0,
+                  3.0
+                ]
+              ]
+            },
+            {
+              "diameter_mm": 38.0,
+              "count": 1,
+              "axis": [
+                0.0,
+                0.0,
+                1.0
+              ],
+              "length_mm": 6.0,
+              "centers_mm": [
+                [
+                  0.0,
+                  0.0,
+                  3.0
+                ]
+              ]
+            }
+          ],
+          "bosses": [],
+          "rounded_edges": [
+            {
+              "radius_mm": 3.0,
+              "count": 4,
+              "surface": "cylinder"
+            }
+          ],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "cylinder": 10,
+            "plane": 10
+          },
+          "features": [
+            {
+              "id": "plate",
+              "operation": "additive",
+              "owned_faces": 7
+            },
+            {
+              "id": "corners",
+              "operation": "fillet",
+              "owned_faces": 4
+            },
+            {
+              "id": "tab",
+              "operation": "additive",
+              "owned_faces": 3
+            },
+            {
+              "id": "fan_holes",
+              "operation": "subtractive",
+              "owned_faces": 5
+            },
+            {
+              "id": "tab_hole",
+              "operation": "subtractive",
+              "owned_faces": 1
+            }
+          ]
+        },
+        "solids": [
+          {
+            "volume_mm3": 3655.657,
+            "bounding_box_mm": {
+              "x": 60.0,
+              "y": 40.0,
+              "z": 6.0
+            },
+            "min_mm": [
+              -20.0,
+              -20.0,
+              0.0
+            ],
+            "manifold": true,
+            "inverted": false
+          }
+        ],
+        "warnings": [],
+        "acceptance": {
+          "verdict": "verified",
+          "passed": 14,
+          "failed": 0,
+          "review": 0,
+          "unverified": 0,
+          "not_measurable": 0,
+          "rows": [
+            {
+              "id": "overall_size",
+              "text": "Overall size",
+              "status": "passed",
+              "expected": {
+                "x": 60.0,
+                "y": 40.0,
+                "z": 6.0
+              },
+              "measured": {
+                "x": 60.0,
+                "y": 40.0,
+                "z": 6.0
+              },
+              "source": "user",
+              "detail": ""
+            },
+            {
+              "id": "solid_count",
+              "text": "Number of solids",
+              "status": "passed",
+              "expected": 1,
+              "measured": 1,
+              "source": "user",
+              "detail": ""
+            },
+            {
+              "id": "plate_thickness",
+              "text": "Plate 6 mm thick",
+              "status": "passed",
+              "expected": 6.0,
+              "measured": 6.0,
+              "source": "user",
+              "detail": "Measured 6 against 6 \u00b1 0.01."
+            },
+            {
+              "id": "tab_width",
+              "text": "Tab 10 mm wide",
+              "status": "passed",
+              "expected": 10.0,
+              "measured": 10.0,
+              "source": "user",
+              "detail": "Measured 10 against 10 \u00b1 0.01."
+            },
+            {
+              "id": "tab_length",
+              "text": "Tab sticks out 20 mm from the plate side",
+              "status": "passed",
+              "expected": 20.0,
+              "measured": 20.0,
+              "source": "user",
+              "detail": "Measured 20 against 20 \u00b1 0.01."
+            },
+            {
+              "id": "tab_thickness",
+              "text": "Tab as thick as the plate",
+              "status": "passed",
+              "expected": 6.0,
+              "measured": 6.0,
+              "source": "user",
+              "detail": "Measured 6 against 6 \u00b1 0.01."
+            },
+            {
+              "id": "tab_centered",
+              "text": "Tab centred on the side (Y offset 0)",
+              "status": "passed",
+              "expected": 0.0,
+              "measured": 0.0,
+              "source": "user",
+              "detail": "Measured 0 against 0 \u00b1 0.01."
+            },
+            {
+              "id": "tab_hole_dia",
+              "text": "4 mm through hole in tab",
+              "status": "passed",
+              "expected": 4.0,
+              "measured": 4.0,
+              "source": "user",
+              "detail": "Measured 4 against 4 \u00b1 0.01."
+            },
+            {
+              "id": "tab_hole_pos",
+              "text": "Tab hole centred in the tab, 10 mm from plate edge (x=30)",
+              "status": "passed",
+              "expected": 30.0,
+              "measured": 30.0,
+              "source": "assumed",
+              "detail": "Measured 30 against 30 \u00b1 0.01."
+            },
+            {
+              "id": "fan_hole_dia",
+              "text": "Fan hole 38 mm kept",
+              "status": "passed",
+              "expected": 38.0,
+              "measured": 38.0,
+              "source": "user",
+              "detail": "Measured 38 against 38 \u00b1 0.01."
+            },
+            {
+              "id": "screw_hole_count",
+              "text": "Four 3.4 mm fan screw holes kept",
+              "status": "passed",
+              "expected": 4.0,
+              "measured": 4.0,
+              "source": "user",
+              "detail": "Measured 4 against 4 \u00b1 0."
+            },
+            {
+              "id": "corner_radius",
+              "text": "3 mm rounded plate corners kept",
+              "status": "passed",
+              "expected": 3.0,
+              "measured": 3.0,
+              "source": "user",
+              "detail": "Measured 3 against 3 \u00b1 0.01."
+            },
+            {
+              "id": "solids",
+              "text": "Single solid",
+              "status": "passed",
+              "expected": 1.0,
+              "measured": 1.0,
+              "source": "assumed",
+              "detail": "Measured 1 against 1 \u00b1 0."
+            },
+            {
+              "id": "no_unrequested_changes",
+              "text": "Nothing changed that was not asked for",
+              "status": "passed",
+              "expected": null,
+              "measured": null,
+              "source": "user",
+              "detail": ""
+            }
+          ],
+          "rejected_checks": [],
+          "assumptions": [
+            "Tab placed on the +X side; tab length measured outward from the plate edge, so overall X is 60 mm.",
+            "Tab hole centred in the tab (10 mm from the plate edge, on the centreline).",
+            "Tab outer corners left square; only the plate's original corners are rounded."
+          ],
+          "summary": "40 x 40 mm fan plate, 6 mm thick, with a 10 x 20 mm tab on the +X side: 60 x 40 x 6 mm overall."
+        },
+        "printability": {
+          "profile": {
+            "process": "fdm",
+            "bed_mm": [
+              220.0,
+              220.0,
+              250.0
+            ],
+            "nozzle_mm": 0.4,
+            "min_wall_mm": 1.2,
+            "overhang_limit_deg": 45.0,
+            "min_hole_mm": 2.0,
+            "max_support_ratio": 0.3,
+            "printer": "generic",
+            "printer_name": "Generic FDM printer"
+          },
+          "facts": {
+            "triangles": 1236,
+            "surface_area_mm2": 3443.235,
+            "bed_fit": {
+              "size_mm": [
+                60.0,
+                40.0,
+                6.0
+              ],
+              "bed_mm": [
+                220.0,
+                220.0,
+                250.0
+              ],
+              "fits": true,
+              "needs_turn": false
+            },
+            "overhangs": {
+              "limit_deg": 45.0,
+              "area_mm2": 0.0,
+              "share_of_surface": 0.0,
+              "largest": []
+            },
+            "support_volume": {
+              "estimate_mm3": 0.0,
+              "part_volume_mm3": 3655.657,
+              "ratio": 0.0,
+              "note": "An upper bound: a prism from each overhanging triangle down to the bed."
+            },
+            "orientations": [
+              {
+                "name": "current_plus_z",
+                "overhang_area_mm2": 0.0,
+                "build_height_mm": 6.0
+              },
+              {
+                "name": "flip_180_x",
+                "overhang_area_mm2": 0.0,
+                "build_height_mm": 6.0
+              },
+              {
+                "name": "rot_minus_90_y",
+                "overhang_area_mm2": 272.413,
+                "build_height_mm": 60.0
+              },
+              {
+                "name": "rot_plus_90_x",
+                "overhang_area_mm2": 414.775,
+                "build_height_mm": 40.0
+              },
+              {
+                "name": "rot_minus_90_x",
+                "overhang_area_mm2": 414.775,
+                "build_height_mm": 40.0
+              },
+              {
+                "name": "rot_plus_90_y",
+                "overhang_area_mm2": 421.55,
+                "build_height_mm": 60.0
+              }
+            ],
+            "wall_thickness": {
+              "samples": 1967,
+              "min_mm": 1.018,
+              "p05_mm": 1.186,
+              "median_mm": 6.0,
+              "thinnest": [
+                {
+                  "thickness_mm": 1.018,
+                  "at_mm": [
+                    -20.0,
+                    -0.246,
+                    3.17
+                  ],
+                  "face_id": "face_6830951046be9391342c"
+                },
+                {
+                  "thickness_mm": 1.019,
+                  "at_mm": [
+                    -18.984,
+                    -0.218,
+                    2.458
+                  ],
+                  "face_id": "face_fbb17354a2ac49438063"
+                },
+                {
+                  "thickness_mm": 1.026,
+                  "at_mm": [
+                    -20.0,
+                    0.342,
+                    2.683
+                  ],
+                  "face_id": "face_6830951046be9391342c"
+                },
+                {
+                  "thickness_mm": 1.03,
+                  "at_mm": [
+                    -20.0,
+                    -0.403,
+                    2.262
+                  ],
+                  "face_id": "face_6830951046be9391342c"
+                },
+                {
+                  "thickness_mm": 1.038,
+                  "at_mm": [
+                    -20.0,
+                    0.508,
+                    5.614
+                  ],
+                  "face_id": "face_6830951046be9391342c"
+                },
+                {
+                  "thickness_mm": 1.05,
+                  "at_mm": [
+                    -18.953,
+                    0.626,
+                    2.905
+                  ],
+                  "face_id": "face_fbb17354a2ac49438063"
+                },
+                {
+                  "thickness_mm": 1.053,
+                  "at_mm": [
+                    0.848,
+                    18.947,
+                    1.189
+                  ],
+                  "face_id": "face_fbb17354a2ac49438063"
+                },
+                {
+                  "thickness_mm": 1.053,
+                  "at_mm": [
+                    -0.856,
+                    -20.0,
+                    2.525
+                  ],
+                  "face_id": "face_20b8855b750b1cec497e"
+                },
+                {
+                  "thickness_mm": 1.053,
+                  "at_mm": [
+                    -0.59,
+                    -18.947,
+                    3.526
+                  ],
+                  "face_id": "face_fbb17354a2ac49438063"
+                },
+                {
+                  "thickness_mm": 1.053,
+                  "at_mm": [
+                    0.374,
+                    18.947,
+                    0.509
+                  ],
+                  "face_id": "face_fbb17354a2ac49438063"
+                }
+              ]
+            },
+            "small_holes": [],
+            "sealed_voids": 0,
+            "not_measured": [
+              "bridges",
+              "minimum positive feature size",
+              "warping",
+              "strength"
+            ]
+          },
+          "findings": [
+            {
+              "rule": "bed_fit",
+              "status": "pass",
+              "measured": [
+                60.0,
+                40.0,
+                6.0
+              ],
+              "limit": [
+                220.0,
+                220.0,
+                250.0
+              ],
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "min_wall",
+              "status": "fail",
+              "measured": {
+                "p05_mm": 1.186,
+                "min_mm": 1.018
+              },
+              "limit": 1.2,
+              "where": [
+                -20.0,
+                -0.246,
+                3.17
+              ],
+              "face_ids": [
+                "face_6830951046be9391342c",
+                "face_fbb17354a2ac49438063",
+                "face_6830951046be9391342c",
+                "face_6830951046be9391342c",
+                "face_6830951046be9391342c",
+                "face_fbb17354a2ac49438063",
+                "face_fbb17354a2ac49438063",
+                "face_20b8855b750b1cec497e",
+                "face_fbb17354a2ac49438063",
+                "face_fbb17354a2ac49438063"
+              ],
+              "suggestion": "Thicken the walls to at least 1.2 mm; the thinnest is 1.018 mm near [-20.0, -0.246, 3.17]."
+            },
+            {
+              "rule": "overhangs",
+              "status": "pass",
+              "measured": 0.0,
+              "limit": 45.0,
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "bridges",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "minimum_positive_feature_size",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "warping",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "strength",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            }
+          ]
+        },
+        "changes": {
+          "bounds_delta_mm": {
+            "x": 20.0,
+            "y": 0.0,
+            "z": 2.0
+          },
+          "volume_delta_mm3": 1968.287,
+          "features": {
+            "added": [
+              "tab",
+              "tab_hole"
+            ],
+            "removed": [],
+            "modified": [
+              "corners",
+              "fan_holes",
+              "plate"
+            ]
+          },
+          "constraints_violated": [],
+          "census_delta": {
+            "Holes of 4 mm": "0 \u2192 1"
+          },
+          "flags": []
+        }
+      },
+      "repair_attempts": 0,
+      "latency_ms": 61537,
+      "usage": {
+        "input_tokens": 89161,
+        "output_tokens": 5876,
+        "total_tokens": 95037,
+        "cost_usd": 0.0
+      },
+      "error": null
+    },
+    {
+      "case_id": "demo_phone_stand",
+      "category": "demo",
+      "model_id": "local/claude",
+      "run_id": "d506a9ed-61e1-47b7-9c56-3dc3300fe1e5",
+      "passed": true,
+      "scores": {
+        "policy": {
+          "passed": true,
+          "value": "compliant",
+          "expected": "compliant",
+          "message": "Generated code complies with the CAD policy."
+        },
+        "execution": {
+          "passed": true,
+          "value": true,
+          "expected": true,
+          "message": "Geometry execution matched the expected validity."
+        },
+        "solid_count": {
+          "passed": true,
+          "value": 1,
+          "expected": 1,
+          "message": "Solid count matched."
+        },
+        "bounding_box_x": {
+          "passed": true,
+          "value": 70.0,
+          "expected": {
+            "target": 70.0,
+            "tolerance_mm": 0.1
+          },
+          "message": "X dimension was within tolerance."
+        },
+        "inverted_solids": {
+          "passed": true,
+          "value": 0,
+          "expected": 0,
+          "message": "No solid is inside out."
+        },
+        "repair_attempts": {
+          "passed": true,
+          "value": 0,
+          "expected": {
+            "maximum": 3
+          },
+          "message": "Repair attempts stayed within the limit."
+        }
+      },
+      "inspection": {
+        "valid": true,
+        "shape_type": "Part",
+        "solid_count": 1,
+        "volume_mm3": 73741.398,
+        "bounding_box_mm": {
+          "x": 70.0,
+          "y": 80.0,
+          "z": 90.572
+        },
+        "error": null,
+        "checks": [
+          {
+            "name": "base_width",
+            "actual": 70.0,
+            "expected": 70.0,
+            "tolerance": 0.1,
+            "passed": true
+          },
+          {
+            "name": "base_depth",
+            "actual": 80.0,
+            "expected": 80.0,
+            "tolerance": 0.1,
+            "passed": true
+          },
+          {
+            "name": "base_thickness",
+            "actual": 6.0,
+            "expected": 6.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "support_angle",
+            "actual": 70.0,
+            "expected": 70.0,
+            "tolerance": 0.1,
+            "passed": true
+          },
+          {
+            "name": "support_thickness",
+            "actual": 5.999999999999998,
+            "expected": 6.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "support_width",
+            "actual": 70.0,
+            "expected": 70.0,
+            "tolerance": 0.1,
+            "passed": true
+          },
+          {
+            "name": "support_length",
+            "actual": 90.00000000000001,
+            "expected": 90.0,
+            "tolerance": 0.1,
+            "passed": true
+          },
+          {
+            "name": "support_start",
+            "actual": 20.0,
+            "expected": 20.0,
+            "tolerance": 0.1,
+            "passed": true
+          },
+          {
+            "name": "lip_height",
+            "actual": 10.0,
+            "expected": 10.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "lip_thickness",
+            "actual": 4.0,
+            "expected": 4.0,
+            "tolerance": 0.05,
+            "passed": true
+          },
+          {
+            "name": "single_solid",
+            "actual": 1.0,
+            "expected": 1.0,
+            "tolerance": 0.0,
+            "passed": true
+          }
+        ],
+        "verification": "measured",
+        "reference_comparison": null,
+        "census": {
+          "holes": [],
+          "bosses": [],
+          "rounded_edges": [],
+          "partial_cylinders": 0,
+          "face_counts": {
+            "plane": 12
+          },
+          "features": [
+            {
+              "id": "base",
+              "operation": "additive",
+              "owned_faces": 7
+            },
+            {
+              "id": "lip",
+              "operation": "additive",
+              "owned_faces": 2
+            },
+            {
+              "id": "back_support",
+              "operation": "additive",
+              "owned_faces": 3
+            }
+          ]
+        },
+        "solids": [
+          {
+            "volume_mm3": 73741.398,
+            "bounding_box_mm": {
+              "x": 70.0,
+              "y": 80.0,
+              "z": 90.572
+            },
+            "min_mm": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "manifold": true,
+            "inverted": false
+          }
+        ],
+        "warnings": [],
+        "acceptance": {
+          "verdict": "verified",
+          "passed": 13,
+          "failed": 0,
+          "review": 0,
+          "unverified": 0,
+          "not_measurable": 0,
+          "rows": [
+            {
+              "id": "overall_size",
+              "text": "Overall size",
+              "status": "passed",
+              "expected": {
+                "x": 70.0,
+                "y": 80.0,
+                "z": 90.57
+              },
+              "measured": {
+                "x": 70.0,
+                "y": 80.0,
+                "z": 90.572
+              },
+              "source": "user",
+              "detail": ""
+            },
+            {
+              "id": "solid_count",
+              "text": "Number of solids",
+              "status": "passed",
+              "expected": 1,
+              "measured": 1,
+              "source": "user",
+              "detail": ""
+            },
+            {
+              "id": "base_width",
+              "text": "Base 70 mm wide",
+              "status": "passed",
+              "expected": 70.0,
+              "measured": 70.0,
+              "source": "user",
+              "detail": "Measured 70 against 70 \u00b1 0.1."
+            },
+            {
+              "id": "base_depth",
+              "text": "Base 80 mm deep",
+              "status": "passed",
+              "expected": 80.0,
+              "measured": 80.0,
+              "source": "user",
+              "detail": "Measured 80 against 80 \u00b1 0.1."
+            },
+            {
+              "id": "base_thickness",
+              "text": "Base 6 mm thick",
+              "status": "passed",
+              "expected": 6.0,
+              "measured": 6.0,
+              "source": "user",
+              "detail": "Measured 6 against 6 \u00b1 0.05."
+            },
+            {
+              "id": "support_thickness",
+              "text": "Back support 6 mm thick",
+              "status": "passed",
+              "expected": 6.0,
+              "measured": 5.999999999999998,
+              "source": "user",
+              "detail": "Measured 6 against 6 \u00b1 0.05."
+            },
+            {
+              "id": "support_width",
+              "text": "Back support 70 mm wide",
+              "status": "passed",
+              "expected": 70.0,
+              "measured": 70.0,
+              "source": "user",
+              "detail": "Measured 70 against 70 \u00b1 0.1."
+            },
+            {
+              "id": "support_length",
+              "text": "Back support 90 mm long along its slope (front face, from base top)",
+              "status": "passed",
+              "expected": 90.0,
+              "measured": 90.00000000000001,
+              "source": "user",
+              "detail": "Measured 90 against 90 \u00b1 0.1."
+            },
+            {
+              "id": "support_angle",
+              "text": "Support leans back at 70 deg from the base",
+              "status": "passed",
+              "expected": 70.0,
+              "measured": 70.0,
+              "source": "user",
+              "detail": "Measured 70 against 70 \u00b1 0.1."
+            },
+            {
+              "id": "support_start",
+              "text": "Support front face meets base top 20 mm from front edge",
+              "status": "passed",
+              "expected": 20.0,
+              "measured": 20.0,
+              "source": "user",
+              "detail": "Measured 20 against 20 \u00b1 0.1."
+            },
+            {
+              "id": "lip_height",
+              "text": "Lip 10 mm tall above base top",
+              "status": "passed",
+              "expected": 10.0,
+              "measured": 10.0,
+              "source": "user",
+              "detail": "Measured 10 against 10 \u00b1 0.05."
+            },
+            {
+              "id": "lip_thickness",
+              "text": "Lip 4 mm thick, along the front edge",
+              "status": "passed",
+              "expected": 4.0,
+              "measured": 4.0,
+              "source": "user",
+              "detail": "Measured 4 against 4 \u00b1 0.05."
+            },
+            {
+              "id": "single_solid",
+              "text": "One solid",
+              "status": "passed",
+              "expected": 1.0,
+              "measured": 1.0,
+              "source": "assumed",
+              "detail": "Measured 1 against 1 \u00b1 0."
+            }
+          ],
+          "rejected_checks": [],
+          "assumptions": [
+            "Lip height of 10 mm is measured from the base top (16 mm above the bed overall); lip is flush with the front edge.",
+            "70 deg is the angle between the support's front face and the base top, leaning toward the back; 20 mm is measured to where the front face meets the base top.",
+            "The 90 mm support length is measured along the front face from the base top; the support's foot is embedded into the base so it joins solidly."
+          ],
+          "summary": "Phone stand about 70 mm wide (X), 80 mm deep (Y) and ~90.6 mm tall (Z): 6 mm base, front lip, back support leaning back at 70\u00b0."
+        },
+        "printability": {
+          "profile": {
+            "process": "fdm",
+            "bed_mm": [
+              220.0,
+              220.0,
+              250.0
+            ],
+            "nozzle_mm": 0.4,
+            "min_wall_mm": 1.2,
+            "overhang_limit_deg": 45.0,
+            "min_hole_mm": 2.0,
+            "max_support_ratio": 0.3,
+            "printer": "generic",
+            "printer_name": "Generic FDM printer"
+          },
+          "facts": {
+            "triangles": 36,
+            "surface_area_mm2": 27967.075,
+            "bed_fit": {
+              "size_mm": [
+                70.0,
+                80.0,
+                90.572
+              ],
+              "bed_mm": [
+                220.0,
+                220.0,
+                250.0
+              ],
+              "fits": true,
+              "needs_turn": false
+            },
+            "overhangs": {
+              "limit_deg": 45.0,
+              "area_mm2": 0.0,
+              "share_of_surface": 0.0,
+              "largest": []
+            },
+            "support_volume": {
+              "estimate_mm3": 0.0,
+              "part_volume_mm3": 73741.398,
+              "ratio": 0.0,
+              "note": "An upper bound: a prism from each overhanging triangle down to the bed."
+            },
+            "orientations": [
+              {
+                "name": "rot_plus_90_y",
+                "overhang_area_mm2": 0.0,
+                "build_height_mm": 70.0
+              },
+              {
+                "name": "rot_minus_90_y",
+                "overhang_area_mm2": 0.0,
+                "build_height_mm": 70.0
+              },
+              {
+                "name": "current_plus_z",
+                "overhang_area_mm2": 0.0,
+                "build_height_mm": 90.572
+              },
+              {
+                "name": "flip_180_x",
+                "overhang_area_mm2": 5573.045,
+                "build_height_mm": 90.572
+              },
+              {
+                "name": "rot_plus_90_x",
+                "overhang_area_mm2": 6300.0,
+                "build_height_mm": 80.0
+              },
+              {
+                "name": "rot_minus_90_x",
+                "overhang_area_mm2": 6847.133,
+                "build_height_mm": 80.0
+              }
+            ],
+            "wall_thickness": {
+              "samples": 1963,
+              "min_mm": 4.0,
+              "p05_mm": 6.0,
+              "median_mm": 6.0,
+              "thinnest": [
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    57.382,
+                    4.0,
+                    6.004
+                  ],
+                  "face_id": "face_429893e0ff7a6a102c07"
+                },
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    36.918,
+                    0.0,
+                    13.192
+                  ],
+                  "face_id": "face_2425d935b317ef91eb1c"
+                },
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    21.327,
+                    4.0,
+                    10.808
+                  ],
+                  "face_id": "face_429893e0ff7a6a102c07"
+                },
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    22.547,
+                    4.0,
+                    7.818
+                  ],
+                  "face_id": "face_429893e0ff7a6a102c07"
+                },
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    39.819,
+                    0.0,
+                    10.492
+                  ],
+                  "face_id": "face_2425d935b317ef91eb1c"
+                },
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    41.89,
+                    4.0,
+                    10.843
+                  ],
+                  "face_id": "face_429893e0ff7a6a102c07"
+                },
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    14.147,
+                    4.0,
+                    10.792
+                  ],
+                  "face_id": "face_429893e0ff7a6a102c07"
+                },
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    50.856,
+                    0.0,
+                    9.662
+                  ],
+                  "face_id": "face_2425d935b317ef91eb1c"
+                },
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    55.536,
+                    0.0,
+                    6.316
+                  ],
+                  "face_id": "face_2425d935b317ef91eb1c"
+                },
+                {
+                  "thickness_mm": 4.0,
+                  "at_mm": [
+                    7.275,
+                    0.0,
+                    9.825
+                  ],
+                  "face_id": "face_2425d935b317ef91eb1c"
+                }
+              ]
+            },
+            "small_holes": [],
+            "sealed_voids": 0,
+            "not_measured": [
+              "bridges",
+              "minimum positive feature size",
+              "warping",
+              "strength"
+            ]
+          },
+          "findings": [
+            {
+              "rule": "bed_fit",
+              "status": "pass",
+              "measured": [
+                70.0,
+                80.0,
+                90.572
+              ],
+              "limit": [
+                220.0,
+                220.0,
+                250.0
+              ],
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "min_wall",
+              "status": "pass",
+              "measured": {
+                "p05_mm": 6.0,
+                "min_mm": 4.0
+              },
+              "limit": 1.2,
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "overhangs",
+              "status": "pass",
+              "measured": 0.0,
+              "limit": 45.0,
+              "where": null,
+              "face_ids": [],
+              "suggestion": ""
+            },
+            {
+              "rule": "bridges",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "minimum_positive_feature_size",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "warping",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            },
+            {
+              "rule": "strength",
+              "status": "unverified",
+              "measured": null,
+              "limit": null,
+              "where": null,
+              "face_ids": [],
+              "suggestion": "Not measured by Nfinit."
+            }
+          ]
+        },
+        "changes": null
+      },
+      "repair_attempts": 0,
+      "latency_ms": 63698,
+      "usage": {
+        "input_tokens": 88684,
+        "output_tokens": 6327,
+        "total_tokens": 95011,
+        "cost_usd": 0.0
+      },
+      "error": null
+    }
+  ]
+}
