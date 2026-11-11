@@ -509,19 +509,29 @@ def _read_views(data: dict, work_dir: Path) -> list[RenderedView]:
 
 
 def review_code(
-    code: str, topology: bool = False, draw: bool = True
+    code: str, topology: bool = False, draw: bool = True, glb_to: Path | None = None
 ) -> tuple[ModelInspection, list[RenderedView], dict | None]:
     """Inspect the code in one sandbox run, with the two default views and,
-    when asked, its topology for comparing revisions."""
+    when asked, its topology for comparing revisions. With `glb_to`, a
+    viewer GLB of a valid part is also written there."""
     try:
         validate_cad_code(code)
     except CodePolicyError as error:
         return ModelInspection(valid=False, error=f"sandbox_security_error: {error}"), [], None
     work_dir = Path(tempfile.mkdtemp(prefix="nfinit-review-"))
     try:
-        data = _run_worker(code, "review", work_dir, flags={"topology": topology, "draw": draw})
+        data = _run_worker(
+            code, "review", work_dir,
+            flags={"topology": topology, "draw": draw, "glb": glb_to is not None},
+        )
         views = _read_views(data, work_dir)
         analysis = data.pop("topology", None)
+        glb = data.pop("glb", None)
+        data.pop("glb_error", None)
+        if glb_to is not None and glb:
+            path = work_dir / glb
+            if path.is_file() and path.parent == work_dir:
+                shutil.copyfile(path, glb_to)
         return ModelInspection.model_validate(data), views, analysis
     except SandboxError as error:
         return ModelInspection(valid=False, error=str(error)), [], None

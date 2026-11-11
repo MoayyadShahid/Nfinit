@@ -11,6 +11,12 @@ const STAGE_LABELS: Record<string, string> = {
   inspect: "Checking the geometry",
   repair: "Refining the geometry",
   mesh: "Preparing the 3D view",
+  // A local agent's steps, reported by its CAD tools as they happen.
+  requirements: "Setting requirements",
+  build: "Building and measuring",
+  measure: "Measuring the part",
+  view: "Looking at the part",
+  printability: "Checking printability",
 };
 
 type Step = {

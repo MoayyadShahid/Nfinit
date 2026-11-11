@@ -103,3 +103,15 @@ def test_a_face_from_a_clockwise_wire_extrudes_downward():
 
     assert direct.valid, direct.error
     assert sketched.valid, sketched.error
+
+
+def test_the_prompt_names_every_statement_the_sandbox_refuses():
+    from agent.prompts import OUTPUT_RULES, TOOL_CODE_RULES
+    from execution.policy import BLOCKED_NODES
+
+    named = {"FunctionDef": "def", "Lambda": "lambda", "ClassDef": "class", "Try": "try",
+             "While": "while", "Raise": "raise", "Global": "global", "Yield": "yield", "Match": "match"}
+    for rules in (OUTPUT_RULES, TOOL_CODE_RULES):
+        for node in BLOCKED_NODES:
+            if node.__name__ in named:
+                assert named[node.__name__] in rules, node.__name__

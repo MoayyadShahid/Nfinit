@@ -2,8 +2,10 @@
 import asyncio
 import base64
 import json
+import logging
 import os
 from pathlib import Path
+import re
 import shutil
 import signal
 import sys
@@ -16,6 +18,8 @@ from .acceptance import change_report, describe as describe_acceptance, evaluate
 from .graph import CadRunTimeoutError, _emit, run_timeout_seconds
 from .local_access import LOCAL_MODELS, local_agents_enabled
 from .prompts import local_agent_prompt
+
+logger = logging.getLogger(__name__)
 
 
 def agent_command(provider: str, workspace: Path, images: list[Path]) -> list[str]:
@@ -109,6 +113,69 @@ def _final_printability(code: str, profile: dict | None) -> dict:
         return {"error": f"Printability could not be measured: {str(error)[:300]}"}
 
 
+class ProgressRelay:
+    """Pass the CAD tools' progress lines to the studio while the agent works.
+
+    The MCP bridge appends one JSON line per tool call to progress.jsonl in
+    the workspace; this reads new complete lines and records them as run
+    events, with each build's preview GLB.
+    """
+
+    PREVIEW = re.compile(r"build-\d{1,2}\.glb")
+    INTERVAL_SECONDS = 0.4
+
+    def __init__(self, workspace: Path, on_event):
+        self.workspace = workspace
+        self.path = workspace / "progress.jsonl"
+        self.on_event = on_event
+        self.offset = 0
+        self.planned = False
+
+    def _read(self) -> list[dict]:
+        if not self.path.exists():
+            return []
+        with self.path.open("rb") as handle:
+            handle.seek(self.offset)
+            data = handle.read(1_000_000)
+        complete = data[: data.rfind(b"\n") + 1]
+        self.offset += len(complete)
+        events = []
+        for line in complete.splitlines():
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(event, dict) and isinstance(event.get("stage"), str):
+                events.append(event)
+        return events
+
+    async def finish_plan(self) -> None:
+        if not self.planned:
+            self.planned = True
+            await _emit(self.on_event, {"stage": "plan", "status": "complete", "message": "Plan ready"})
+
+    async def flush(self) -> None:
+        for event in await asyncio.to_thread(self._read):
+            if event["stage"] != "snapshot":
+                await self.finish_plan()
+            preview = event.pop("glb", None)
+            if preview is None:
+                await _emit(self.on_event, event)
+                continue
+            path = self.workspace / str(preview)
+            if self.on_event is None or not self.PREVIEW.fullmatch(str(preview)) or not path.is_file():
+                continue
+            try:
+                await self.on_event(event, await asyncio.to_thread(path.read_bytes))
+            except Exception:
+                logger.warning("Could not record a build preview.", exc_info=True)
+
+    async def run(self) -> None:
+        while True:
+            await self.flush()
+            await asyncio.sleep(self.INTERVAL_SECONDS)
+
+
 async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
     if not local_agents_enabled():
         raise ValueError("Local agents are disabled.")
@@ -116,8 +183,8 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
              "usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost_usd": 0},
              "inspection": None, "validation_error": None, "repair_attempts": 0}
     started = perf_counter()
-    await _emit(on_event, {"stage": "generate", "status": "started",
-                          "message": f"Connected to your {LOCAL_MODELS[request.model_id][1]}. Building and checking locally."})
+    await _emit(on_event, {"stage": "plan", "status": "started",
+                          "message": f"Your {LOCAL_MODELS[request.model_id][1]} is reading the design and planning"})
     with tempfile.TemporaryDirectory(prefix="nfinit-agent-") as directory:
         workspace = Path(directory)
         images, prompt = await asyncio.to_thread(prepare_input, request, workspace)
@@ -129,6 +196,8 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
             *command, cwd=workspace, env=env, stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
             start_new_session=True, limit=2_000_000)
+        relay = ProgressRelay(workspace, on_event)
+        relaying = asyncio.create_task(relay.run())
         try:
             async with asyncio.timeout(run_timeout_seconds(request.model_id)):
                 process.stdin.write(prompt.encode())
@@ -160,10 +229,9 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
                         state["plan"] = str(event.get("result", ""))[:8000]
                     if kind == "item.completed" and item.get("type") == "agent_message":
                         state["plan"] = str(item.get("text", ""))[:8000]
-                    if kind in {"item.started", "item.completed", "assistant"}:
-                        await _emit(on_event, {"stage": "generate", "status": "started",
-                                              "message": "Agent is editing, measuring, and reviewing the design."})
                 status = await process.wait()
+                await relay.flush()
+                await relay.finish_plan()
                 if status:
                     raise ValueError("The local agent exited unsuccessfully. Check its login, version, and usage allowance in your terminal.")
                 if not (workspace / "inspection.json").exists():
@@ -205,6 +273,7 @@ async def run_local_agent(request, inspect_code, *, run_id, on_event=None):
         except TimeoutError as error:
             raise CadRunTimeoutError(run_timeout_seconds(request.model_id), state) from error
         finally:
+            relaying.cancel()
             # Include MCP children, including after the parent exits normally.
             try:
                 os.killpg(process.pid, signal.SIGTERM)

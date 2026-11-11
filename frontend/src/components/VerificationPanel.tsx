@@ -82,7 +82,7 @@ export function VerificationPanel({
   inspection: ModelInspection;
   /** Highlight faces on the part, or clear the highlight with an empty list. */
   onShowFaces?: (faceIds: string[]) => void;
-  /** Draw its own border; off inside a card that already has one. */
+  /** Draw its own border; off when it fills a card of its own. */
   framed?: boolean;
 }) {
   const acceptance = inspection.acceptance;
@@ -109,7 +109,7 @@ export function VerificationPanel({
       className={
         framed
           ? "mt-2 rounded-xl border border-[var(--hairline)] p-2.5 text-[11px]"
-          : "mt-3 border-t border-[var(--hairline)] pt-2.5 text-[11px]"
+          : "pt-3 text-[11px]"
       }
       data-testid="verification"
     >

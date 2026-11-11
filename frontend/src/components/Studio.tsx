@@ -11,7 +11,6 @@ import { DemoControls } from "@/components/DemoReplay";
 import { EditorPane } from "@/components/EditorPane";
 import { VersionRail, type RailVersion } from "@/components/VersionRail";
 import { VerificationPanel } from "@/components/VerificationPanel";
-import { cn } from "@/lib/utils";
 import { ViewportPane } from "@/components/ViewportPane";
 import AIModelSelector, { type ModelOption } from "@/components/kokonutui/ai-model-selector";
 import ActionSearchBar, { type StudioCommand } from "@/components/kokonutui/action-search-bar";
@@ -879,7 +878,8 @@ export default function Studio({
       try {
         run = await startRun({
           messages: newMessages,
-          code,
+          // A new part starts from nothing, not from the editor's starter box.
+          code: messages.length === 0 && code === DEFAULT_CODE ? "" : code,
           modelId,
           selection: selectedFace,
           supportsStructuredOutputs:
@@ -1437,13 +1437,16 @@ export default function Studio({
               />
             </div>
 
+            {evidence && (
+              <div className="pointer-events-none absolute left-3 top-3 z-20 hidden sm:block">
+                <div className="theme-floating pointer-events-auto max-h-[calc(100dvh-16rem)] w-[300px] overflow-y-auto rounded-2xl border px-3.5 pb-3.5 shadow-xl shadow-black/10 backdrop-blur-xl">
+                  <VerificationPanel inspection={evidence} onShowFaces={showFaces} framed={false} />
+                </div>
+              </div>
+            )}
+
             <div className="pointer-events-none absolute right-3 top-3 z-20 hidden sm:block">
-              <div
-                className={cn(
-                  "theme-floating pointer-events-auto max-h-[calc(100dvh-12rem)] overflow-y-auto rounded-2xl border p-3.5 shadow-xl shadow-black/10 backdrop-blur-xl",
-                  evidence ? "w-[300px]" : "w-[230px]"
-                )}
-              >
+              <div className="theme-floating pointer-events-auto w-[230px] rounded-2xl border p-3.5 shadow-xl shadow-black/10 backdrop-blur-xl">
                 <div className="flex items-center gap-2">
                   <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--control-hover)] text-zinc-400">
                     <Ruler className="size-3.5" />
@@ -1474,7 +1477,6 @@ export default function Studio({
                     <span>{Math.round(inspection.volume_mm3 ?? 0).toLocaleString()} mm³</span>
                   </div>
                 )}
-                {evidence && <VerificationPanel inspection={evidence} onShowFaces={showFaces} framed={false} />}
               </div>
             </div>
 
