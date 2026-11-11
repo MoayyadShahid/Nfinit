@@ -60,7 +60,7 @@ def test_the_bridge_measures_the_start_once_and_reports_changes(tmp_path, monkey
 
     calls = []
 
-    def fake_review(code, topology=False, draw=True):
+    def fake_review(code, topology=False, draw=True, glb_to=None):
         calls.append((code, topology, draw))
         return ModelInspection(valid=True, census={"rounded_edges": []}), [], {"valid": True}
 
@@ -85,7 +85,7 @@ def test_the_bridge_measures_the_start_once_and_reports_changes(tmp_path, monkey
 def test_a_new_part_has_no_change_report(tmp_path, monkeypatch):
     from agent.models import ModelInspection
 
-    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code, topology=False, draw=True: (
+    monkeypatch.setattr("agent.cad_mcp.review_code", lambda code, topology=False, draw=True, glb_to=None: (
         ModelInspection(valid=True), [], {"valid": True} if topology else None))
     tools = CadTools(tmp_path)
     tools.call("declare_requirements", {"summary": "A box.", "requirements": []})

@@ -1981,6 +1981,13 @@ def handle_request(request: dict) -> dict:
             data["topology"] = _topology(
                 result, feature_records=feature_records, constraint_records=constraint_records
             )
+        if request.get("glb") and data["valid"]:
+            # A preview for the studio while the run is still working.
+            try:
+                _export_viewer_glb(result, Path.cwd() / "model.glb", feature_records, constraint_records)
+                data["glb"] = "model.glb"
+            except Exception as error:  # noqa: BLE001 - the build itself is still good
+                data["glb_error"] = f"{type(error).__name__}: {error}"[:300]
         return data
     if operation == "render":
         return {"views": _render_views(result, request["views"], feature_records)}

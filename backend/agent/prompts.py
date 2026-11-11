@@ -52,6 +52,9 @@ Return only executable Python code that runs in a restricted backend scope.
 OUTPUT_RULES = """<output_rules>
 - Return only Python code, without markdown fences or explanations
 - Do not use import statements
+- Write straight-line code: the sandbox refuses def, lambda, class, try,
+  while, raise, global, yield and match. Use variables, for loops and list
+  comprehensions instead of functions
 - Use millimeters for all dimensions
 - Keep important dimensions in readable variables
 - Prefer a single `with BuildPart() as part:` context

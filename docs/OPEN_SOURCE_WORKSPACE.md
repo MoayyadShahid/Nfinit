@@ -137,8 +137,16 @@ geometry, never repeat the requested parameter. Failed checks make inspection
 fail and enter repair. The optional API loop also preserves images through later
 turns and repairs and prompts for these checks.
 
-The studio shows this evidence for the part on screen in the card over the
-viewport, and under each agent reply: the verdict, each requirement with its
+While the agent works, the studio lists each step as it happens: the
+requirements it declared, each build with how many requirements pass, what it
+measured, which views it looked at, and the printability check. Each build
+that succeeds appears in the 3D view straight away. The MCP bridge appends one
+line per tool call to `progress.jsonl` in the run's workspace, and the runner
+relays new lines to the studio about twice a second, for Claude Code and Codex
+alike.
+
+The studio shows this evidence for the part on screen in a card at the top
+left of the viewport, and under each agent reply: the verdict, each requirement with its
 measured value (assumed ones marked), warnings, printability findings and
 changes outside the request. "Show on part" highlights the faces a finding
 names.

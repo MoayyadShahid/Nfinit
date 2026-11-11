@@ -143,6 +143,15 @@ class CadTools:
             raise ValueError(message or f"The {kind.replace('_', ' ')} budget of {BUDGETS[kind]} is used up.")
         self.spent[kind] += amount
 
+    def progress(self, stage, status, message, attempt=None, glb=None):
+        """One line for the studio's progress list, which the runner relays."""
+        line = {"stage": stage, "status": status, "message": " ".join(str(message).split())[:480],
+                "attempt": attempt}
+        if glb:
+            line["glb"] = glb
+        with (self.workspace / "progress.jsonl").open("a") as handle:
+            handle.write(json.dumps(line) + "\n")
+
     def reply(self, payload, started, extra=(), is_error=False):
         payload = {**payload, "budget_left": self.left(), "ms": round((perf_counter() - started) * 1000)}
         result = {"content": [{"type": "text", "text": json.dumps(payload, separators=(",", ":"))}, *extra]}
@@ -195,6 +204,9 @@ class CadTools:
         requirements = parse_requirements(arguments)
         self.spend("declarations", message="Requirements were already declared four times. Build with the current list.")
         (self.workspace / "requirements.json").write_text(json.dumps(requirements))
+        count = len(requirements["requirements"])
+        self.progress("requirements", "complete",
+                      f"{count} requirement{'s' if count != 1 else ''}: {requirements['summary']}")
         request = self.workspace / "request.txt"
         missing = uncovered_numbers(request.read_text(), requirements) if request.exists() else []
         # The agent wrote the list; echoing it back would only cost tokens.
@@ -212,7 +224,10 @@ class CadTools:
         started = perf_counter()
         code = self.built()
         self.spend("questions", message="The 20-question budget is exhausted. Use the build results you have.")
-        return self.reply({"answer": query_code(code, arguments.get("query"))}, started)
+        query = arguments.get("query")
+        answer = query_code(code, query)
+        self.progress("measure", "complete", _describe_answer(query, answer))
+        return self.reply({"answer": answer}, started)
 
     def view(self, arguments):
         started = perf_counter()
@@ -221,6 +236,7 @@ class CadTools:
         count = len(views) if isinstance(views, list) else 0
         self.spend("views", count, f"Only {BUDGETS['views'] - self.spent['views']} more views are left in this run.")
         rendered = render_code(code, views)
+        self.progress("view", "complete", "Looked at " + ", ".join(view.name for view in rendered))
         return self.reply({"views": [view.name for view in rendered]}, started, _view_content(rendered))
 
     def printability(self):
@@ -230,6 +246,9 @@ class CadTools:
         profile = self.workspace / "profile.json"
         report = printability_code(code, json.loads(profile.read_text()) if profile.exists() else None)
         (self.workspace / "printability.json").write_text(json.dumps(report))
+        problems = [row["rule"].replace("_", " ") for row in report["findings"] if row["status"] in ("fail", "review")]
+        self.progress("printability", "complete",
+                      f"{len(problems)} to look at: {', '.join(problems)}" if problems else "No printing problems found")
         return self.reply(printability_view(report), started)
 
     def build(self, arguments):
@@ -241,8 +260,11 @@ class CadTools:
         if requirements is None:
             raise ValueError("Call declare_requirements first.")
         self.spend("builds", message="The eight-build budget is exhausted. Report remaining failures.")
+        number = self.builds
+        self.progress("build", "started", f"Build {number}", attempt=number)
         previous = self.starting_point()
-        inspection, views, topology = review_code(code, topology=previous is not None)
+        preview = self.workspace / f"build-{number}.glb"
+        inspection, views, topology = review_code(code, topology=previous is not None, glb_to=preview)
         if previous is not None and topology is not None:
             inspection.changes = change_report(previous, topology, inspection.model_dump())
         if (self.workspace / "reference.json").exists() and inspection.valid:
@@ -254,7 +276,42 @@ class CadTools:
             (self.workspace / "built.py").write_text(code)
         (self.workspace / "inspection.json").write_text(inspection.model_dump_json())
         failed = not inspection.valid or inspection.acceptance["verdict"] == "failed"
+        self.progress("build", "failed" if failed else "complete",
+                      _describe_build(number, inspection), attempt=number)
+        if preview.exists():
+            self.progress("snapshot", "ready", f"build {number}", glb=preview.name)
         return self.reply(agent_view(inspection.model_dump()), started, _view_content(views), failed)
+
+
+def _describe_build(number, inspection):
+    if not inspection.valid:
+        return f"Build {number} failed: {(inspection.error or 'invalid geometry')[:200]}"
+    acceptance = inspection.acceptance or {}
+    measurable = sum(acceptance.get(key, 0) for key in ("passed", "failed", "unverified", "review"))
+    text = f"Build {number}: {acceptance.get('passed', 0)} of {measurable} requirements pass"
+    box = inspection.bounding_box_mm or {}
+    if box:
+        text += f", {box.get('x', 0):g} × {box.get('y', 0):g} × {box.get('z', 0):g} mm"
+    if inspection.warnings:
+        text += f", {len(inspection.warnings)} warning{'s' if len(inspection.warnings) != 1 else ''}"
+    if (inspection.changes or {}).get("flags"):
+        text += ", changes to review"
+    return text
+
+
+def _describe_answer(query, answer):
+    kind = (query or {}).get("kind", "")
+    if kind == "distance":
+        return f"Distance: {answer.get('distance_mm', 0):.2f} mm"
+    if kind == "section":
+        return f"Section at {(query or {}).get('axis')} = {(query or {}).get('at')} mm: {answer.get('area_mm2', 0):g} mm²"
+    if kind in ("faces", "edges"):
+        filters = ", ".join(f"{key} {value}" for key, value in query.items() if key not in ("kind", "limit"))
+        return f"Found {answer.get('count', 0)} {kind}" + (f" ({filters})" if filters else "")
+    if kind == "face":
+        radius = answer.get("radius_mm")
+        return f"Looked up a {answer.get('surface_type', '')} face" + (f" of radius {radius:g} mm" if radius else "")
+    return "Read the part's measurements"
 
 
 def _view_content(views):
