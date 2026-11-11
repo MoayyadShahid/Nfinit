@@ -180,8 +180,11 @@ export function VerificationPanel({
           {findings.length === 0 ? (
             <p className="flex items-center gap-1.5 text-zinc-500">
               <Printer className="size-3" />
-              No printing problems found for this {formatValue(printability.profile.process ?? "fdm").toUpperCase()}{" "}
-              profile.
+              No printing problems found for{" "}
+              {typeof printability.profile.printer_name === "string"
+                ? `the ${printability.profile.printer_name}`
+                : "this printer"}
+              .
             </p>
           ) : (
             <ul className="space-y-1.5">

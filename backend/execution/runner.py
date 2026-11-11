@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 SandboxOperation = Literal[
     "inspect", "topology", "query", "review", "render", "printability",
-    "glb", "step", "brep", "stl",
+    "glb", "step", "brep", "stl", "3mf", "obj",
 ]
 
 ISOLATED_BOOTSTRAP = (
@@ -563,13 +563,35 @@ DEFAULT_PRINT_PROFILE = {
 }
 
 
+# Build volumes from the makers' specifications. Every preset is FDM with a
+# 0.4 mm nozzle; the default wall, overhang and hole limits apply to all.
+PRINTER_PRESETS = {
+    "generic": ("Generic FDM printer", [220.0, 220.0, 250.0]),
+    "flashforge_adventurer_3": ("Flashforge Adventurer 3", [150.0, 150.0, 150.0]),
+    "bambu_a1": ("Bambu Lab A1", [256.0, 256.0, 256.0]),
+    "bambu_a1_mini": ("Bambu Lab A1 mini", [180.0, 180.0, 180.0]),
+    "bambu_p1s": ("Bambu Lab P1S / X1C", [256.0, 256.0, 256.0]),
+    "prusa_mk4": ("Prusa MK4", [250.0, 210.0, 220.0]),
+    "prusa_mini": ("Prusa MINI", [180.0, 180.0, 180.0]),
+    "creality_ender_3": ("Creality Ender-3 V2", [220.0, 220.0, 250.0]),
+}
+
+
 def validate_profile(profile: dict | None) -> dict:
-    """The default print profile with valid overrides applied, or ValueError."""
-    clean = {**DEFAULT_PRINT_PROFILE, "bed_mm": list(DEFAULT_PRINT_PROFILE["bed_mm"])}
+    """The default print profile with a printer preset and valid overrides
+    applied, or ValueError."""
+    clean = {**DEFAULT_PRINT_PROFILE, "bed_mm": list(DEFAULT_PRINT_PROFILE["bed_mm"]),
+             "printer": "generic", "printer_name": PRINTER_PRESETS["generic"][0]}
     if profile is None:
         return clean
-    if not isinstance(profile, dict) or set(profile) - set(DEFAULT_PRINT_PROFILE):
-        raise ValueError(f"A print profile takes only: {', '.join(DEFAULT_PRINT_PROFILE)}.")
+    allowed = set(DEFAULT_PRINT_PROFILE) | {"printer"}
+    if not isinstance(profile, dict) or set(profile) - allowed:
+        raise ValueError(f"A print profile takes only: {', '.join(sorted(allowed))}.")
+    if "printer" in profile:
+        if profile["printer"] not in PRINTER_PRESETS:
+            raise ValueError(f"printer must be one of: {', '.join(PRINTER_PRESETS)}.")
+        name, bed = PRINTER_PRESETS[profile["printer"]]
+        clean.update(printer=profile["printer"], printer_name=name, bed_mm=list(bed))
     if "process" in profile:
         if profile["process"] not in ("fdm", "sla", "sls"):
             raise ValueError("process must be fdm, sla or sls.")
@@ -598,7 +620,11 @@ def printability_code(code: str, profile: dict | None = None) -> dict:
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
-def export_code(code: str, operation: SandboxOperation) -> SandboxArtifact:
+def export_code(
+    code: str, operation: SandboxOperation, print_ready: bool = False
+) -> SandboxArtifact:
+    """Export the part. With `print_ready`, a mesh format is turned to the
+    orientation with the least overhang and set on the bed at Z = 0."""
     if operation in ("inspect", "topology", "query", "review", "render", "printability"):
         raise ValueError("Use the corresponding analysis function.")
     try:
@@ -612,11 +638,16 @@ def export_code(code: str, operation: SandboxOperation) -> SandboxArtifact:
         "step": ".step",
         "brep": ".brep",
         "stl": ".stl",
+        "3mf": ".3mf",
+        "obj": ".obj",
     }
     output_name = f"model{extensions[operation]}"
     output_path = work_dir / output_name
     try:
-        _run_worker(code, operation, work_dir, output_name=output_name)
+        _run_worker(
+            code, operation, work_dir, output_name=output_name,
+            flags={"print_ready": True} if print_ready else None,
+        )
         if not output_path.is_file() or output_path.stat().st_size == 0:
             raise SandboxError(
                 "cad_export_error", f"{operation.upper()} export was empty."

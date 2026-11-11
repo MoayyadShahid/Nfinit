@@ -96,6 +96,22 @@ def _overhangs(corners, normals, areas, limit):
     return needs_support, lowest
 
 
+def best_orientation(shape, limit=45.0):
+    """The axis-aligned turn with the least overhang, then the lowest height."""
+    import numpy as np
+
+    corners, _, _ = _mesh(shape, [])
+    _, areas = _normals_and_areas(corners)
+    ranked = []
+    for name, rotation in ORIENTATIONS.items():
+        turned = _rotate(corners, rotation)
+        normals, _ = _normals_and_areas(turned)
+        support, low = _overhangs(turned, normals, areas, limit)
+        ranked.append((round(float(areas[support].sum()), 3), round(float(turned[:, :, 2].max() - low), 3), name))
+    ranked.sort()
+    return ranked[0][2], ORIENTATIONS[ranked[0][2]]
+
+
 def measure(shape, profile, face_ids=(), census=None):
     import numpy as np
 
@@ -253,12 +269,15 @@ def findings(facts, profile):
                      "suggestion": suggestion})
 
     bed = facts["bed_fit"]
+    printer = profile.get("printer_name") or "the printer"
     if bed["fits"]:
         row("bed_fit", "pass", bed["size_mm"], bed["bed_mm"],
             "Turn the part 90 degrees on the bed." if bed["needs_turn"] else "")
     else:
         row("bed_fit", "fail", bed["size_mm"], bed["bed_mm"],
-            "Split the part, scale it, or print on a larger bed.")
+            f"The part does not fit the {bed['bed_mm'][0]:g} × {bed['bed_mm'][1]:g} × "
+            f"{bed['bed_mm'][2]:g} mm build volume of {printer}. Split it, scale it, or "
+            "print on a larger printer.")
 
     walls = facts["wall_thickness"]
     minimum = float(profile["min_wall_mm"])

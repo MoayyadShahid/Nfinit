@@ -14,7 +14,8 @@ import { VerificationPanel } from "@/components/VerificationPanel";
 import { ViewportPane } from "@/components/ViewportPane";
 import AIModelSelector, { type ModelOption } from "@/components/kokonutui/ai-model-selector";
 import ActionSearchBar, { type StudioCommand } from "@/components/kokonutui/action-search-bar";
-import { EXPORT_FORMATS } from "@/lib/exports";
+import { EXPORT_FORMATS, exportFileName } from "@/lib/exports";
+import { PRINTER_KEY, PRINTERS, readPrinter, type PrinterId } from "@/lib/printers";
 import { DEFAULT_MODEL, getModelConfig, MODEL_CONFIGS, LOCAL_MODEL_CONFIGS } from "@/lib/constants";
 import {
   addRevision,
@@ -203,6 +204,19 @@ export default function Studio({
   const [isDirty, setIsDirty] = useState(true);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [commandsOpen, setCommandsOpen] = useState(false);
+  // Like the rail, the printer menu is only drawn after the studio
+  // initialises, so reading storage here cannot differ from the server's markup.
+  const [printer, setPrinter] = useState<PrinterId>(() =>
+    typeof window === "undefined" ? "generic" : readPrinter()
+  );
+  const choosePrinter = useCallback((id: PrinterId) => {
+    setPrinter(id);
+    try {
+      window.localStorage.setItem(PRINTER_KEY, id);
+    } catch {
+      /* the choice still applies to this session */
+    }
+  }, []);
   const [fitRequest, setFitRequest] = useState(0);
   // The version rail starts collapsed on phones, where width is scarce. It is
   // only drawn after the studio initialises, so reading storage here cannot
@@ -886,6 +900,7 @@ export default function Studio({
             modelConfig?.supportsStructuredOutputs ?? false,
           projectId,
           meshReference,
+          printProfile: { printer },
         });
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not start generation");
@@ -903,6 +918,7 @@ export default function Studio({
       modelConfig,
       selectedFace,
       projectId,
+      printer,
       followRun,
       demo,
       stopDemoPlayback,
@@ -937,10 +953,15 @@ export default function Studio({
   }, [code, generateMesh, inspectModel]);
 
   const handleExport = useCallback(
-    async (format: ExportFormat) => {
+    async (id: ExportFormat) => {
       setError(null);
+      const choice = EXPORT_FORMATS.find((item) => item.id === id)!;
       try {
-        const res = await sandboxRequest("export-model", { code, format });
+        const res = await sandboxRequest("export-model", {
+          code,
+          format: choice.format,
+          ...(choice.printReady ? { printReady: true } : {}),
+        });
 
         if (!res.ok) {
           const err = await res
@@ -950,18 +971,20 @@ export default function Studio({
         }
 
         const blob = await res.blob();
-        const ext = { step: ".step", brep: ".brep", stl: ".stl" }[format];
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `model${ext}`;
+        a.download = exportFileName(
+          projects.find((project) => project.id === projectId)?.name ?? "part",
+          id
+        );
         a.click();
         URL.revokeObjectURL(url);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Export failed");
       }
     },
-    [code]
+    [code, projects, projectId]
   );
 
   const handleSelectionChange = useCallback(
@@ -1156,6 +1179,21 @@ export default function Studio({
     <div className="flex flex-col gap-2">
       {localAgents ? <p className="text-xs text-muted-foreground">{modelId.startsWith("local/") ? "Your agent account · local CAD" : "Hosted API"}</p> : null}
       {localAgents && !localAgents.some((agent) => agent.installed) ? <p className="text-xs text-muted-foreground">Install Claude Code or Codex, sign in in your terminal, then refresh.</p> : null}
+      <label className="flex items-center justify-between gap-3 text-xs">
+        <span className="text-muted-foreground">Printer</span>
+        <select
+          aria-label="Printer for printability checks"
+          value={printer}
+          onChange={(event) => choosePrinter(event.target.value as PrinterId)}
+          className="theme-control min-w-0 max-w-[60%] rounded-md border border-[var(--hairline)] bg-transparent px-2 py-1 text-xs"
+        >
+          {PRINTERS.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <details className="text-xs">
         <summary className="cursor-pointer py-1">References & copies{meshReference ? ` · ${meshReference.name}` : ""}</summary>
         <div className="flex max-h-64 flex-col gap-3 overflow-y-auto py-2">

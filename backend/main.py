@@ -185,9 +185,22 @@ class GenerateMeshRequest(BaseModel):
     code: str = Field(max_length=MAX_CODE_CHARS)
 
 
+EXPORT_TYPES = {
+    "step": ("application/step", ".step"),
+    "brep": ("application/octet-stream", ".brep"),
+    "stl": ("model/stl", ".stl"),
+    "3mf": ("model/3mf", ".3mf"),
+    "obj": ("model/obj", ".obj"),
+}
+
+
 class ExportModelRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     code: str = Field(max_length=MAX_CODE_CHARS)
-    format: str  # "step" | "brep" | "stl"
+    format: str  # a key of EXPORT_TYPES
+    # Mesh formats only: turn to the least overhang and set on the bed.
+    print_ready: bool = Field(default=False, alias="printReady")
 
 
 class AnalyzeModelRequest(BaseModel):
@@ -244,30 +257,27 @@ async def export_model(
 ):
     """Execute build123d code in the sandbox and export the requested format."""
     fmt = request.format.lower()
-    if fmt not in ("step", "brep", "stl"):
+    if fmt not in EXPORT_TYPES:
         raise HTTPException(
             status_code=400,
-            detail="Format must be one of: step, brep, stl",
+            detail=f"Format must be one of: {', '.join(EXPORT_TYPES)}",
         )
 
-    ext = {"step": ".step", "brep": ".brep", "stl": ".stl"}[fmt]
+    media_type, ext = EXPORT_TYPES[fmt]
     try:
-        artifact = await asyncio.to_thread(export_code, request.code, fmt)
+        artifact = await asyncio.to_thread(
+            export_code, request.code, fmt, print_ready=request.print_ready
+        )
     except SandboxError as error:
         status = 408 if error.kind == "sandbox_timeout" else 400
         raise HTTPException(status_code=status, detail=str(error)) from error
 
-    media_types = {
-        "step": "application/step",
-        "brep": "application/octet-stream",
-        "stl": "model/stl",
-    }
     filename = f"model{ext}"
     background_tasks.add_task(artifact.cleanup)
     logger.info("Exported model as %s", filename)
     return FileResponse(
         str(artifact.path),
-        media_type=media_types[fmt],
+        media_type=media_type,
         filename=filename,
     )
 
