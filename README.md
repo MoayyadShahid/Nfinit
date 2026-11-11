@@ -20,7 +20,8 @@
 Describe a part, attach reference pictures or an STL, and your coding agent
 writes parametric [build123d](https://github.com/gumyr/build123d) code. Nfinit
 builds it, measures it, and shows it in a 3D viewer. Refine it in chat or by
-clicking a face, keep every revision, and export STEP or STL.
+clicking a face, keep every revision, and export STEP, STL, 3MF or OBJ, laid
+flat and ready to slice.
 
 Everything runs on your machine. Nfinit needs no API keys or cloud accounts:
 model usage goes through your own Claude Code or Codex login.
@@ -37,7 +38,8 @@ model usage goes through your own Claude Code or Codex login.
 - **Point at what you mean.** Click a face to target it: "add a 10 mm boss on
   this face".
 - **References in, files out.** Attach pictures, import STLs as solids or as
-  references for a parametric rebuild, and export STEP or STL.
+  references for a parametric rebuild, and export STEP, STL, 3MF or OBJ. Print
+  exports are turned to the least overhang and set on the bed.
 - **Full history.** Every change is a saved revision you can reopen or branch
   into a new copy.
 - **Sandboxed.** Generated code runs in an isolated worker with no network and
@@ -80,7 +82,8 @@ describe a part. Try the demo parts first to see how a build comes together.
 | Start from an STL | Open **References & copies** and import it as a solid or as a reference |
 | Go back in time | Open any earlier revision from the version list, or **Save as a new copy** |
 | Edit the code | Open **Advanced** |
-| Get files | **Export** as STEP or STL |
+| Get files | **Export**: STL or 3MF for printing (laid flat on the bed), STEP for CAD, or STL, OBJ and BREP as modelled |
+| Check it fits your printer | Pick your printer under the chat's tools; the printability check uses its build volume |
 
 > [!WARNING]
 > AI-generated parts can be wrong. Check every dimension, fit and strength

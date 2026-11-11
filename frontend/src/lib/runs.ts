@@ -39,6 +39,8 @@ export type StartRunRequest = {
   supportsStructuredOutputs: boolean;
   projectId: string | null;
   meshReference?: MeshReference | null;
+  /** The printer the printability check measures against. */
+  printProfile?: { printer: string };
 };
 
 // Each poll is one small database read; a short interval keeps the step list

@@ -1935,13 +1935,41 @@ def _export_build_snapshots(feature_records) -> list[dict]:
     return snapshots
 
 
-def _export(result, operation: str, output_name: str):
+def _lay_flat(result):
+    """The part turned to print with the least overhang, resting on Z = 0."""
+    from build123d import Axis, Location
+
+    name, rotation = _sibling("printability").best_orientation(result)
+    if rotation is not None:
+        axis, degrees = rotation
+        result = result.rotate(Axis((0, 0, 0), axis), degrees)
+    bounds = result.bounding_box()
+    centre = bounds.center()
+    return Location((-centre.X, -centre.Y, -bounds.min.Z)) * result, name
+
+
+def _write_obj(result, path: Path):
+    """Triangles of the part as a Wavefront OBJ, in millimetres."""
+    bounds = result.bounding_box()
+    diagonal = math.dist(tuple(bounds.min), tuple(bounds.max))
+    vertices, triangles = result.tessellate(max(0.01, diagonal * 0.0005), 0.2)
+    lines = ["# Nfinit export, millimetres"]
+    lines += [f"v {vertex.X:.6f} {vertex.Y:.6f} {vertex.Z:.6f}" for vertex in vertices]
+    lines += [f"f {a + 1} {b + 1} {c + 1}" for a, b, c in triangles]
+    path.write_text("\n".join(lines) + "\n")
+    return True
+
+
+def _export(result, operation: str, output_name: str, print_ready: bool = False):
     from build123d.exporters3d import export_brep, export_step, export_stl
 
     output_path = (Path.cwd() / output_name).resolve()
     if output_path.parent != Path.cwd().resolve():
         raise PermissionError("Output path must stay inside the sandbox directory.")
 
+    orientation = None
+    if print_ready and operation in ("stl", "3mf", "obj"):
+        result, orientation = _lay_flat(result)
     if operation == "glb":
         success = output_path.is_file()
     elif operation == "step":
@@ -1950,11 +1978,24 @@ def _export(result, operation: str, output_name: str):
         success = export_brep(result, str(output_path))
     elif operation == "stl":
         success = export_stl(result, str(output_path))
+    elif operation == "3mf":
+        from build123d import Mesher
+
+        bounds = result.bounding_box()
+        diagonal = math.dist(tuple(bounds.min), tuple(bounds.max))
+        mesher = Mesher()
+        mesher.add_shape(result, linear_deflection=max(0.01, diagonal * 0.0005), angular_deflection=0.2)
+        mesher.write(str(output_path))
+        success = True
+    elif operation == "obj":
+        success = _write_obj(result, output_path)
     else:
         raise ValueError(f"Unsupported operation: {operation}")
 
     if not success or not output_path.is_file():
         raise RuntimeError(f"Failed to export {operation.upper()}.")
+    if orientation is not None:
+        return {"bytes": output_path.stat().st_size, "orientation": orientation}
     return {"bytes": output_path.stat().st_size}
 
 
@@ -2005,7 +2046,7 @@ def handle_request(request: dict) -> dict:
         if output_path.parent != Path.cwd().resolve():
             raise PermissionError("Output path must stay inside the sandbox directory.")
         _export_viewer_glb(result, output_path, feature_records, constraint_records)
-    data = _export(result, operation, request["output_name"])
+    data = _export(result, operation, request["output_name"], bool(request.get("print_ready")))
     if operation == "glb":
         # Geometry facts cost about a millisecond once the shape exists, and
         # save the viewer a second sandbox run just to read them.

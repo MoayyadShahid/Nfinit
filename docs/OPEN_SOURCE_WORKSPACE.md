@@ -111,7 +111,10 @@ saved part once more. The check measures, inside the sandbox:
 
 Findings compare these with a print profile: conservative FDM defaults (220 ×
 220 × 250 mm bed, 1.2 mm walls, 45 degree overhangs, 2 mm holes) that a request
-can override with `printProfile`. The defaults come from public design guides
+can override with `printProfile`. The studio's printer menu sends a preset
+(`PRINTER_PRESETS` in `backend/execution/runner.py`) that sets the build
+volume: Flashforge Adventurer 3, Bambu Lab A1, A1 mini and P1S / X1C, Prusa
+MK4 and MINI, and Creality Ender-3 V2. The defaults come from public design guides
 and are starting points, not physics. Bridges, minimum feature size, warping
 and strength are reported as not measured.
 
@@ -217,3 +220,11 @@ Provider integrations use their own published interfaces and terms:
 - https://code.claude.com/docs/en/legal-and-compliance
 - https://developers.openai.com/codex/noninteractive
 - https://learn.chatgpt.com/docs/app-server
+
+## Exports
+
+**Export** offers STL and 3MF for printing, STEP for CAD, and STL, OBJ and
+BREP as modelled. The printing exports turn the part to the axis-aligned
+orientation with the least overhang, then centre it and set it on the bed at
+Z = 0, so it opens in a slicer ready to print. Files are named after the part,
+for example `cable-bracket-print.stl`.

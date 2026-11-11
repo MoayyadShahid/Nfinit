@@ -294,9 +294,8 @@ def test_mobile(browser, base, shots):
     trigger.click()
     drawer = page.get_by_role("dialog", name="Export your part")
     expect(drawer).to_be_visible()
-    expect(drawer.get_by_role("button", name=re.compile("STEP"))).to_be_visible()
-    expect(drawer.get_by_role("button", name=re.compile("BREP"))).to_be_visible()
-    expect(drawer.get_by_role("button", name=re.compile("STL"))).to_be_visible()
+    for name in ("STL for printing", "3MF for printing", "STEP", "STL as modelled", "OBJ", "BREP"):
+        expect(drawer.get_by_role("button", name=re.compile(f"^{name}"))).to_be_visible()
     assert drawer.evaluate("el => getComputedStyle(el).animationName") == "none"
     assert drawer.evaluate("el => getComputedStyle(el).transitionDuration") == "0s"
     page.screenshot(path=str(shots / "export-mobile.png"))
@@ -318,10 +317,10 @@ def test_mobile(browser, base, shots):
     expect(drawer).to_have_count(0)
     trigger.click()
     with page.expect_download() as download:
-        drawer.get_by_role("button", name=re.compile("STL")).click()
-    assert download.value.suggested_filename == "model.stl"
+        drawer.get_by_role("button", name=re.compile("^STL for printing")).click()
+    assert download.value.suggested_filename == "cable-bracket-print.stl"
     exports = [body for _, path, body in fixture.requests if path == "/api/cad/export-model"]
-    assert exports == [{"code": CODE, "format": "stl"}], exports
+    assert exports == [{"code": CODE, "format": "stl", "printReady": True}], exports
     for width in (320, 390, 768):
         page.set_viewport_size({"width": width, "height": 844})
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), f"overflow at {width}"
@@ -352,13 +351,17 @@ def test_local_agents(browser, base):
     page.get_by_role("radio", name=re.compile("Codex")).click()
     page.get_by_role("button", name="Close advanced editor").click()
     expect(trigger).to_be_visible()
+    page.get_by_label("Printer for printability checks").select_option("flashforge_adventurer_3")
     page.get_by_text("References & copies", exact=True).click()
     expect(page.get_by_role("button", name="Import STL", exact=True)).to_be_visible()
     expect(page.get_by_role("button", name="Attach reference pictures")).to_be_visible()
     page.get_by_placeholder("Describe the part you want to make…").fill("Make a local bracket")
     page.get_by_role("button", name="Send request", exact=True).click()
     expect(page.get_by_role("region", name="Build progress")).to_be_visible()
-    assert any(body and body.get("modelId") == "local/codex" for _, path, body in fixture.requests if path == "/api/cad/runs")
+    runs = [body for _, path, body in fixture.requests if path == "/api/cad/runs" and body]
+    assert any(body.get("modelId") == "local/codex" for body in runs)
+    assert runs[-1]["printProfile"] == {"printer": "flashforge_adventurer_3"}
+    assert runs[-1]["code"] == "", "a new part starts from nothing, not the starter box"
     assert not fixture.errors, fixture.errors
     context.close()
     print("PASS local-agent selection, unavailable agents, editor synchronization and reference controls")
