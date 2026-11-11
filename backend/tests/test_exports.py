@@ -97,3 +97,19 @@ def test_studio_printer_list_matches_the_presets():
     studio = re.findall(r'id: "([a-z0-9_]+)", label: "([^"]+)"', source)
 
     assert dict(studio) == {key: name for key, (name, _) in PRINTER_PRESETS.items()}
+
+
+def test_measure_endpoint_answers_faces_and_distances_only():
+    client = TestClient(main.app)
+    code = "with BuildPart() as part:\n    Box(40, 40, 6)\n    Hole(radius=5)\nresult = part.part"
+    faces = client.post("/measure-model", json={"code": code, "query": {"kind": "summary"}})
+    assert faces.status_code == 400
+
+    from execution import query_code
+    hole = next(face for face in query_code(code, {"kind": "faces", "surface_type": "cylinder"})["faces"])
+    answer = client.post("/measure-model", json={"code": code, "query": {"kind": "face", "face_id": hole["id"]}})
+    assert answer.status_code == 200
+    assert answer.json()["radius_mm"] == pytest.approx(5)
+
+    unknown = client.post("/measure-model", json={"code": code, "query": {"kind": "face", "face_id": "face_0123456789abcdef0123"}})
+    assert unknown.status_code == 400

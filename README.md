@@ -78,6 +78,7 @@ describe a part. Try the demo parts first to see how a build comes together.
 | --- | --- |
 | Make a part | Describe it in the chat with real dimensions, e.g. "a 60 × 40 × 5 mm plate with four 4 mm holes 5 mm from each corner" |
 | Change one area | Click a face in the viewport, then describe the change |
+| Measure | Press **Measure**, then click one point to see a face's size (a hole's diameter) or two to see the distance between them |
 | Work from pictures | Attach, drop or paste PNG, JPEG, WebP or GIF images. Include a known dimension. |
 | Start from an STL | Open **References & copies** and import it as a solid or as a reference |
 | Go back in time | Open any earlier revision from the version list, or **Save as a new copy** |

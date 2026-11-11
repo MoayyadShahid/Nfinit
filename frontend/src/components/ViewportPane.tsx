@@ -2,6 +2,7 @@
 
 import { Center, GizmoHelper, GizmoViewcube, OrbitControls, useGLTF } from "@react-three/drei";
 import { Layers } from "lucide-react";
+import { MeasureMarks, MeasurePanel, useMeasure } from "@/components/MeasureTool";
 import { sandboxRequest } from "@/lib/sandbox";
 import type { FaceSelection } from "@/lib/types";
 import { Canvas, ThreeEvent, useThree } from "@react-three/fiber";
@@ -673,13 +674,40 @@ function ViewportContent({
     []
   );
 
+  // While measuring, a click places a measuring point instead of selecting.
+  const [measuring, setMeasuring] = useState(false);
+  const measurement = useMeasure(code);
+  const { add: addMeasurePoint, clear: clearMeasurement } = measurement;
+  const handleFaceClick = useCallback(
+    (selection: ThreeFaceSelection) => {
+      if (measuring && selection.cadPoint) {
+        addMeasurePoint({
+          point: selection.point,
+          cadPoint: selection.cadPoint,
+          faceId: selection.faceId,
+          surfaceType: selection.surfaceType,
+        });
+        return;
+      }
+      void selectFace(selection);
+    },
+    [measuring, addMeasurePoint, selectFace]
+  );
+  const toggleMeasuring = useCallback(() => {
+    setMeasuring((current) => !current);
+    clearMeasurement();
+  }, [clearMeasurement]);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") clearSelection();
+      if (e.key === "Escape") {
+        clearSelection();
+        clearMeasurement();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [clearSelection]);
+  }, [clearSelection, clearMeasurement]);
 
   return (
     <div className="relative h-full w-full bg-[var(--clay)]">
@@ -691,6 +719,16 @@ function ViewportContent({
           onToggle={(featureId) =>
             setActiveFeatureId((current) => (current === featureId ? null : featureId))
           }
+        />
+      )}
+      {glbUrl && !previewUrl && !showSelectionCard && (
+        <MeasurePanel
+          active={measuring}
+          onToggle={toggleMeasuring}
+          picks={measurement.picks}
+          faces={measurement.faces}
+          closest={measurement.closest}
+          onClear={clearMeasurement}
         />
       )}
       {faceSelection && showSelectionCard && (
@@ -737,6 +775,7 @@ function ViewportContent({
       >
         <color attach="background" args={[boothColor]} />
         <ClearSelectionOnMiss onMiss={clearSelection} />
+        {measuring && <MeasureMarks picks={measurement.picks} />}
         <OrbitControls makeDefault />
         <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
           <GizmoViewcube
@@ -755,7 +794,7 @@ function ViewportContent({
             glbUrl={displayedUrl}
             fitRequest={fitRequest}
             interactive={!previewUrl}
-            onFaceClick={selectFace}
+            onFaceClick={handleFaceClick}
             // A preview is never the part's thumbnail.
             onThumbnail={previewUrl ? undefined : onThumbnail}
             onModelShown={handleModelShown}

@@ -20,6 +20,7 @@ All notable changes to Nfinit are listed here. The format follows [Keep a Change
 - Printability checks: bed fit, wall thickness, overhangs, support volume, orientation, small holes and sealed cavities, against an overridable FDM profile.
 - Edits are compared with the starting design, and removed features, broken constraints and lost holes or rounded edges are flagged.
 - Local agent tool results are shorter and report budgets and timings; local runs get a 900-second deadline (`CAD_LOCAL_RUN_TIMEOUT_SECONDS`).
+- Measure tool: click a face to see its exact size, or two points to see their distance, its X, Y and Z parts, and the exact closest distance between the faces.
 - Exports: 3MF and OBJ, and STL and 3MF laid flat on the bed for printing; files are named after the part.
 - Printer presets for the printability check, chosen in the studio: Flashforge Adventurer 3, Bambu Lab A1, A1 mini and P1S / X1C, Prusa MK4 and MINI, Creality Ender-3 V2.
 - Live progress for local agents: each requirement list, build, measurement, view and printability check shows as it happens, and each successful build appears in 3D.
