@@ -1353,10 +1353,10 @@ export default function Studio({
               </h1>
               <p className="mx-auto mt-4 max-w-xl type-body-l">
                 Describe a single part in plain language. Add dimensions if you have
-                them—we’ll turn it into editable, export-ready CAD.
+                them, and we’ll turn it into editable, export-ready CAD.
               </p>
             </div>
-            <div className="min-h-[380px] w-full max-w-3xl">
+            <div className="w-full max-w-3xl">
               <ChatPane
                 messages={messages}
                 onSend={sendChat}

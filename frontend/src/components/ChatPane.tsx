@@ -244,7 +244,9 @@ export function ChatPane({
             ? historyOpen
               ? "max-h-[min(42dvh,460px)]"
               : "hidden"
-            : "flex-1"
+            : messages.length === 0
+              ? "hidden"
+              : "flex-1"
         }`}
       >
         {messages.length === 0 && (
@@ -253,24 +255,7 @@ export function ChatPane({
               <div className="flex flex-1 items-center justify-center px-4 text-center text-xs leading-5 text-zinc-600">
                 No conversation yet. Your next request will begin this design story.
               </div>
-            ) : (
-              <div className="mb-1 grid gap-2 sm:grid-cols-3">
-                {[
-                  "A wall-mount bracket, 80 mm wide",
-                  "A desk cable organizer with 4 slots",
-                  "A compact enclosure with rounded corners",
-                ].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => setInput(suggestion)}
-                    className="theme-inset rounded-xl border p-4 text-left text-[15px] leading-[1.45] text-[var(--ink-2)] transition-colors hover:border-[var(--hairline-strong)] hover:text-[var(--ink)]"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
+            ) : null}
           </div>
         )}
         {messages.map((msg, i) => {
@@ -406,7 +391,7 @@ export function ChatPane({
 
       <div
         className={`flex flex-col gap-2 ${
-          variant === "welcome" || historyOpen
+          (variant === "welcome" && messages.length > 0) || historyOpen
             ? "border-t border-[var(--hairline)]"
             : ""
         } ${variant === "studio" ? "p-2" : "p-3"}`}
