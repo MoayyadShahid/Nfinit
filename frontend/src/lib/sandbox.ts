@@ -2,7 +2,8 @@ export type SandboxOperation =
   | "generate-mesh"
   | "inspect-model"
   | "analyze-model"
-  | "export-model";
+  | "export-model"
+  | "measure-model";
 
 /** Run CAD code in the backend sandbox as the signed-in user. */
 export async function sandboxRequest(

@@ -7,6 +7,7 @@ const OPERATIONS = new Set([
   "inspect-model",
   "analyze-model",
   "export-model",
+  "measure-model",
   "import-stl",
 ]);
 const SANDBOX_TIMEOUT_MS = 110_000;

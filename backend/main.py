@@ -13,7 +13,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Literal
+from typing import Any, Literal
 
 from agent import (
     FaceSelection,
@@ -27,6 +27,7 @@ from execution import (
     compare_code,
     export_code,
     inspect_code as sandbox_inspect_code,
+    query_code,
     start_sandbox,
     stop_sandbox,
 )
@@ -208,6 +209,12 @@ class AnalyzeModelRequest(BaseModel):
     selection: FaceSelection | None = None
 
 
+class MeasureModelRequest(BaseModel):
+    code: str = Field(max_length=MAX_CODE_CHARS)
+    # A face or distance query, as inspect_model takes; see execution.runner.
+    query: dict[str, Any]
+
+
 class CompareModelsRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -247,6 +254,21 @@ def compare_models(
         request.current_code,
         previous_face_id=request.previous_face_id,
     )
+
+
+@app.post("/measure-model")
+async def measure_model(request: MeasureModelRequest, _user: SandboxUserId):
+    """Exact facts of one face, or the closest distance between two, for the
+    studio's measure tool."""
+    if request.query.get("kind") not in ("face", "distance"):
+        raise HTTPException(status_code=400, detail="Measure takes a face or a distance query.")
+    try:
+        return await asyncio.to_thread(query_code, request.code, request.query)
+    except SandboxError as error:
+        status = 408 if error.kind == "sandbox_timeout" else 400
+        raise HTTPException(status_code=status, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 @app.post("/export-model")
