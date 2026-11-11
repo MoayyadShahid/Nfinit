@@ -1,0 +1,154 @@
+{
+  "cases": [
+    {
+      "id": "demo_board_enclosure",
+      "category": "demo",
+      "description": "An open enclosure with standoffs for a small board.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "An open-top enclosure for a 65 by 30 mm circuit board: 2 mm walls and a 2 mm floor, 3 mm of clearance around the board on every side, 20 mm tall overall, with four 6 mm diameter, 5 mm tall standoffs on the floor inside, 58 by 23 mm apart and centred, each with a 2.5 mm hole."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 75,
+          "y": 40,
+          "z": 20
+        },
+        "features": [
+          {
+            "kind": "boss",
+            "diameter_mm": 6,
+            "count": 4,
+            "center_span_mm": {
+              "x": 58,
+              "y": 23
+            }
+          },
+          {
+            "kind": "hole",
+            "diameter_mm": 2.5,
+            "min_count": 4
+          }
+        ]
+      },
+      "tags": [
+        "demo"
+      ]
+    },
+    {
+      "id": "demo_fan_mount",
+      "category": "demo",
+      "description": "A 40 mm fan mount.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "A mount for a 40 mm fan: a 40 by 40 by 4 mm plate with a 38 mm hole in the centre, four 3.4 mm screw holes on a 32 mm square, and 3 mm rounded corners."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 40,
+          "y": 40,
+          "z": 4
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 38,
+            "count": 1
+          },
+          {
+            "kind": "hole",
+            "diameter_mm": 3.4,
+            "count": 4,
+            "center_span_mm": {
+              "x": 32,
+              "y": 32
+            }
+          },
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 3,
+            "count": 4
+          }
+        ]
+      },
+      "tags": [
+        "demo"
+      ]
+    },
+    {
+      "id": "demo_fan_mount_tab",
+      "category": "demo",
+      "description": "Edit the fan mount: thicker, with a tab, keeping the fan holes.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Make the plate 6 mm thick and add a 10 mm wide, 20 mm long tab sticking out from the middle of one side, as thick as the plate, with a 4 mm hole in it for screwing the mount to a frame. Keep the fan holes and rounded corners."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 60,
+          "y": 40,
+          "z": 6
+        },
+        "features": [
+          {
+            "kind": "hole",
+            "diameter_mm": 38,
+            "count": 1
+          },
+          {
+            "kind": "hole",
+            "diameter_mm": 3.4,
+            "count": 4,
+            "center_span_mm": {
+              "x": 32,
+              "y": 32
+            }
+          },
+          {
+            "kind": "hole",
+            "diameter_mm": 4,
+            "count": 1
+          },
+          {
+            "kind": "rounded_edge",
+            "radius_mm": 3,
+            "min_count": 4
+          }
+        ]
+      },
+      "tags": [
+        "demo"
+      ],
+      "current_code": "plate_size, thickness = 40.0, 4.0\nfan_hole, screw_hole, screw_pitch, corner = 38.0, 3.4, 32.0, 3.0\nwith BuildPart() as part:\n    Box(plate_size, plate_size, thickness, align=(Align.CENTER, Align.CENTER, Align.MIN))\n    register_feature(\"plate\", \"Plate\", \"additive\", part.part, parameters={\"size\": plate_size, \"thickness\": thickness})\n    fillet(part.edges().filter_by(Axis.Z), radius=corner)\n    register_feature(\"corners\", \"Rounded corners\", \"fillet\", part.part, parent_id=\"plate\", parameters={\"radius\": corner})\n    with Locations((0, 0, thickness)):\n        Hole(radius=fan_hole / 2)\n        with GridLocations(screw_pitch, screw_pitch, 2, 2):\n            Hole(radius=screw_hole / 2)\n    register_feature(\"fan_holes\", \"Fan holes\", \"subtractive\", part.part, parent_id=\"plate\", parameters={\"pitch\": screw_pitch})\nresult = part.part"
+    },
+    {
+      "id": "demo_phone_stand",
+      "category": "demo",
+      "description": "A phone stand with an angled back.",
+      "messages": [
+        {
+          "role": "user",
+          "content": "A phone stand: a 70 mm wide, 80 mm deep, 6 mm thick base, a 6 mm thick back support 70 mm wide and 90 mm long that leans back at 70 degrees from the base, starting 20 mm from the front edge, and a 10 mm tall, 4 mm thick lip along the front edge of the base to hold the phone."
+        }
+      ],
+      "expected": {
+        "solid_count": 1,
+        "bounding_box_mm": {
+          "x": 70
+        }
+      },
+      "tags": [
+        "demo"
+      ]
+    }
+  ]
+}
