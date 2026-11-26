@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { DEMO_ONLY } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -25,6 +26,15 @@ export const metadata: Metadata = {
   description: "An open-source visual CAD workspace for Claude Code and Codex. Bring references, edit locally, and keep your files.",
 };
 
+// Porcelain is the default. Midnight is restored from localStorage on every
+// page so landing, login, and studio share one theme.
+const SAVED_THEME_SCRIPT = `(function(){var r=document.documentElement,t="porcelain";try{var s=localStorage.getItem("nfinit:theme");if(s==="midnight")t=s}catch(e){}r.dataset.theme=t;r.classList.toggle("dark",t==="midnight");r.style.colorScheme=t==="midnight"?"dark":"light"})();`;
+
+// The public website has no toggle: it follows the visitor's local clock,
+// porcelain from 07:00 to 18:59 and midnight otherwise. Nothing is stored or
+// sent; the hour is read in the browser.
+const CLOCK_THEME_SCRIPT = `(function(){var r=document.documentElement,h=new Date().getHours(),t=h>=7&&h<19?"porcelain":"midnight";r.dataset.theme=t;r.classList.toggle("dark",t==="midnight");r.style.colorScheme=t==="midnight"?"dark":"light"})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,11 +43,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Porcelain is the default. Midnight is restored from localStorage on
-            every page so landing, login, and studio share one theme. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var r=document.documentElement,t="porcelain";try{var s=localStorage.getItem("nfinit:theme");if(s==="midnight")t=s}catch(e){}r.dataset.theme=t;r.classList.toggle("dark",t==="midnight");r.style.colorScheme=t==="midnight"?"dark":"light"})();`,
+            __html: DEMO_ONLY ? CLOCK_THEME_SCRIPT : SAVED_THEME_SCRIPT,
           }}
         />
       </head>

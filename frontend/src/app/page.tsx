@@ -37,7 +37,7 @@ export default function LandingPage() {
         {/* Hero (§7) */}
         <section className="mx-auto grid max-w-[1264px] grid-cols-1 items-center gap-x-8 gap-y-8 px-4 pb-16 pt-8 sm:px-8 lg:grid-cols-12 lg:pb-24 lg:pt-12">
           <div className="flex flex-col justify-center gap-6 lg:col-span-7">
-            <p className="type-label">Open source · Your agent · Your CAD</p>
+            <p className="type-label" style={{ fontSize: 14 }}>Open source · Your agent · Your CAD</p>
             <h1 className="type-display wb-hero-line mb-3">
               <span className="wb-rise-line">
                 <span style={riseDelay(0)}>
