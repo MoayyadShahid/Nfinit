@@ -1,6 +1,6 @@
 "use client";
 
-import { DEMO_ONLY, RUN_LOCALLY_URL } from "@/lib/site";
+import { DEMO_ONLY, SOURCE_URL } from "@/lib/site";
 import { ArrowUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
@@ -57,8 +57,8 @@ function useTypewriter(running: boolean) {
 
 /**
  * The hero control (spec §6). Submitting opens the studio with the prompt.
- * On the public demo site there is no studio to build in, so it opens the
- * guide to running Nfinit locally.
+ * On the public demo site there is no studio to build in, so the button opens
+ * Nfinit on GitHub, with or without a prompt.
  */
 export function PromptBar({ className = "" }: { className?: string }) {
   const router = useRouter();
@@ -80,16 +80,17 @@ export function PromptBar({ className = "" }: { className?: string }) {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (submitting) return;
+    if (DEMO_ONLY) {
+      setSubmitting(true);
+      window.location.assign(SOURCE_URL);
+      return;
+    }
     const prompt = value.trim();
     if (!prompt) {
       inputRef.current?.focus();
       return;
     }
     setSubmitting(true);
-    if (DEMO_ONLY) {
-      window.location.assign(RUN_LOCALLY_URL);
-      return;
-    }
     router.push(`/studio?prompt=${encodeURIComponent(prompt)}`);
   };
 
@@ -129,7 +130,7 @@ export function PromptBar({ className = "" }: { className?: string }) {
         <button
           type="submit"
           className="wb-submit"
-          aria-label="Start this part"
+          aria-label={DEMO_ONLY ? "Open Nfinit on GitHub" : "Start this part"}
           aria-busy={submitting}
         >
           <ArrowUp className="size-4" strokeWidth={2.4} />
@@ -138,7 +139,7 @@ export function PromptBar({ className = "" }: { className?: string }) {
       {DEMO_ONLY && (
         <p className="type-caption mt-3.5">
           This website is a demo. Nfinit runs on your computer with your Claude
-          Code or Codex login, so your prompt opens the setup guide.{" "}
+          Code or Codex login, so this button opens Nfinit on GitHub.{" "}
           <a href="/studio" className="underline underline-offset-4">
             Watch a demo part
           </a>

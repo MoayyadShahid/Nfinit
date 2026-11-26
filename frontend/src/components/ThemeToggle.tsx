@@ -1,5 +1,6 @@
 "use client";
 
+import { DEMO_ONLY } from "@/lib/site";
 import { Moon, Sun } from "lucide-react";
 
 export type AppTheme = "midnight" | "porcelain";
@@ -16,6 +17,8 @@ function applyTheme(theme: AppTheme) {
 }
 
 export function ThemeToggle({ className = "" }: { className?: string }) {
+  // The public website picks the theme from the visitor's clock (layout.tsx).
+  if (DEMO_ONLY) return null;
   return (
     <button
       type="button"
